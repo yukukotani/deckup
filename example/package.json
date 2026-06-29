@@ -9,6 +9,8 @@
   },
   "devDependencies": {
     "@slida/cli": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "tailwindcss": "catalog:",
     "vite-plus": "catalog:"
   }
 }

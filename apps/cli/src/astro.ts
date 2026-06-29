@@ -1,5 +1,4 @@
 import mdx from "@astrojs/mdx";
-import tailwindcss from "@tailwindcss/vite";
 import { build, dev, type AstroInlineConfig } from "astro";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
@@ -103,7 +102,7 @@ export function createAstroInlineConfig(
     },
     vite: {
       ...userViteConfig,
-      plugins: [tailwindcss() as never, ...toArray(userViteConfig.plugins as never)],
+      plugins: toArray(userViteConfig.plugins as never),
       optimizeDeps: {
         ...userViteConfig.optimizeDeps,
         exclude: uniqueStrings([

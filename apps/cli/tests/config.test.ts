@@ -93,6 +93,11 @@ test("no config preserves the default dev port", () => {
   expect(serverPort(config)).toBe(DEFAULT_DEV_PORT);
 });
 
+test("no config does not install Tailwind as a built-in Vite plugin", () => {
+  const config = createAstroInlineConfig(testPaths());
+  expect(config.vite?.plugins).toEqual([]);
+});
+
 test("user Astro config appends without replacing Slida-owned values", () => {
   const paths = testPaths();
   const userIntegration = { name: "user-integration", hooks: {} } as never;
