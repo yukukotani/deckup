@@ -1,0 +1,14 @@
+{
+  "name": "example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp run @slida/cli#build && slida dev",
+    "build": "vp run @slida/cli#build && slida build"
+  },
+  "devDependencies": {
+    "@slida/cli": "workspace:*",
+    "vite-plus": "catalog:"
+  }
+}

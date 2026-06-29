@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 .astro
+.rpiv
 .slida
 dist
 dist-ssr
