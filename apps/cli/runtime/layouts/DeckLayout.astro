@@ -1,0 +1,30 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  slideCount: number;
+}
+
+const { slideCount } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content="Slida" />
+    <title>Slida Deck</title>
+  </head>
+  <body>
+    <div class="slida-shell" data-slida-shell data-slide-count={slideCount}>
+      <slot />
+      <footer class="slida-status" aria-live="polite">
+        <span data-slida-current>1</span>/<span data-slida-total>{Math.max(slideCount, 1)}</span>
+      </footer>
+    </div>
+    <script>
+      import "../scripts/navigation.ts";
+    </script>
+  </body>
+</html>

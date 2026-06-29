@@ -2,7 +2,13 @@
   "mcpServers": {
     "astro-docs": {
       "type": "http",
-      "url": "https://mcp.docs.astro.build/mcp"
+      "url": "https://mcp.docs.astro.build/mcp",
+      "directTools": true
+    },
+    "deepwiki": {
+      "type": "http",
+      "url": "https://mcp.deepwiki.com/mcp",
+      "directTools": true
     }
   }
 }

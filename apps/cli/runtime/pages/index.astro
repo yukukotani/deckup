@@ -1,0 +1,51 @@
+---
+import DeckLayout from "../layouts/DeckLayout.astro";
+
+type SlideModule = {
+  default: (_props: Record<string, unknown>) => unknown;
+  frontmatter?: {
+    title?: unknown;
+  };
+};
+
+const modules = import.meta.glob<SlideModule>("/slides/*.{astro,mdx}", { eager: true });
+const slides = Object.entries(modules)
+  .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+  .map(([path, module], index) => ({
+    path,
+    Component: module.default,
+    title: typeof module.frontmatter?.title === "string" ? module.frontmatter.title : `Slide ${index + 1}`,
+  }));
+---
+
+<DeckLayout slideCount={slides.length}>
+  {
+    slides.length > 0 ? (
+      <main class="slida-deck" data-slida-deck aria-label="Slide deck">
+        {slides.map(({ Component, path, title }, index) => (
+          <section
+            class="slida-slide"
+            data-slida-slide
+            data-slide-index={index}
+            data-slide-path={path}
+            id={`slide-${index + 1}`}
+            aria-label={title}
+            aria-hidden={index === 0 ? "false" : "true"}
+            hidden={index !== 0}
+          >
+            <Component />
+          </section>
+        ))}
+      </main>
+    ) : (
+      <main class="slida-empty" data-slida-empty>
+        <p class="slida-kicker">No slides found</p>
+        <h1>Create your first slide</h1>
+        <p>
+          Add <code>slides/01-intro.astro</code> or <code>slides/01-intro.mdx</code>, then restart or refresh the
+          preview.
+        </p>
+      </main>
+    )
+  }
+</DeckLayout>

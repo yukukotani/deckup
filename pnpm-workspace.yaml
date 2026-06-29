@@ -6,7 +6,12 @@ packages:
 catalogMode: prefer
 
 catalog:
+  "@astrojs/mdx": latest
+  "@tailwindcss/vite": latest
   "@types/node": ^24
+  astro: latest
+  gunshi: latest
+  tailwindcss: latest
   typescript: ^5
   vite: npm:@voidzero-dev/vite-plus-core@latest
   vitest: 4.1.9
@@ -21,3 +26,6 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+allowBuilds:
+  esbuild: true
+  sharp: true
