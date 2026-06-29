@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
 import {
@@ -15,7 +16,7 @@ test("resolveProjectRoot returns an absolute project root", () => {
 });
 
 test("resolveRuntimeSourceDir points at the package runtime directory", () => {
-  expect(resolveRuntimeSourceDir()).toBe(resolve(process.cwd(), "runtime"));
+  expect(resolveRuntimeSourceDir()).toBe(fileURLToPath(new URL("../runtime", import.meta.url)));
 });
 
 test("normalizeBuildOutDir resolves the default output under the project root", () => {

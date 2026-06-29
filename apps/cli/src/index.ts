@@ -1,4 +1,10 @@
 export {
+  defineConfig,
+  findSlidaConfigFiles,
+  loadSlidaConfig,
+  SLIDA_CONFIG_FILES,
+} from "./config.ts";
+export {
   buildDeck,
   createAstroInlineConfig,
   createSlidaAstroConfig,
@@ -18,10 +24,13 @@ export {
   resolveRuntimeSourceDir,
 } from "./runtime.ts";
 export type {
+  SlidaAstroConfig,
   SlidaBaseOptions,
   SlidaBuildOptions,
+  SlidaConfig,
   SlidaDevOptions,
   SlidaDevResult,
+  SlidaLoadedConfig,
   SlidaLogLevel,
   SlidaResolvedConfig,
   SlidaRuntimePaths,

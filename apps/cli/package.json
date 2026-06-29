@@ -25,6 +25,7 @@
     "@tailwindcss/vite": "catalog:",
     "astro": "catalog:",
     "gunshi": "catalog:",
+    "jiti": "catalog:",
     "tailwindcss": "catalog:"
   },
   "devDependencies": {

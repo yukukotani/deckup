@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 
-import { DEFAULT_BUILD_OUT_DIR, DEFAULT_DEV_HOST, DEFAULT_DEV_PORT } from "../src/astro.ts";
+import { DEFAULT_BUILD_OUT_DIR, DEFAULT_DEV_HOST } from "../src/astro.ts";
 import { normalizeBuildValues, normalizeDevValues, normalizeLogLevel } from "../src/commands.ts";
 
 test("normalizeLogLevel accepts known Astro log levels", () => {
@@ -13,11 +13,11 @@ test("normalizeLogLevel falls back to info", () => {
   expect(normalizeLogLevel(undefined)).toBe("info");
 });
 
-test("normalizeDevValues applies Slida dev defaults", () => {
+test("normalizeDevValues preserves omitted port for config resolution", () => {
   expect(normalizeDevValues({})).toEqual({
     root: undefined,
     host: DEFAULT_DEV_HOST,
-    port: DEFAULT_DEV_PORT,
+    port: undefined,
     open: false,
     logLevel: "info",
   });

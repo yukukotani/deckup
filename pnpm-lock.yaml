@@ -220,6 +220,9 @@ catalogs:
     gunshi:
       specifier: latest
       version: 0.35.1
+    jiti:
+      specifier: ^2.7.0
+      version: 2.7.0
     tailwindcss:
       specifier: latest
       version: 4.3.1
@@ -256,6 +259,9 @@ importers:
       gunshi:
         specifier: 'catalog:'
         version: 0.35.1
+      jiti:
+        specifier: 'catalog:'
+        version: 2.7.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.1

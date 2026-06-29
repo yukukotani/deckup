@@ -2,6 +2,20 @@ import type { AddressInfo } from "node:net";
 import type { AstroInlineConfig, dev } from "astro";
 
 export type SlidaLogLevel = NonNullable<AstroInlineConfig["logLevel"]>;
+export type SlidaAstroConfig = Omit<
+  AstroInlineConfig,
+  "root" | "srcDir" | "configFile" | "output" | "server" | "outDir" | "logLevel" | "devToolbar"
+>;
+
+export interface SlidaConfig {
+  port?: number;
+  astro?: SlidaAstroConfig;
+}
+
+export interface SlidaLoadedConfig {
+  config: SlidaConfig;
+  filePath?: string;
+}
 
 export interface SlidaBaseOptions {
   root?: string;
@@ -32,4 +46,6 @@ export interface SlidaDevResult {
 export interface SlidaResolvedConfig {
   paths: SlidaRuntimePaths;
   astroConfig: AstroInlineConfig;
+  slidaConfig?: SlidaConfig;
+  slidaConfigFile?: string;
 }

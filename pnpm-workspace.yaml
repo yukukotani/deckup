@@ -12,6 +12,7 @@ catalog:
   "@types/node": ^24
   astro: latest
   gunshi: latest
+  jiti: ^2.7.0
   tailwindcss: latest
   typescript: ^5
   vite: npm:@voidzero-dev/vite-plus-core@latest

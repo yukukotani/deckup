@@ -1,12 +1,6 @@
 import { cli, define } from "gunshi";
 
-import {
-  buildDeck,
-  DEFAULT_BUILD_OUT_DIR,
-  DEFAULT_DEV_HOST,
-  DEFAULT_DEV_PORT,
-  startDevServer,
-} from "./astro.ts";
+import { buildDeck, DEFAULT_BUILD_OUT_DIR, DEFAULT_DEV_HOST, startDevServer } from "./astro.ts";
 import type { SlidaBuildOptions, SlidaDevOptions, SlidaDevResult, SlidaLogLevel } from "./types.ts";
 
 export const VERSION = "0.0.0";
@@ -43,7 +37,7 @@ export function normalizeDevValues(values: CommandValues): SlidaDevOptions {
   return {
     root: stringValue(values.root),
     host: booleanOrStringValue(values.host) ?? DEFAULT_DEV_HOST,
-    port: numberValue(values.port) ?? DEFAULT_DEV_PORT,
+    port: numberValue(values.port),
     open: booleanOrStringValue(values.open) ?? false,
     logLevel: normalizeLogLevel(values.logLevel),
   };
@@ -83,7 +77,6 @@ export const devCommand = define({
     port: {
       type: "number",
       short: "p",
-      default: DEFAULT_DEV_PORT,
       description: "Port for the Astro dev server.",
     },
     open: {
