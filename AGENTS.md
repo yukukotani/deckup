@@ -1,16 +1,11 @@
-<!--VITE PLUS START-->
+# AGENTS.md
 
-# Using Vite+, the Unified Toolchain for the Web
-
-This project is using Vite+, a unified toolchain built on top of Vite, Rolldown, Vitest, tsdown, Oxlint, Oxfmt, and Vite Task. Vite+ wraps runtime management, package management, and frontend tooling in a single global CLI called `vp`. Vite+ is distinct from Vite, and it invokes Vite through `vp dev` and `vp build`. Run `vp help` to print a list of commands and `vp <command> --help` for information about a specific command.
-
-Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.dev/guide/.
-
-## Review Checklist
-
-- [ ] Run `vp install` after pulling remote changes and before getting started.
-- [ ] Run `vp check` and `vp test` to format, lint, type check and test changes.
-- [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
-- [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
-
-<!--VITE PLUS END-->
+- Slida is an Astro-native slide deck CLI; user decks live in `slides/`, while `@slida/cli` supplies the runtime.
+- Use Vite+ (`vp`), not raw Vite/pnpm scripts: `vp install` after pulling, `vp run ready` before handoff when practical.
+- For focused checks, prefer workspace commands such as `vp run @slida/cli#test`, `vp run @slida/cli#build`, or `vp run example#build`.
+- `apps/cli/src/astro.ts` owns Astro inline config: keep `root`, `srcDir`, `configFile`, `output`, `outDir`, `logLevel`, and dev toolbar Slida-controlled.
+- `slida.config.*` should expose only Slida-supported config (`port`, `astro` minus owned fields); preserve the type tests that enforce this boundary.
+- Runtime files in `apps/cli/runtime/` are copied into each deck’s `.slida/runtime`; do not rely on editing generated `.slida`, `.astro`, `dist`, or `node_modules` output.
+- Slide loading is runtime-driven by `import.meta.glob("/slides/*.{astro,mdx}")`; keep browser behavior aligned between `slida dev` and `slida build`.
+- When changing navigation, update `apps/cli/runtime/scripts/navigation.ts` plus `apps/cli/tests/navigation.test.ts`, then verify the `example/` deck if behavior is visual.
+- Vite+ lint prefers imports from `vite-plus` / `vite-plus/test`; avoid bypassing the configured wrapper.
