@@ -18,6 +18,12 @@ title: Talk
 # Two
 `;
 
+function getPageLayout(node: unknown) {
+  return (node as { attributes?: Array<{ name?: string; value?: unknown }> }).attributes?.find(
+    (attribute) => attribute.name === "layout",
+  )?.value;
+}
+
 test("stripMdxFrontmatter preserves post-frontmatter divider content", () => {
   expect(stripMdxFrontmatter(twoPageMdx)).toBe(`
 # One
@@ -68,6 +74,37 @@ test("remarkSlidaMdxPages wraps only the selected file in Page nodes", () => {
   expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
 });
 
+test("remarkSlidaMdxPages adds default layout attributes", () => {
+  const tree = {
+    children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
+  };
+  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+    path: "/project/slides/talk.mdx",
+  });
+
+  expect(getPageLayout(tree.children[1])).toBe("cover");
+  expect(getPageLayout(tree.children[2])).toBe("default");
+});
+
+test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
+  const layoutNode = {
+    type: "mdxJsxFlowElement",
+    name: "layout",
+    attributes: [{ type: "mdxJsxAttribute", name: "id", value: "section-intro" }],
+    children: [],
+  };
+  const tree = {
+    children: [layoutNode, { type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
+  };
+  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+    path: "/project/slides/talk.mdx",
+  });
+
+  expect(getPageLayout(tree.children[1])).toBe("section-intro");
+  expect(tree.children[1]).toMatchObject({ children: [{ type: "heading" }] });
+  expect(tree.children[2]).toMatchObject({ children: [{ type: "paragraph" }] });
+});
+
 test("remarkSlidaMdxPages keeps user MDX ESM outside generated Page nodes", () => {
   const tree = {
     children: [
@@ -93,4 +130,41 @@ test("remarkSlidaMdxPages leaves non-selected files untouched", () => {
     path: "/project/slides/other.mdx",
   });
   expect(tree.children).toEqual([{ type: "heading" }]);
+});
+
+test("countMdxDeckPages rejects duplicate layout declarations", () => {
+  expect(() =>
+    countMdxDeckPages(`<layout id="cover" />
+<layout id="default" />
+
+# One
+`),
+  ).toThrow(/multiple layout declarations/);
+});
+
+test("countMdxDeckPages rejects layout declarations without id", () => {
+  expect(() =>
+    countMdxDeckPages(`<layout />
+
+# One
+`),
+  ).toThrow(/must include an id attribute/);
+});
+
+test("countMdxDeckPages rejects empty layout ids", () => {
+  expect(() =>
+    countMdxDeckPages(`<layout id="" />
+
+# One
+`),
+  ).toThrow(/Invalid Slida layout id/);
+});
+
+test("countMdxDeckPages rejects invalid layout ids", () => {
+  expect(() =>
+    countMdxDeckPages(`<layout id="Cover Slide" />
+
+# One
+`),
+  ).toThrow(/Invalid Slida layout id/);
 });

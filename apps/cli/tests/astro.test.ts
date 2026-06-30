@@ -33,6 +33,10 @@ function slideCount(html: string) {
   return html.match(/data-slida-slide(?=[\s>])/g)?.length ?? 0;
 }
 
+function layoutCount(html: string, layout: string) {
+  return html.match(new RegExp(`data-slida-layout="${layout}"`, "g"))?.length ?? 0;
+}
+
 test("resolveProjectRoot returns an absolute project root", () => {
   expect(resolveProjectRoot(".")).toBe(process.cwd());
 });
@@ -87,25 +91,37 @@ test("buildDeck builds one selected Astro deck file", async () => {
 import Page from "@slida/cli/page";
 ---
 
-<Page title="Intro"><h1>Intro</h1></Page>
+<Page title="Intro"><layout id="cover" /><h1>Intro</h1></Page>
 <Page title="Details"><h1>Details</h1></Page>
 `,
     );
-
     await buildDeck({
       root: projectRoot,
       deckFile: "slides/deck.astro",
       outDir: "dist",
       logLevel: "silent",
     });
-
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
     expect(slideCount(html)).toBe(2);
+    expect(html.match(/data-slida-layout="cover"/g)?.length ?? 0).toBe(1);
+    expect(html.match(/data-slida-layout="default"/g)?.length ?? 0).toBe(1);
     expect(html).toContain('data-slide-count="2"');
     expect(html).toContain("Intro");
     expect(html).toContain("Details");
+    expect(html).not.toContain("<layout");
   });
 });
+
+async function expectAstroDeckError(deckSource: string, matcher: RegExp) {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(join(projectRoot, "slides", "bad.astro"), deckSource);
+    await expect(
+      buildDeck({ root: projectRoot, deckFile: "slides/bad.astro", logLevel: "silent" }),
+    ).rejects.toThrow(matcher);
+  });
+}
 
 test("buildDeck rejects a missing deck file option", async () => {
   await withProjectRoot(async (projectRoot) => {
@@ -154,6 +170,54 @@ test("buildDeck rejects Astro decks without the package Page import", async () =
   });
 });
 
+test("buildDeck rejects duplicate Astro layout declarations", async () => {
+  await expectAstroDeckError(
+    `---
+import Page from "@slida/cli/page";
+---
+
+<Page><layout id="cover" /><layout id="default" /><h1>Intro</h1></Page>
+`,
+    /multiple layout declarations/,
+  );
+});
+
+test("buildDeck rejects Astro layout declarations without id", async () => {
+  await expectAstroDeckError(
+    `---
+import Page from "@slida/cli/page";
+---
+
+<Page><layout /><h1>Intro</h1></Page>
+`,
+    /must include an id attribute/,
+  );
+});
+
+test("buildDeck rejects empty Astro layout ids", async () => {
+  await expectAstroDeckError(
+    `---
+import Page from "@slida/cli/page";
+---
+
+<Page><layout id="" /><h1>Intro</h1></Page>
+`,
+    /Invalid Slida layout id/,
+  );
+});
+
+test("buildDeck rejects invalid Astro layout ids", async () => {
+  await expectAstroDeckError(
+    `---
+import Page from "@slida/cli/page";
+---
+
+<Page><layout id="Cover Slide" /><h1>Intro</h1></Page>
+`,
+    /Invalid Slida layout id/,
+  );
+});
+
 test("buildDeck builds one selected MDX deck file split by dividers", async () => {
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
@@ -163,6 +227,8 @@ test("buildDeck builds one selected MDX deck file split by dividers", async () =
       `---
 title: MDX Deck
 ---
+
+<layout id="cover" />
 
 # Intro
 
@@ -181,9 +247,12 @@ title: MDX Deck
 
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
     expect(slideCount(html)).toBe(2);
+    expect(layoutCount(html, "cover")).toBe(1);
+    expect(layoutCount(html, "default")).toBe(1);
     expect(html).toContain('data-slide-count="2"');
     expect(html).toContain("MDX Deck");
     expect(html).toContain("Intro");
     expect(html).toContain("Details");
+    expect(html).not.toContain("<layout");
   });
 });

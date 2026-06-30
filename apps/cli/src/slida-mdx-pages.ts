@@ -3,19 +3,32 @@ import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 
+import { resolveSlidaLayout } from "./layout.ts";
+
 const pageComponentExport = "@slida/cli/page";
+
+type MdxJsxAttribute = {
+  type?: string;
+  name?: string;
+  value?: unknown;
+};
 
 type MdastNode = {
   type?: string;
   value?: string;
   children?: MdastNode[];
   name?: string;
-  attributes?: Array<Record<string, unknown>>;
+  attributes?: MdxJsxAttribute[];
   data?: Record<string, unknown>;
 };
 
 type MdastRoot = {
   children: MdastNode[];
+};
+
+type SlidaMdxPage = {
+  children: MdastNode[];
+  layout: string;
 };
 
 type VFileLike = {
@@ -52,12 +65,49 @@ function createPageImportNode(): MdastNode {
   };
 }
 
-function createPageNode(children: MdastNode[]): MdastNode {
+function isLayoutNode(node: MdastNode) {
+  return node.type === "mdxJsxFlowElement" && node.name === "layout";
+}
+
+function getLayoutIdAttribute(node: MdastNode, context: string) {
+  const idAttribute = node.attributes?.find((attribute) => attribute.name === "id");
+  if (!idAttribute || idAttribute.value === null || idAttribute.value === undefined) {
+    throw new Error(`MDX layout declaration in ${context} must include an id attribute.`);
+  }
+
+  if (typeof idAttribute.value !== "string") {
+    throw new TypeError(`MDX layout declaration in ${context} must use a string id attribute.`);
+  }
+
+  return idAttribute.value;
+}
+
+function resolveMdxPage(page: MdastNode[], pageIndex: number, filePath: string): SlidaMdxPage {
+  const context = `${filePath} page ${pageIndex + 1}`;
+  const layoutNodes = page.filter(isLayoutNode);
+  if (layoutNodes.length > 1) {
+    throw new Error(`MDX deck contains multiple layout declarations in ${context}.`);
+  }
+
+  const explicitLayout = layoutNodes[0] ? getLayoutIdAttribute(layoutNodes[0], context) : undefined;
+  return {
+    children: page.filter((child) => !isLayoutNode(child)),
+    layout: resolveSlidaLayout(explicitLayout, pageIndex, context),
+  };
+}
+
+function resolveMdxPages(children: MdastNode[], filePath: string) {
+  return splitMdxChildrenIntoPages(children).map((page, pageIndex) =>
+    resolveMdxPage(page, pageIndex, filePath),
+  );
+}
+
+function createPageNode(page: SlidaMdxPage): MdastNode {
   return {
     type: "mdxJsxFlowElement",
     name: "Page",
-    attributes: [],
-    children,
+    attributes: [{ type: "mdxJsxAttribute", name: "layout", value: page.layout }],
+    children: page.children,
   };
 }
 
@@ -90,7 +140,7 @@ export function remarkSlidaMdxPages(options: SlidaMdxPagesOptions) {
 
     const esmNodes = tree.children.filter((child) => child.type === "mdxjsEsm");
     const renderableNodes = tree.children.filter((child) => child.type !== "mdxjsEsm");
-    const pages = splitMdxChildrenIntoPages(renderableNodes);
+    const pages = resolveMdxPages(renderableNodes, options.deckFile);
     tree.children = [createPageImportNode(), ...esmNodes, ...pages.map(createPageNode)];
   };
 }
@@ -109,5 +159,5 @@ function parseMdxBody(source: string): MdastRoot {
 }
 
 export function countMdxDeckPages(source: string) {
-  return splitMdxChildrenIntoPages(parseMdxBody(source).children).length;
+  return resolveMdxPages(parseMdxBody(source).children, "MDX deck").length;
 }

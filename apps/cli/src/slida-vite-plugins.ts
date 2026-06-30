@@ -4,6 +4,7 @@ import { sep } from "node:path";
 import { parse } from "@astrojs/compiler-rs";
 import type { Plugin } from "vite-plus";
 
+import { resolveSlidaLayout } from "./layout.ts";
 import { countMdxDeckPages } from "./slida-mdx-pages.ts";
 import type { SlidaResolvedDeck, SlidaResolvedTheme } from "./types.ts";
 
@@ -12,39 +13,40 @@ export const VIRTUAL_SLIDA_DECK_ID = "virtual:slida/deck";
 const resolvedVirtualSlidaDeckId = `\0${VIRTUAL_SLIDA_DECK_ID}`;
 const pageComponentExport = "@slida/cli/page";
 
+type AstroIdentifier = { type?: string; name?: string };
+type AstroAttribute = {
+  type?: string;
+  name?: AstroIdentifier;
+  value?: { type?: string; value?: unknown; raw?: string } | null;
+  start?: number;
+  end?: number;
+};
 type AstroNode = {
   type?: string;
   value?: string;
+  start?: number;
+  end?: number;
   openingElement?: {
-    name?: {
-      type?: string;
-      name?: string;
-    };
+    name?: AstroIdentifier;
+    attributes?: AstroAttribute[];
+    selfClosing?: boolean;
+    start?: number;
+    end?: number;
   };
+  children?: AstroNode[];
 };
-
 type AstroImportDeclaration = {
   type?: string;
-  source?: {
-    value?: unknown;
-  };
-  specifiers?: Array<{
-    type?: string;
-    local?: {
-      name?: string;
-    };
-  }>;
+  source?: { value?: unknown };
+  specifiers?: Array<{ type?: string; local?: { name?: string } }>;
 };
-
 type AstroRoot = {
   type?: "AstroRoot";
-  frontmatter?: {
-    program?: {
-      body?: AstroImportDeclaration[];
-    };
-  };
+  frontmatter?: { program?: { body?: AstroImportDeclaration[] } };
   body?: AstroNode[];
 };
+type AstroSourceEdit = { start: number; end: number; value: string };
+type AstroPageLayout = { layout: string };
 
 function normalizePath(path: string) {
   return path.split(sep).join("/");
@@ -62,13 +64,36 @@ function isSelectedDeckId(id: string, deck: SlidaResolvedDeck) {
   );
 }
 
+function getIdentifierName(name?: AstroIdentifier) {
+  return name?.type === "JSXIdentifier" ? name.name : undefined;
+}
+
 function isWhitespace(node: AstroNode) {
   return node.type === "JSXText" && (node.value ?? "").trim().length === 0;
 }
 
+function isJsxElementNamed(node: AstroNode, name: string) {
+  return node.type === "JSXElement" && getIdentifierName(node.openingElement?.name) === name;
+}
+
 function isTopLevelPage(node: AstroNode) {
-  const name = node.openingElement?.name;
-  return node.type === "JSXElement" && name?.type === "JSXIdentifier" && name.name === "Page";
+  return isJsxElementNamed(node, "Page");
+}
+
+function isLayoutDeclaration(node: AstroNode) {
+  return isJsxElementNamed(node, "layout");
+}
+
+function getAttributeName(attribute: AstroAttribute) {
+  return getIdentifierName(attribute.name);
+}
+
+function getAttribute(node: AstroNode, name: string) {
+  return node.openingElement?.attributes?.find((attribute) => getAttributeName(attribute) === name);
+}
+
+function hasAttribute(node: AstroNode, name: string) {
+  return getAttribute(node, name) !== undefined;
 }
 
 function hasDefaultPageImport(ast: AstroRoot) {
@@ -77,7 +102,6 @@ function hasDefaultPageImport(ast: AstroRoot) {
       if (node.type !== "ImportDeclaration" || node.source?.value !== pageComponentExport) {
         return false;
       }
-
       return node.specifiers?.some(
         (specifier) =>
           specifier.type === "ImportDefaultSpecifier" && specifier.local?.name === "Page",
@@ -87,15 +111,9 @@ function hasDefaultPageImport(ast: AstroRoot) {
 }
 
 function findAstroRoot(value: unknown): AstroRoot | undefined {
-  if (typeof value !== "object" || value === null) {
-    return undefined;
-  }
-
+  if (typeof value !== "object" || value === null) return undefined;
   const node = value as AstroRoot & Record<string, unknown>;
-  if (node.type === "AstroRoot") {
-    return node;
-  }
-
+  if (node.type === "AstroRoot") return node;
   for (const child of Object.values(node)) {
     if (Array.isArray(child)) {
       for (const item of child) {
@@ -107,7 +125,6 @@ function findAstroRoot(value: unknown): AstroRoot | undefined {
       if (found) return found;
     }
   }
-
   return undefined;
 }
 
@@ -118,14 +135,133 @@ function parseAstroDeck(source: string, filePath: string) {
       `Failed to parse Astro deck ${filePath}: ${result.diagnostics[0]?.text ?? "unknown parse error"}`,
     );
   }
-
   const parsedAst = typeof result.ast === "string" ? JSON.parse(result.ast) : result.ast;
   const ast = findAstroRoot(parsedAst);
-  if (!ast) {
-    throw new Error(`Failed to parse Astro deck ${filePath}: AstroRoot not found`);
+  if (!ast) throw new Error(`Failed to parse Astro deck ${filePath}: AstroRoot not found`);
+  return ast;
+}
+
+function toSourceIndex(source: string, byteOffset: number, context: string) {
+  if (!Number.isInteger(byteOffset) || byteOffset < 0) {
+    throw new Error(`Failed to transform Astro deck: invalid source offset for ${context}.`);
   }
 
-  return ast;
+  let bytes = 0;
+  for (let index = 0; index < source.length; ) {
+    if (bytes === byteOffset) {
+      return index;
+    }
+
+    const codePoint = source.codePointAt(index);
+    if (codePoint === undefined) {
+      break;
+    }
+
+    const character = String.fromCodePoint(codePoint);
+    bytes += new TextEncoder().encode(character).length;
+    index += character.length;
+  }
+
+  if (bytes === byteOffset) {
+    return source.length;
+  }
+
+  throw new Error(
+    `Failed to transform Astro deck: source offset ${byteOffset} is not a UTF-8 boundary for ${context}.`,
+  );
+}
+
+function getRequiredSpan(source: string, node: AstroNode, context: string) {
+  if (typeof node.start !== "number" || typeof node.end !== "number") {
+    throw new Error(`Failed to transform Astro deck: missing source span for ${context}.`);
+  }
+  return {
+    start: toSourceIndex(source, node.start, `${context} start`),
+    end: toSourceIndex(source, node.end, `${context} end`),
+  };
+}
+
+function getPageAttributeInsertionOffset(source: string, page: AstroNode, context: string) {
+  const end = page.openingElement?.end;
+  if (typeof end !== "number") {
+    throw new Error(`Failed to transform Astro deck: missing opening tag span for ${context}.`);
+  }
+  const endIndex = toSourceIndex(source, end, `${context} opening tag end`);
+  return source[endIndex - 2] === "/" ? endIndex - 2 : endIndex - 1;
+}
+
+function getLayoutIdAttribute(node: AstroNode, context: string) {
+  const idAttribute = getAttribute(node, "id");
+  if (!idAttribute || idAttribute.value === null || idAttribute.value === undefined) {
+    throw new Error(`Astro layout declaration in ${context} must include an id attribute.`);
+  }
+  if (idAttribute.value.type !== "Literal" || typeof idAttribute.value.value !== "string") {
+    throw new TypeError(`Astro layout declaration in ${context} must use a string id attribute.`);
+  }
+  return idAttribute.value.value;
+}
+
+function resolveAstroPageLayout(page: AstroNode, pageIndex: number, filePath: string) {
+  const context = `${filePath} page ${pageIndex + 1}`;
+  if (hasAttribute(page, "layout")) {
+    throw new Error(
+      `Astro Page layout in ${context} must be declared with a child <layout id="..." /> element.`,
+    );
+  }
+  const layoutNodes = (page.children ?? []).filter(isLayoutDeclaration);
+  if (layoutNodes.length > 1) {
+    throw new Error(`Astro deck contains multiple layout declarations in ${context}.`);
+  }
+  const layoutNode = layoutNodes[0];
+  if (layoutNode) {
+    const hasContent = (layoutNode.children ?? []).some((child) => !isWhitespace(child));
+    if (!layoutNode.openingElement?.selfClosing || hasContent) {
+      throw new Error(`Astro layout declaration in ${context} must be self-closing.`);
+    }
+  }
+  const explicitLayout = layoutNode ? getLayoutIdAttribute(layoutNode, context) : undefined;
+  return { layout: resolveSlidaLayout(explicitLayout, pageIndex, context), layoutNodes };
+}
+
+function analyzeAstroLayouts(source: string, pages: AstroNode[], filePath: string) {
+  const edits: AstroSourceEdit[] = [];
+  const layouts: AstroPageLayout[] = [];
+  for (const [pageIndex, page] of pages.entries()) {
+    const context = `${filePath} page ${pageIndex + 1}`;
+    const { layout, layoutNodes } = resolveAstroPageLayout(page, pageIndex, filePath);
+    layouts.push({ layout });
+    const insertAt = getPageAttributeInsertionOffset(source, page, context);
+    edits.push({ start: insertAt, end: insertAt, value: ` layout=${JSON.stringify(layout)}` });
+    for (const layoutNode of layoutNodes) {
+      edits.push({ ...getRequiredSpan(source, layoutNode, context), value: "" });
+    }
+  }
+  return { edits, layouts };
+}
+
+function applySourceEdits(source: string, edits: AstroSourceEdit[]) {
+  return [...edits]
+    .sort((a, b) => b.start - a.start || b.end - a.end)
+    .reduce((code, edit) => code.slice(0, edit.start) + edit.value + code.slice(edit.end), source);
+}
+
+function analyzeAstroDeckSource(source: string, filePath: string) {
+  const ast = parseAstroDeck(source, filePath);
+  if (!hasDefaultPageImport(ast)) {
+    throw new Error(
+      `Astro deck must import Page from ${JSON.stringify(pageComponentExport)}: ${filePath}`,
+    );
+  }
+  const invalidNode = (ast.body ?? []).find((node) => !isWhitespace(node) && !isTopLevelPage(node));
+  if (invalidNode) {
+    throw new Error(`Astro deck top-level content must be <Page> components only: ${filePath}`);
+  }
+  const pages = (ast.body ?? []).filter(isTopLevelPage);
+  if (pages.length === 0) {
+    throw new Error(`Astro deck must contain at least one top-level <Page>: ${filePath}`);
+  }
+  const { edits, layouts } = analyzeAstroLayouts(source, pages, filePath);
+  return { pageCount: pages.length, edits, layouts };
 }
 
 export function countAstroDeckPages(source: string, filePath = "<deck>") {
@@ -134,25 +270,83 @@ export function countAstroDeckPages(source: string, filePath = "<deck>") {
 }
 
 export function validateAstroDeckSource(source: string, filePath = "<deck>") {
-  const ast = parseAstroDeck(source, filePath);
+  return analyzeAstroDeckSource(source, filePath).pageCount;
+}
 
-  if (!hasDefaultPageImport(ast)) {
+export function transformAstroDeckSource(source: string, filePath = "<deck>") {
+  return applySourceEdits(source, analyzeAstroDeckSource(source, filePath).edits);
+}
+
+function findMatchingBrace(source: string, openIndex: number) {
+  let depth = 0;
+  let quote: '"' | "'" | "`" | undefined;
+  for (let index = openIndex; index < source.length; index++) {
+    const character = source[index];
+    if (quote) {
+      if (character === "\\") {
+        index++;
+      } else if (character === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+    } else if (character === "{") {
+      depth++;
+    } else if (character === "}") {
+      depth--;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function findCompiledPagePropsSpans(source: string) {
+  const marker = '$$renderComponent($$result, "Page", Page,';
+  const spans: Array<{ start: number; end: number }> = [];
+  let searchIndex = 0;
+  while (searchIndex < source.length) {
+    const markerIndex = source.indexOf(marker, searchIndex);
+    if (markerIndex < 0) break;
+    const start = source.indexOf("{", markerIndex + marker.length);
+    if (start < 0) break;
+    const end = findMatchingBrace(source, start);
+    if (end < 0) break;
+    spans.push({ start, end: end + 1 });
+    searchIndex = end + 1;
+  }
+  return spans;
+}
+
+function addCompiledLayoutProp(
+  source: string,
+  span: { start: number; end: number },
+  layout: string,
+) {
+  const body = source.slice(span.start + 1, span.end - 1).trim();
+  const prop = ` "layout": ${JSON.stringify(layout)}`;
+  const replacement =
+    body.length === 0 ? `{${prop} }` : `{${prop},${source.slice(span.start + 1, span.end - 1)}}`;
+  return { start: span.start, end: span.end, value: replacement };
+}
+
+function transformCompiledAstroDeckSource(
+  source: string,
+  layouts: AstroPageLayout[],
+  filePath: string,
+) {
+  const propSpans = findCompiledPagePropsSpans(source);
+  if (propSpans.length !== layouts.length) {
     throw new Error(
-      `Astro deck must import Page from ${JSON.stringify(pageComponentExport)}: ${filePath}`,
+      `Failed to transform Astro deck ${filePath}: compiled Page count ${propSpans.length} does not match analyzed page count ${layouts.length}.`,
     );
   }
-
-  const invalidNode = (ast.body ?? []).find((node) => !isWhitespace(node) && !isTopLevelPage(node));
-  if (invalidNode) {
-    throw new Error(`Astro deck top-level content must be <Page> components only: ${filePath}`);
-  }
-
-  const pageCount = (ast.body ?? []).filter(isTopLevelPage).length;
-  if (pageCount === 0) {
-    throw new Error(`Astro deck must contain at least one top-level <Page>: ${filePath}`);
-  }
-
-  return pageCount;
+  const edits = propSpans.map((span, index) =>
+    addCompiledLayoutProp(source, span, layouts[index].layout),
+  );
+  return applySourceEdits(source, edits).replace(/<layout(?:\s+[^<>]*)?><\/layout>/g, "");
 }
 
 function createThemeCssImport(theme?: SlidaResolvedTheme) {
@@ -163,7 +357,6 @@ function createAstroDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedThe
   const source = readFileSync(deck.filePath, "utf8");
   const pageCount = validateAstroDeckSource(source, deck.filePath);
   const deckImport = `/${deck.projectRelativePath}`;
-
   return [
     createThemeCssImport(theme),
     `import Deck from ${JSON.stringify(deckImport)};`,
@@ -184,7 +377,6 @@ function createMdxDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme
   const source = readFileSync(deck.filePath, "utf8");
   const pageCount = countMdxDeckPages(source);
   const deckImport = `/${deck.projectRelativePath}`;
-
   return [
     createThemeCssImport(theme),
     `import Deck, { frontmatter } from ${JSON.stringify(deckImport)};`,
@@ -208,19 +400,10 @@ function createVirtualDeckPlugin(deck: SlidaResolvedDeck, theme?: SlidaResolvedT
       return id === VIRTUAL_SLIDA_DECK_ID ? resolvedVirtualSlidaDeckId : undefined;
     },
     load(id) {
-      if (id !== resolvedVirtualSlidaDeckId) {
-        return undefined;
-      }
-
+      if (id !== resolvedVirtualSlidaDeckId) return undefined;
       this.addWatchFile(deck.filePath);
-      if (theme?.filePath) {
-        this.addWatchFile(theme.filePath);
-      }
-
-      if (deck.format === "astro") {
-        return createAstroDeckModule(deck, theme);
-      }
-
+      if (theme?.filePath) this.addWatchFile(theme.filePath);
+      if (deck.format === "astro") return createAstroDeckModule(deck, theme);
       return createMdxDeckModule(deck, theme);
     },
   };
@@ -231,16 +414,12 @@ function createAstroDeckValidationPlugin(deck: SlidaResolvedDeck): Plugin {
     name: "slida:astro-deck-validation",
     enforce: "pre",
     transform(source, id) {
-      if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) {
-        return undefined;
-      }
-
-      if (source !== readFileSync(deck.filePath, "utf8")) {
-        return undefined;
-      }
-
-      validateAstroDeckSource(source, deck.filePath);
-      return undefined;
+      if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) return undefined;
+      if (source.includes("<Page")) return transformAstroDeckSource(source, deck.filePath);
+      if (!source.includes('$$renderComponent($$result, "Page", Page,')) return undefined;
+      const originalSource = readFileSync(deck.filePath, "utf8");
+      const { layouts } = analyzeAstroDeckSource(originalSource, deck.filePath);
+      return transformCompiledAstroDeckSource(source, layouts, deck.filePath);
     },
   };
 }
