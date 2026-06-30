@@ -6,6 +6,7 @@ export type SlidaAstroConfig = Omit<
   AstroInlineConfig,
   "root" | "srcDir" | "configFile" | "output" | "server" | "outDir" | "logLevel" | "devToolbar"
 >;
+export type SlidaDeckFormat = "astro" | "mdx";
 
 export interface SlidaConfig {
   port?: number;
@@ -19,6 +20,7 @@ export interface SlidaLoadedConfig {
 
 export interface SlidaBaseOptions {
   root?: string;
+  deckFile?: string;
   logLevel?: SlidaLogLevel;
 }
 
@@ -38,6 +40,12 @@ export interface SlidaRuntimePaths {
   runtimeOutDir: string;
 }
 
+export interface SlidaResolvedDeck {
+  filePath: string;
+  projectRelativePath: string;
+  format: SlidaDeckFormat;
+}
+
 export interface SlidaDevResult {
   server: Awaited<ReturnType<typeof dev>>;
   address: AddressInfo;
@@ -46,6 +54,7 @@ export interface SlidaDevResult {
 export interface SlidaResolvedConfig {
   paths: SlidaRuntimePaths;
   astroConfig: AstroInlineConfig;
+  deck?: SlidaResolvedDeck;
   slidaConfig?: SlidaConfig;
   slidaConfigFile?: string;
 }

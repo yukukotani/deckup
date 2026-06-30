@@ -1,0 +1,96 @@
+import { expect, test } from "vite-plus/test";
+
+import {
+  countMdxDeckPages,
+  remarkSlidaMdxPages,
+  splitMdxChildrenIntoPages,
+  stripMdxFrontmatter,
+} from "../src/slida-mdx-pages.ts";
+
+const twoPageMdx = `---
+title: Talk
+---
+
+# One
+
+---
+
+# Two
+`;
+
+test("stripMdxFrontmatter preserves post-frontmatter divider content", () => {
+  expect(stripMdxFrontmatter(twoPageMdx)).toBe(`
+# One
+
+---
+
+# Two
+`);
+});
+
+test("countMdxDeckPages counts thematicBreak dividers through the same mdast splitter", () => {
+  expect(countMdxDeckPages(twoPageMdx)).toBe(2);
+});
+
+test("countMdxDeckPages rejects empty pages", () => {
+  expect(() =>
+    countMdxDeckPages(`# One
+
+---
+
+---
+
+# Three
+`),
+  ).toThrow(/empty page/);
+});
+
+test("splitMdxChildrenIntoPages splits thematicBreak nodes", () => {
+  expect(
+    splitMdxChildrenIntoPages([
+      { type: "heading" },
+      { type: "thematicBreak" },
+      { type: "paragraph" },
+    ]),
+  ).toEqual([[{ type: "heading" }], [{ type: "paragraph" }]]);
+});
+
+test("remarkSlidaMdxPages wraps only the selected file in Page nodes", () => {
+  const tree = {
+    children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
+  };
+  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+    path: "/project/slides/talk.mdx",
+  });
+
+  expect(tree.children[0]).toMatchObject({ type: "mdxjsEsm" });
+  expect(tree.children[1]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
+  expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
+});
+
+test("remarkSlidaMdxPages keeps user MDX ESM outside generated Page nodes", () => {
+  const tree = {
+    children: [
+      { type: "mdxjsEsm", value: "import Chart from './Chart.astro';" },
+      { type: "heading" },
+    ],
+  };
+  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+    path: "/project/slides/talk.mdx",
+  });
+
+  expect(tree.children[0]).toMatchObject({ type: "mdxjsEsm" });
+  expect(tree.children[1]).toMatchObject({
+    type: "mdxjsEsm",
+    value: "import Chart from './Chart.astro';",
+  });
+  expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
+});
+
+test("remarkSlidaMdxPages leaves non-selected files untouched", () => {
+  const tree = { children: [{ type: "heading" }] };
+  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+    path: "/project/slides/other.mdx",
+  });
+  expect(tree.children).toEqual([{ type: "heading" }]);
+});

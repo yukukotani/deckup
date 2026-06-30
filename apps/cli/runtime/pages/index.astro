@@ -1,49 +1,23 @@
 ---
 import DeckLayout from "../layouts/DeckLayout.astro";
+import Deck, { deck } from "virtual:slida/deck";
 
-type SlideModule = {
-  default: (_props: Record<string, unknown>) => unknown;
-  frontmatter?: {
-    title?: unknown;
-  };
-};
-
-const modules = import.meta.glob<SlideModule>("/slides/*.{astro,mdx}", { eager: true });
-const slides = Object.entries(modules)
-  .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
-  .map(([path, module], index) => ({
-    path,
-    Component: module.default,
-    title: typeof module.frontmatter?.title === "string" ? module.frontmatter.title : `Slide ${index + 1}`,
-  }));
+const deckTitle = typeof deck.frontmatter?.title === "string" ? deck.frontmatter.title : "Slida Deck";
 ---
 
-<DeckLayout slideCount={slides.length}>
+<DeckLayout slideCount={deck.pageCount} title={deckTitle}>
   {
-    slides.length > 0 ? (
+    deck.pageCount > 0 ? (
       <main class="slida-deck" data-slida-deck aria-label="Slide deck">
-        {slides.map(({ Component, path, title }, index) => (
-          <section
-            class="slida-slide"
-            data-slida-slide
-            data-slide-index={index}
-            data-slide-path={path}
-            id={`slide-${index + 1}`}
-            aria-label={title}
-            aria-hidden={index === 0 ? "false" : "true"}
-            hidden={index !== 0}
-          >
-            <Component />
-          </section>
-        ))}
+        <Deck />
       </main>
     ) : (
       <main class="slida-empty" data-slida-empty>
         <p class="slida-kicker">No slides found</p>
-        <h1>Create your first slide</h1>
+        <h1>Create your first page</h1>
         <p>
-          Add <code>slides/01-intro.astro</code> or <code>slides/01-intro.mdx</code>, then restart or refresh the
-          preview.
+          Add at least one <code>&lt;Page&gt;</code> to <code>{deck.projectRelativePath}</code>, then restart or refresh
+          the preview.
         </p>
       </main>
     )

@@ -35,7 +35,7 @@ export function normalizeLogLevel(value: unknown): SlidaLogLevel {
 
 export function normalizeDevValues(values: CommandValues): SlidaDevOptions {
   return {
-    root: stringValue(values.root),
+    deckFile: stringValue(values.deckFile),
     host: booleanOrStringValue(values.host) ?? DEFAULT_DEV_HOST,
     port: numberValue(values.port),
     open: booleanOrStringValue(values.open) ?? false,
@@ -45,7 +45,7 @@ export function normalizeDevValues(values: CommandValues): SlidaDevOptions {
 
 export function normalizeBuildValues(values: CommandValues): SlidaBuildOptions {
   return {
-    root: stringValue(values.root),
+    deckFile: stringValue(values.deckFile),
     outDir: stringValue(values.outDir) ?? DEFAULT_BUILD_OUT_DIR,
     logLevel: normalizeLogLevel(values.logLevel),
   };
@@ -68,7 +68,11 @@ export const devCommand = define({
   name: "dev",
   description: "Start the Slida Astro preview server.",
   args: {
-    root: { type: "positional", required: false, description: "Project root containing slides/." },
+    deckFile: {
+      type: "positional",
+      required: true,
+      description: "Deck file to preview (.astro or .mdx).",
+    },
     host: {
       type: "string",
       default: DEFAULT_DEV_HOST,
@@ -97,7 +101,11 @@ export const buildCommand = define({
   name: "build",
   description: "Build the Slida deck as static HTML/assets.",
   args: {
-    root: { type: "positional", required: false, description: "Project root containing slides/." },
+    deckFile: {
+      type: "positional",
+      required: true,
+      description: "Deck file to build (.astro or .mdx).",
+    },
     outDir: {
       type: "string",
       default: DEFAULT_BUILD_OUT_DIR,
@@ -116,7 +124,7 @@ export const entryCommand = define({
   name: "slida",
   description: "Astro-based slide deck tool.",
   run() {
-    return "Run `slida dev` to preview slides or `slida build` to create a static Web deck.";
+    return "Run `slida dev <deck-file>` to preview slides or `slida build <deck-file>` to create a static Web deck.";
   },
 });
 

@@ -87,6 +87,10 @@ code {
   display: none !important;
 }
 
+.slida-slide:not(:first-child):not([data-active]) {
+  display: none !important;
+}
+
 .slida-slide > * {
   max-width: 920px;
 }

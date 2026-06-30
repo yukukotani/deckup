@@ -1,0 +1,12 @@
+---
+interface Props {
+  title?: string;
+  class?: string;
+}
+
+const { title, class: className } = Astro.props;
+---
+
+<section class:list={["slida-slide", className]} data-slida-slide aria-label={title ?? "Slide"}>
+  <slot />
+</section>

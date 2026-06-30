@@ -1,6 +1,6 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { expect, test } from "vite-plus/test";
 
 import { createAstroInlineConfig, createSlidaAstroConfig, DEFAULT_DEV_PORT } from "../src/astro.ts";
@@ -26,6 +26,19 @@ function testPaths(projectRoot = resolve("/tmp/slida-project")): SlidaRuntimePat
 
 function serverPort(config: ReturnType<typeof createAstroInlineConfig>) {
   return (config.server as { port?: number } | undefined)?.port;
+}
+
+async function writeAstroDeck(projectRoot: string) {
+  await mkdir(join(projectRoot, "slides"));
+  await writeFile(
+    join(projectRoot, "slides", "deck.astro"),
+    `---
+import Page from "@slida/cli/page";
+---
+
+<Page><h1>Deck</h1></Page>
+`,
+  );
 }
 
 test("loadSlidaConfig loads a project-root TypeScript config", async () => {
@@ -69,20 +82,29 @@ test("loadSlidaConfig rejects non-object config exports", async () => {
 
 test("createSlidaAstroConfig uses config port when CLI/API port is omitted", async () => {
   await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
     await writeFile(join(projectRoot, "slida.config.ts"), "export default { port: 3000 };\n");
 
-    const { astroConfig, slidaConfigFile } = await createSlidaAstroConfig({ root: projectRoot });
+    const { astroConfig, slidaConfigFile } = await createSlidaAstroConfig({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+    });
 
     expect(serverPort(astroConfig)).toBe(3000);
-    expect(slidaConfigFile).toBe(join(projectRoot, "slida.config.ts"));
+    expect(slidaConfigFile).toBe(await realpath(join(projectRoot, "slida.config.ts")));
   });
 });
 
 test("explicit API port wins over config port", async () => {
   await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
     await writeFile(join(projectRoot, "slida.config.ts"), "export default { port: 3000 };\n");
 
-    const { astroConfig } = await createSlidaAstroConfig({ root: projectRoot, port: 3333 });
+    const { astroConfig } = await createSlidaAstroConfig({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      port: 3333,
+    });
 
     expect(serverPort(astroConfig)).toBe(3333);
   });
@@ -102,6 +124,11 @@ test("user Astro config appends without replacing Slida-owned values", () => {
   const paths = testPaths();
   const userIntegration = { name: "user-integration", hooks: {} } as never;
   const userPlugin = { name: "user-plugin" } as never;
+  const deck = {
+    filePath: join(paths.projectRoot, "slides", "deck.astro"),
+    projectRelativePath: "slides/deck.astro",
+    format: "astro" as const,
+  };
   const config = createAstroInlineConfig(
     paths,
     {},
@@ -123,6 +150,7 @@ test("user Astro config appends without replacing Slida-owned values", () => {
         },
       },
     },
+    deck,
   );
 
   expect(config.root).toBe(paths.projectRoot);
@@ -130,6 +158,9 @@ test("user Astro config appends without replacing Slida-owned values", () => {
   expect(config.srcDir).toBe(paths.runtimeOutDir);
   expect(config.output).toBe("static");
   expect(config.integrations?.at(-1)).toBe(userIntegration);
+  expect(config.vite?.plugins).toEqual(
+    expect.arrayContaining([expect.objectContaining({ name: "slida:virtual-deck" })]),
+  );
   expect(config.vite?.plugins?.at(-1)).toBe(userPlugin);
   expect(config.vite?.resolve?.alias).toEqual(
     expect.arrayContaining([
@@ -142,6 +173,7 @@ test("user Astro config appends without replacing Slida-owned values", () => {
       paths.projectRoot,
       paths.runtimeOutDir,
       paths.runtimeSourceDir,
+      dirname(deck.filePath),
       join(paths.projectRoot, "content"),
     ]),
   );

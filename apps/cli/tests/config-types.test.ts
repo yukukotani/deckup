@@ -21,6 +21,11 @@ const assignableConfig: SlidaConfig = validConfig;
 expect(assignableConfig.port).toBe(3000);
 
 defineConfig({
+  // @ts-expect-error Deck selection is a CLI/API option, not slida.config.* surface
+  deckFile: "slides/deck.astro",
+});
+
+defineConfig({
   astro: {
     // @ts-expect-error Slida owns Astro root
     root: ".",

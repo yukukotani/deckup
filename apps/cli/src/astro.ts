@@ -1,16 +1,22 @@
+import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import { build, dev, type AstroInlineConfig } from "astro";
+import { realpath } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 
 import { loadSlidaConfig, resolveSlidaConfig } from "./config.ts";
-import { prepareRuntime } from "./runtime.ts";
+import { resolveDeckFile } from "./deck.ts";
+import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
+import { remarkSlidaMdxPages } from "./slida-mdx-pages.ts";
+import { createSlidaVitePlugins } from "./slida-vite-plugins.ts";
 import type {
   SlidaBuildOptions,
   SlidaConfig,
   SlidaDevOptions,
   SlidaDevResult,
   SlidaResolvedConfig,
+  SlidaResolvedDeck,
   SlidaRuntimePaths,
 } from "./types.ts";
 
@@ -50,10 +56,23 @@ export function normalizeBuildOutDir(projectRoot: string, outDir = DEFAULT_BUILD
   return resolve(projectRoot, outDir);
 }
 
+function createMdxIntegration(deck?: SlidaResolvedDeck) {
+  if (!deck) {
+    return mdx();
+  }
+
+  return mdx({
+    processor: unified({
+      remarkPlugins: [[remarkSlidaMdxPages, { deckFile: deck.filePath }] as never],
+    }),
+  });
+}
+
 export function createAstroInlineConfig(
   paths: SlidaRuntimePaths,
   options: SlidaDevOptions | SlidaBuildOptions = {},
   slidaConfig: SlidaConfig = {},
+  deck?: SlidaResolvedDeck,
 ): AstroInlineConfig {
   const devOptions = options as SlidaDevOptions;
   const buildOptions = options as SlidaBuildOptions;
@@ -62,6 +81,7 @@ export function createAstroInlineConfig(
   delete (userViteConfig as { root?: unknown }).root;
   const userViteServer = userViteConfig.server ?? {};
   const userViteFs = userViteServer.fs ?? {};
+  const slidaVitePlugins = deck ? createSlidaVitePlugins(deck) : [];
   const requiredAliases = [
     {
       find: /^astro\/app$/,
@@ -83,7 +103,12 @@ export function createAstroInlineConfig(
     { find: /^astro\/runtime\/(.+)$/, replacement: `${astroPackageRoot}/dist/runtime/$1` },
     { find: /^astro$/, replacement: `${astroPackageRoot}/dist/index.js` },
   ];
-  const requiredFsAllow = [paths.projectRoot, paths.runtimeOutDir, paths.runtimeSourceDir];
+  const requiredFsAllow = [
+    paths.projectRoot,
+    paths.runtimeOutDir,
+    paths.runtimeSourceDir,
+    ...(deck ? [dirname(deck.filePath)] : []),
+  ];
 
   const astroConfig = {
     ...userAstroConfig,
@@ -94,7 +119,7 @@ export function createAstroInlineConfig(
     devToolbar: { enabled: false },
     output: "static",
     logLevel: options.logLevel ?? "info",
-    integrations: [mdx(), ...toArray(userAstroConfig.integrations as never)],
+    integrations: [createMdxIntegration(deck), ...toArray(userAstroConfig.integrations as never)],
     server: {
       host: devOptions.host ?? DEFAULT_DEV_HOST,
       port: devOptions.port ?? slidaConfig.port ?? DEFAULT_DEV_PORT,
@@ -102,7 +127,7 @@ export function createAstroInlineConfig(
     },
     vite: {
       ...userViteConfig,
-      plugins: toArray(userViteConfig.plugins as never),
+      plugins: [...slidaVitePlugins, ...toArray(userViteConfig.plugins as never)],
       optimizeDeps: {
         ...userViteConfig.optimizeDeps,
         exclude: uniqueStrings([
@@ -131,14 +156,17 @@ export function createAstroInlineConfig(
 export async function createSlidaAstroConfig(
   options: SlidaDevOptions | SlidaBuildOptions = {},
 ): Promise<SlidaResolvedConfig> {
-  const paths = await prepareRuntime(options.root);
+  const projectRoot = await realpath(resolveProjectRoot(options.root));
+  const deck = await resolveDeckFile(projectRoot, options.deckFile);
+  const paths = await prepareRuntime(projectRoot);
   const loadedConfig = await loadSlidaConfig(paths.projectRoot);
   const slidaConfig = resolveSlidaConfig(loadedConfig.config, options);
   return {
     paths,
+    deck,
     slidaConfig,
     slidaConfigFile: loadedConfig.filePath,
-    astroConfig: createAstroInlineConfig(paths, options, slidaConfig),
+    astroConfig: createAstroInlineConfig(paths, options, slidaConfig, deck),
   };
 }
 

@@ -7,6 +7,7 @@ packages:
 catalogMode: prefer
 
 catalog:
+  "@astrojs/markdown-remark": latest
   "@astrojs/mdx": latest
   "@tailwindcss/vite": latest
   "@types/node": ^24

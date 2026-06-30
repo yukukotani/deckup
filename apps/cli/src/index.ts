@@ -4,6 +4,7 @@ export {
   loadSlidaConfig,
   SLIDA_CONFIG_FILES,
 } from "./config.ts";
+export { inferDeckFormat, resolveDeckFile, SUPPORTED_DECK_EXTENSIONS } from "./deck.ts";
 export {
   buildDeck,
   createAstroInlineConfig,
@@ -28,10 +29,12 @@ export type {
   SlidaBaseOptions,
   SlidaBuildOptions,
   SlidaConfig,
+  SlidaDeckFormat,
   SlidaDevOptions,
   SlidaDevResult,
   SlidaLoadedConfig,
   SlidaLogLevel,
   SlidaResolvedConfig,
+  SlidaResolvedDeck,
   SlidaRuntimePaths,
 } from "./types.ts";
