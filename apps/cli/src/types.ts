@@ -10,6 +10,7 @@ export type SlidaDeckFormat = "astro" | "mdx";
 
 export interface SlidaConfig {
   port?: number;
+  theme?: string;
   astro?: SlidaAstroConfig;
 }
 
@@ -40,6 +41,13 @@ export interface SlidaRuntimePaths {
   runtimeOutDir: string;
 }
 
+export interface SlidaResolvedTheme {
+  name: string;
+  importPath: string;
+  filePath?: string;
+  source: "builtin" | "package";
+}
+
 export interface SlidaResolvedDeck {
   filePath: string;
   projectRelativePath: string;
@@ -57,4 +65,5 @@ export interface SlidaResolvedConfig {
   deck?: SlidaResolvedDeck;
   slidaConfig?: SlidaConfig;
   slidaConfigFile?: string;
+  slidaTheme?: SlidaResolvedTheme;
 }

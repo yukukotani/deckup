@@ -1,0 +1,26 @@
+:root {
+  --slida-text: #6b6375;
+  --slida-text-strong: #08060d;
+  --slida-bg: #fff;
+  --slida-border: #e5e4e7;
+  --slida-code-bg: #f4f3ec;
+  --slida-accent: #aa3bff;
+  --slida-accent-bg: rgba(170, 59, 255, 0.1);
+  --slida-shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --slida-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --slida-heading: system-ui, "Segoe UI", Roboto, sans-serif;
+  --slida-mono: ui-monospace, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --slida-text: #9ca3af;
+    --slida-text-strong: #f3f4f6;
+    --slida-bg: #16171d;
+    --slida-border: #2e303a;
+    --slida-code-bg: #1f2028;
+    --slida-accent: #c084fc;
+    --slida-accent-bg: rgba(192, 132, 252, 0.15);
+    --slida-shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+}

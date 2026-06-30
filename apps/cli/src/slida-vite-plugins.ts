@@ -5,7 +5,7 @@ import { parse } from "@astrojs/compiler-rs";
 import type { Plugin } from "vite-plus";
 
 import { countMdxDeckPages } from "./slida-mdx-pages.ts";
-import type { SlidaResolvedDeck } from "./types.ts";
+import type { SlidaResolvedDeck, SlidaResolvedTheme } from "./types.ts";
 
 export const VIRTUAL_SLIDA_DECK_ID = "virtual:slida/deck";
 
@@ -155,12 +155,17 @@ export function validateAstroDeckSource(source: string, filePath = "<deck>") {
   return pageCount;
 }
 
-function createAstroDeckModule(deck: SlidaResolvedDeck) {
+function createThemeCssImport(theme?: SlidaResolvedTheme) {
+  return theme ? `import ${JSON.stringify(theme.importPath)};` : undefined;
+}
+
+function createAstroDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme) {
   const source = readFileSync(deck.filePath, "utf8");
   const pageCount = validateAstroDeckSource(source, deck.filePath);
   const deckImport = `/${deck.projectRelativePath}`;
 
   return [
+    createThemeCssImport(theme),
     `import Deck from ${JSON.stringify(deckImport)};`,
     "export default Deck;",
     `export const deck = ${JSON.stringify({
@@ -170,15 +175,18 @@ function createAstroDeckModule(deck: SlidaResolvedDeck) {
       pageCount,
       frontmatter: {},
     })};`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-function createMdxDeckModule(deck: SlidaResolvedDeck) {
+function createMdxDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme) {
   const source = readFileSync(deck.filePath, "utf8");
   const pageCount = countMdxDeckPages(source);
   const deckImport = `/${deck.projectRelativePath}`;
 
   return [
+    createThemeCssImport(theme),
     `import Deck, { frontmatter } from ${JSON.stringify(deckImport)};`,
     "export default Deck;",
     `export const deck = ${JSON.stringify({
@@ -188,10 +196,12 @@ function createMdxDeckModule(deck: SlidaResolvedDeck) {
       pageCount,
     })};`,
     "deck.frontmatter = frontmatter ?? {};",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-function createVirtualDeckPlugin(deck: SlidaResolvedDeck): Plugin {
+function createVirtualDeckPlugin(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme): Plugin {
   return {
     name: "slida:virtual-deck",
     resolveId(id) {
@@ -203,12 +213,15 @@ function createVirtualDeckPlugin(deck: SlidaResolvedDeck): Plugin {
       }
 
       this.addWatchFile(deck.filePath);
-
-      if (deck.format === "astro") {
-        return createAstroDeckModule(deck);
+      if (theme?.filePath) {
+        this.addWatchFile(theme.filePath);
       }
 
-      return createMdxDeckModule(deck);
+      if (deck.format === "astro") {
+        return createAstroDeckModule(deck, theme);
+      }
+
+      return createMdxDeckModule(deck, theme);
     },
   };
 }
@@ -232,6 +245,9 @@ function createAstroDeckValidationPlugin(deck: SlidaResolvedDeck): Plugin {
   };
 }
 
-export function createSlidaVitePlugins(deck: SlidaResolvedDeck): Plugin[] {
-  return [createVirtualDeckPlugin(deck), createAstroDeckValidationPlugin(deck)];
+export function createSlidaVitePlugins(
+  deck: SlidaResolvedDeck,
+  theme?: SlidaResolvedTheme,
+): Plugin[] {
+  return [createVirtualDeckPlugin(deck, theme), createAstroDeckValidationPlugin(deck)];
 }

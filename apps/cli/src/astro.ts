@@ -10,6 +10,7 @@ import { resolveDeckFile } from "./deck.ts";
 import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
 import { remarkSlidaMdxPages } from "./slida-mdx-pages.ts";
 import { createSlidaVitePlugins } from "./slida-vite-plugins.ts";
+import { resolveSlidaTheme } from "./theme.ts";
 import type {
   SlidaBuildOptions,
   SlidaConfig,
@@ -17,6 +18,7 @@ import type {
   SlidaDevResult,
   SlidaResolvedConfig,
   SlidaResolvedDeck,
+  SlidaResolvedTheme,
   SlidaRuntimePaths,
 } from "./types.ts";
 
@@ -73,6 +75,7 @@ export function createAstroInlineConfig(
   options: SlidaDevOptions | SlidaBuildOptions = {},
   slidaConfig: SlidaConfig = {},
   deck?: SlidaResolvedDeck,
+  slidaTheme?: SlidaResolvedTheme,
 ): AstroInlineConfig {
   const devOptions = options as SlidaDevOptions;
   const buildOptions = options as SlidaBuildOptions;
@@ -81,7 +84,7 @@ export function createAstroInlineConfig(
   delete (userViteConfig as { root?: unknown }).root;
   const userViteServer = userViteConfig.server ?? {};
   const userViteFs = userViteServer.fs ?? {};
-  const slidaVitePlugins = deck ? createSlidaVitePlugins(deck) : [];
+  const slidaVitePlugins = deck ? createSlidaVitePlugins(deck, slidaTheme) : [];
   const requiredAliases = [
     {
       find: /^astro\/app$/,
@@ -108,6 +111,7 @@ export function createAstroInlineConfig(
     paths.runtimeOutDir,
     paths.runtimeSourceDir,
     ...(deck ? [dirname(deck.filePath)] : []),
+    ...(slidaTheme?.filePath ? [dirname(slidaTheme.filePath)] : []),
   ];
 
   const astroConfig = {
@@ -161,12 +165,14 @@ export async function createSlidaAstroConfig(
   const paths = await prepareRuntime(projectRoot);
   const loadedConfig = await loadSlidaConfig(paths.projectRoot);
   const slidaConfig = resolveSlidaConfig(loadedConfig.config, options);
+  const slidaTheme = await resolveSlidaTheme(paths.projectRoot, slidaConfig.theme);
   return {
     paths,
     deck,
     slidaConfig,
     slidaConfigFile: loadedConfig.filePath,
-    astroConfig: createAstroInlineConfig(paths, options, slidaConfig, deck),
+    slidaTheme,
+    astroConfig: createAstroInlineConfig(paths, options, slidaConfig, deck, slidaTheme),
   };
 }
 

@@ -13,6 +13,12 @@ export {
 } from "./astro.ts";
 export { startDevServer } from "./astro.ts";
 export {
+  BUILTIN_SLIDA_THEME_PACKAGES,
+  BUILTIN_SLIDA_THEMES,
+  DEFAULT_SLIDA_THEME,
+  resolveSlidaTheme,
+} from "./theme.ts";
+export {
   normalizeBuildValues,
   normalizeDevValues,
   normalizeLogLevel,
@@ -36,5 +42,6 @@ export type {
   SlidaLogLevel,
   SlidaResolvedConfig,
   SlidaResolvedDeck,
+  SlidaResolvedTheme,
   SlidaRuntimePaths,
 } from "./types.ts";
