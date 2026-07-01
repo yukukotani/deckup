@@ -29,16 +29,18 @@ body {
   font: 18px/145% var(--slida-sans);
   letter-spacing: 0.18px;
   color: var(--slida-text);
-  background: var(--slida-bg);
 }
 
 .slida-slide {
+  --slida-cqw: 1cqw;
+
   display: grid;
   align-content: center;
   justify-items: start;
   gap: 1rem;
-  padding: clamp(2rem, 6vw, 5rem);
+  padding: clamp(2rem, calc(6 * var(--slida-cqw)), 5rem);
   text-align: left;
+  background: var(--slida-bg);
 }
 
 .slida-slide > * {
@@ -70,13 +72,13 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(2.25rem, 6vw, 4.25rem);
+  font-size: clamp(2.25rem, calc(6 * var(--slida-cqw)), 4.25rem);
   line-height: 0.98;
   margin: 0 0 1rem;
 }
 
 [data-slida-layout="cover"] h1 {
-  font-size: clamp(3rem, 9vw, 5.75rem);
+  font-size: clamp(3rem, calc(9 * var(--slida-cqw)), 5.75rem);
   line-height: 0.92;
   margin-bottom: 1.5rem;
 }
@@ -84,7 +86,7 @@ h1 {
 p {
   max-width: 720px;
   margin: 0.75rem 0;
-  font-size: clamp(1.125rem, 2vw, 1.5rem);
+  font-size: clamp(1.125rem, calc(2 * var(--slida-cqw)), 1.5rem);
 }
 
 [data-slida-layout="cover"] p {
@@ -111,6 +113,9 @@ code {
   :root {
     font-size: 16px;
   }
+}
+
+@container (max-width: 768px) {
   .slida-slide {
     padding: 2rem 1.25rem;
   }

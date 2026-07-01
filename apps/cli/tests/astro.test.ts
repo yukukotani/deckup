@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,7 +30,7 @@ async function linkCliPackage(projectRoot: string) {
 }
 
 function slideCount(html: string) {
-  return html.match(/data-slida-slide(?=[\s>])/g)?.length ?? 0;
+  return html.match(/data-slida-slide(?=[\s=>])/g)?.length ?? 0;
 }
 
 function layoutCount(html: string, layout: string) {
@@ -40,6 +40,33 @@ function layoutCount(html: string, layout: string) {
 function slideSectionCount(html: string) {
   return html.match(/<section\b[^>]*data-slida-slide/g)?.length ?? 0;
 }
+
+function extractInlineCss(html: string) {
+  return Array.from(html.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g), (match) => match[1]);
+}
+
+async function readBuiltCss(projectRoot: string, html: string) {
+  const cssParts = extractInlineCss(html);
+  const assetsDir = join(projectRoot, "dist", "_astro");
+
+  try {
+    const entries = await readdir(assetsDir, { withFileTypes: true });
+    const cssFiles = entries.filter((entry) => entry.isFile() && entry.name.endsWith(".css"));
+    cssParts.push(
+      ...(await Promise.all(
+        cssFiles.map((entry) => readFile(join(assetsDir, entry.name), "utf8")),
+      )),
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  return cssParts.join("\n");
+}
+
+const builtInViewerThemes = ["default", "minimal", "bold", "google-basic"] as const;
 
 async function writeThemeLayoutPackage(projectRoot: string, packageName: string) {
   const packageDir = join(projectRoot, "node_modules", ...packageName.split("/"));
@@ -357,6 +384,60 @@ import Page from "@slida/cli/page";
     expect(html).toContain("Google right");
   });
 });
+
+for (const theme of builtInViewerThemes) {
+  test(`buildDeck emits fixed 16:9 viewer CSS for ${theme}`, async () => {
+    await withProjectRoot(async (projectRoot) => {
+      await linkCliPackage(projectRoot);
+      await writeFile(
+        join(projectRoot, "slida.config.ts"),
+        `export default { theme: '${theme}' };\n`,
+      );
+      await mkdir(join(projectRoot, "slides"));
+      await writeFile(
+        join(projectRoot, "slides", "deck.astro"),
+        `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Intro"><layout id="cover" /><h1>Intro</h1><p>Body</p></Page>
+`,
+      );
+
+      await buildDeck({
+        root: projectRoot,
+        deckFile: "slides/deck.astro",
+        outDir: "dist",
+        logLevel: "silent",
+      });
+
+      const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+      const css = await readBuiltCss(projectRoot, html);
+
+      expect(slideSectionCount(html)).toBe(1);
+      expect(layoutCount(html, "cover")).toBe(1);
+      expect(html).toContain('data-slide-count="1"');
+      expect(css).toMatch(
+        /body\{(?=[^}]*display:grid)(?=[^}]*place-items:center)(?=[^}]*background:#111)[^}]*\}/,
+      );
+      expect(css).toMatch(/\.slida-shell\{[^}]*aspect-ratio:16\/9/);
+      expect(css).toContain("container-type:size");
+      expect(css).toMatch(
+        /\.slida-deck,\.slida-empty\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/,
+      );
+      expect(css).toMatch(/\.slida-slide\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/);
+      expect(css).not.toMatch(/\.slida-status\{display:none!important\}/);
+
+      if (theme !== "google-basic") {
+        expect(css).not.toMatch(/body\{[^}]*background:var\(--slida-bg\)/);
+        expect(css).toContain("--slida-cqw:1cqw");
+        expect(css).toContain("var(--slida-cqw)");
+        expect(css).not.toContain("6vw");
+        expect(css).not.toContain("9vw");
+      }
+    });
+  });
+}
 
 test("buildDeck builds one selected MDX deck file split by dividers", async () => {
   await withProjectRoot(async (projectRoot) => {
