@@ -37,6 +37,44 @@ function layoutCount(html: string, layout: string) {
   return html.match(new RegExp(`data-slida-layout="${layout}"`, "g"))?.length ?? 0;
 }
 
+function slideSectionCount(html: string) {
+  return html.match(/<section\b[^>]*data-slida-slide/g)?.length ?? 0;
+}
+
+async function writeThemeLayoutPackage(projectRoot: string, packageName: string) {
+  const packageDir = join(projectRoot, "node_modules", ...packageName.split("/"));
+  const layoutsDir = join(packageDir, "layouts");
+  await mkdir(layoutsDir, { recursive: true });
+  await writeFile(
+    join(packageDir, "package.json"),
+    JSON.stringify({
+      name: packageName,
+      type: "module",
+      exports: { "./layouts/*.astro": "./layouts/*.astro", "./package.json": "./package.json" },
+    }),
+  );
+  await writeFile(
+    join(layoutsDir, "cover.astro"),
+    `<article class="fixture-cover"><slot /></article>\n`,
+  );
+  await writeFile(
+    join(layoutsDir, "default.astro"),
+    `<article class="fixture-default"><slot /></article>\n`,
+  );
+  await writeFile(
+    join(layoutsDir, "two-column.astro"),
+    `<article class="fixture-two-column"><header data-slot="default"><slot /></header><section data-slot="left"><slot name="left" /></section><section data-slot="right"><slot name="right" /></section></article>\n`,
+  );
+}
+
+async function writeLayoutThemeConfig(projectRoot: string) {
+  await writeThemeLayoutPackage(projectRoot, "@acme/slida-layout-theme");
+  await writeFile(
+    join(projectRoot, "slida.config.ts"),
+    "export default { theme: '@acme/slida-layout-theme' };\n",
+  );
+}
+
 test("resolveProjectRoot returns an absolute project root", () => {
   expect(resolveProjectRoot(".")).toBe(process.cwd());
 });
@@ -108,6 +146,51 @@ import Page from "@slida/cli/page";
     expect(html).toContain('data-slide-count="2"');
     expect(html).toContain("Intro");
     expect(html).toContain("Details");
+    expect(html).not.toContain("<layout");
+  });
+});
+
+test("buildDeck renders Astro pages through theme layouts and named slots", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeLayoutThemeConfig(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Columns"><layout id="two-column" /><h1>Column title</h1><div slot="left">Left content</div><div slot="right">Right content</div></Page>
+<Page title="Default"><p>Default content</p></Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideCount(html)).toBe(2);
+    expect(slideSectionCount(html)).toBe(2);
+    expect(html).toContain('class="slida-slide"');
+    expect(html).toContain("data-slida-slide");
+    expect(html).toContain('data-slide-count="2"');
+    expect(layoutCount(html, "two-column")).toBe(1);
+    expect(layoutCount(html, "default")).toBe(1);
+    expect(html).toContain('aria-label="Columns"');
+    expect(html).toContain('class="fixture-two-column"');
+    expect(html).toContain('data-slot="default"');
+    expect(html).toContain("Column title");
+    expect(html).toContain('data-slot="left"');
+    expect(html).toContain("Left content");
+    expect(html).toContain('data-slot="right"');
+    expect(html).toContain("Right content");
+    expect(html).toContain('class="fixture-default"');
+    expect(html).toContain("Default content");
     expect(html).not.toContain("<layout");
   });
 });
@@ -218,6 +301,63 @@ import Page from "@slida/cli/page";
   );
 });
 
+test("buildDeck rejects Astro decks that select a missing theme layout", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeLayoutThemeConfig(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "bad.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page><layout id="missing" /><h1>Missing</h1></Page>
+`,
+    );
+
+    await expect(
+      buildDeck({ root: projectRoot, deckFile: "slides/bad.astro", logLevel: "silent" }),
+    ).rejects.toThrow(/does not provide layout "missing"/);
+  });
+});
+
+test("buildDeck renders Astro pages through the Google Basic two-column layout", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeFile(
+      join(projectRoot, "slida.config.ts"),
+      "export default { theme: 'google-basic' };\n",
+    );
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Google Columns"><layout id="two-column" /><h1>Google title</h1><p slot="left">Google left</p><p slot="right">Google right</p></Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideSectionCount(html)).toBe(1);
+    expect(layoutCount(html, "two-column")).toBe(1);
+    expect(html).toContain("Google title");
+    expect(html).toContain('class="slida-google-column slida-google-column--left"');
+    expect(html).toContain("Google left");
+    expect(html).toContain('class="slida-google-column slida-google-column--right"');
+    expect(html).toContain("Google right");
+  });
+});
+
 test("buildDeck builds one selected MDX deck file split by dividers", async () => {
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
@@ -254,5 +394,119 @@ title: MDX Deck
     expect(html).toContain("Intro");
     expect(html).toContain("Details");
     expect(html).not.toContain("<layout");
+  });
+});
+
+test("buildDeck renders MDX pages through theme layouts and named slots", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeLayoutThemeConfig(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.mdx"),
+      `---
+title: MDX Layout Deck
+---
+
+<layout id="two-column" />
+
+# MDX Column title
+
+<div slot="left">MDX left content</div>
+
+<div slot="right">MDX right content</div>
+
+---
+
+# MDX default content
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.mdx",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideCount(html)).toBe(2);
+    expect(slideSectionCount(html)).toBe(2);
+    expect(html).toContain('data-slide-count="2"');
+    expect(layoutCount(html, "two-column")).toBe(1);
+    expect(layoutCount(html, "default")).toBe(1);
+    expect(html).toContain('class="fixture-two-column"');
+    expect(html).toContain("MDX Column title");
+    expect(html).toContain("MDX left content");
+    expect(html).toContain("MDX right content");
+    expect(html).toContain('class="fixture-default"');
+    expect(html).toContain("MDX default content");
+    expect(html).not.toContain("<layout");
+  });
+});
+
+test("buildDeck renders MDX pages through the Google Basic two-column layout", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeFile(
+      join(projectRoot, "slida.config.ts"),
+      "export default { theme: 'google-basic' };\n",
+    );
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.mdx"),
+      `---
+title: Google Basic MDX
+---
+
+<layout id="two-column" />
+
+# Google MDX title
+
+<p slot="left">Google MDX left</p>
+
+<p slot="right">Google MDX right</p>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.mdx",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideSectionCount(html)).toBe(1);
+    expect(layoutCount(html, "two-column")).toBe(1);
+    expect(html).toContain("Google MDX title");
+    expect(html).toContain('class="slida-google-column slida-google-column--left"');
+    expect(html).toContain("Google MDX left");
+    expect(html).toContain('class="slida-google-column slida-google-column--right"');
+    expect(html).toContain("Google MDX right");
+    expect(html).not.toContain("<layout");
+  });
+});
+
+test("buildDeck rejects MDX decks that select a missing theme layout", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeLayoutThemeConfig(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "bad.mdx"),
+      `---
+title: Missing
+---
+
+<layout id="missing" />
+
+# Missing
+`,
+    );
+
+    await expect(
+      buildDeck({ root: projectRoot, deckFile: "slides/bad.mdx", logLevel: "silent" }),
+    ).rejects.toThrow(/does not provide layout "missing"/);
   });
 });

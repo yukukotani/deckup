@@ -4,11 +4,12 @@
   "private": true,
   "files": [
     "fonts",
-    "style.css"
+    "layouts"
   ],
   "type": "module",
   "exports": {
-    ".": "./style.css",
+    "./layouts/*.astro": "./layouts/*.astro",
+    "./fonts/*": "./fonts/*",
     "./package.json": "./package.json"
   },
   "publishConfig": {

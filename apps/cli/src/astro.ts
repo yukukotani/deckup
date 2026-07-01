@@ -1,16 +1,20 @@
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import { build, dev, type AstroInlineConfig } from "astro";
-import { realpath } from "node:fs/promises";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { loadSlidaConfig, resolveSlidaConfig } from "./config.ts";
 import { resolveDeckFile } from "./deck.ts";
 import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
 import { remarkSlidaMdxPages } from "./slida-mdx-pages.ts";
 import { createSlidaVitePlugins } from "./slida-vite-plugins.ts";
-import { resolveSlidaTheme } from "./theme.ts";
+import {
+  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  createGeneratedPageComponentSource,
+} from "./theme-layouts.ts";
+import { resolveSlidaThemeLayouts } from "./theme.ts";
 import type {
   SlidaBuildOptions,
   SlidaConfig,
@@ -58,6 +62,38 @@ export function normalizeBuildOutDir(projectRoot: string, outDir = DEFAULT_BUILD
   return resolve(projectRoot, outDir);
 }
 
+async function resolveRuntimeSlidaTheme(projectRoot: string, theme: unknown) {
+  return resolveSlidaThemeLayouts(projectRoot, theme);
+}
+
+async function writeGeneratedPageComponent(
+  paths: SlidaRuntimePaths,
+  slidaTheme: SlidaResolvedTheme,
+): Promise<SlidaRuntimePaths> {
+  if (!slidaTheme.layouts?.length) return paths;
+  const generatedPageFilePath = join(paths.runtimeOutDir, "generated", "Page.astro");
+  await mkdir(dirname(generatedPageFilePath), { recursive: true });
+  await writeFile(
+    generatedPageFilePath,
+    createGeneratedPageComponentSource(slidaTheme.slotNames ?? [], VIRTUAL_SLIDA_THEME_LAYOUTS_ID),
+  );
+  return { ...paths, generatedPageFilePath };
+}
+
+function assertLayoutThemeConfig(paths: SlidaRuntimePaths, slidaTheme?: SlidaResolvedTheme) {
+  if (!slidaTheme) return;
+  if (!slidaTheme.layouts?.length) {
+    throw new Error(
+      `Slida theme ${JSON.stringify(slidaTheme.name)} must resolve from layouts/*.astro. Use resolveSlidaThemeLayouts() or createSlidaAstroConfig() instead of a CSS-only theme object.`,
+    );
+  }
+  if (!paths.generatedPageFilePath) {
+    throw new Error(
+      `Layout Slida theme ${JSON.stringify(slidaTheme.name)} requires a generated Page component. Use createSlidaAstroConfig() or pass paths.generatedPageFilePath when calling createAstroInlineConfig().`,
+    );
+  }
+}
+
 function createMdxIntegration(deck?: SlidaResolvedDeck) {
   if (!deck) {
     return mdx();
@@ -84,8 +120,18 @@ export function createAstroInlineConfig(
   delete (userViteConfig as { root?: unknown }).root;
   const userViteServer = userViteConfig.server ?? {};
   const userViteFs = userViteServer.fs ?? {};
-  const slidaVitePlugins = deck ? createSlidaVitePlugins(deck, slidaTheme) : [];
+  assertLayoutThemeConfig(paths, slidaTheme);
+  const slidaVitePlugins = deck
+    ? createSlidaVitePlugins(deck, slidaTheme, {
+        generatedPageFilePath: paths.generatedPageFilePath,
+      })
+    : [];
+  const slidaPageAlias =
+    slidaTheme?.layouts?.length && paths.generatedPageFilePath
+      ? [{ find: /^@slida\/cli\/page$/, replacement: paths.generatedPageFilePath }]
+      : [];
   const requiredAliases = [
+    ...slidaPageAlias,
     {
       find: /^astro\/app$/,
       replacement: `${astroPackageRoot}/dist/core/app/entrypoints/index.js`,
@@ -112,6 +158,7 @@ export function createAstroInlineConfig(
     paths.runtimeSourceDir,
     ...(deck ? [dirname(deck.filePath)] : []),
     ...(slidaTheme?.filePath ? [dirname(slidaTheme.filePath)] : []),
+    ...(slidaTheme?.layoutsDir ? [slidaTheme.layoutsDir] : []),
   ];
 
   const astroConfig = {
@@ -162,10 +209,11 @@ export async function createSlidaAstroConfig(
 ): Promise<SlidaResolvedConfig> {
   const projectRoot = await realpath(resolveProjectRoot(options.root));
   const deck = await resolveDeckFile(projectRoot, options.deckFile);
-  const paths = await prepareRuntime(projectRoot);
-  const loadedConfig = await loadSlidaConfig(paths.projectRoot);
+  const preparedPaths = await prepareRuntime(projectRoot);
+  const loadedConfig = await loadSlidaConfig(preparedPaths.projectRoot);
   const slidaConfig = resolveSlidaConfig(loadedConfig.config, options);
-  const slidaTheme = await resolveSlidaTheme(paths.projectRoot, slidaConfig.theme);
+  const slidaTheme = await resolveRuntimeSlidaTheme(preparedPaths.projectRoot, slidaConfig.theme);
+  const paths = await writeGeneratedPageComponent(preparedPaths, slidaTheme);
   return {
     paths,
     deck,

@@ -1,9 +1,7 @@
-import { constants } from "node:fs";
-import { access } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { extname, join, sep } from "node:path";
+import { dirname, join } from "node:path";
 
-import type { SlidaResolvedTheme } from "./types.ts";
+import { discoverThemeLayouts } from "./theme-layouts.ts";
 
 export const DEFAULT_SLIDA_THEME = "default";
 export const BUILTIN_SLIDA_THEME_PACKAGES = {
@@ -20,12 +18,16 @@ const cliRequire = createRequire(import.meta.url);
 
 type SlidaBuiltinTheme = (typeof BUILTIN_SLIDA_THEMES)[number];
 
-function normalizePath(path: string) {
-  return path.split(sep).join("/");
-}
+type ResolvedThemePackage = {
+  filePath: string;
+  packageJsonPath?: string;
+  packageName: string;
+  packageRoot?: string;
+  source: "builtin" | "package";
+};
 
-function toViteFsImportPath(filePath: string) {
-  return `/@fs/${normalizePath(filePath)}`;
+function uniqueStrings(values: string[]) {
+  return [...new Set(values)];
 }
 
 function isBuiltinThemeName(themeName: string): themeName is SlidaBuiltinTheme {
@@ -47,53 +49,48 @@ function normalizeThemeName(theme: unknown) {
   return trimmedThemeName;
 }
 
-function resolveThemePackage(projectRoot: string, themeName: string) {
+function createThemeResolver(projectRoot: string, themeName: string) {
   const isBuiltin = isBuiltinThemeName(themeName);
   const packageName = isBuiltin ? BUILTIN_SLIDA_THEME_PACKAGES[themeName] : themeName;
   const resolver = isBuiltin ? cliRequire : createRequire(join(projectRoot, "package.json"));
+  return { isBuiltin, packageName, resolver };
+}
+
+function resolveThemePackageRoot(projectRoot: string, themeName: string): ResolvedThemePackage {
+  const { isBuiltin, packageName, resolver } = createThemeResolver(projectRoot, themeName);
 
   try {
+    const packageJsonPath = resolver.resolve(`${packageName}/package.json`);
     return {
-      filePath: resolver.resolve(packageName),
+      filePath: packageJsonPath,
+      packageJsonPath,
       packageName,
+      packageRoot: dirname(packageJsonPath),
       source: isBuiltin ? "builtin" : "package",
     } as const;
   } catch (error) {
     throw new Error(
-      `Unable to resolve Slida theme ${JSON.stringify(themeName)} from ${projectRoot}. Built-in themes: ${BUILTIN_SLIDA_THEMES.join(", ")}. For npm themes, install the package and export CSS from its package root.`,
+      `Unable to resolve Slida theme ${JSON.stringify(themeName)} package metadata from ${projectRoot}. Built-in themes: ${BUILTIN_SLIDA_THEMES.join(", ")}. For npm themes, install the package and export ./package.json plus Astro layout components from layouts/*.astro.`,
       { cause: error },
     );
   }
 }
 
-async function assertReadableCssTheme(themeName: string, filePath: string) {
-  if (extname(filePath) !== ".css") {
-    throw new Error(
-      `Slida theme ${JSON.stringify(themeName)} must resolve to a CSS file. Resolved path: ${filePath}`,
-    );
-  }
-
-  try {
-    await access(filePath, constants.R_OK);
-  } catch (error) {
-    throw new Error(`Slida theme ${JSON.stringify(themeName)} CSS is not readable: ${filePath}`, {
-      cause: error,
-    });
-  }
-}
-
-export async function resolveSlidaTheme(
-  projectRoot: string,
-  theme: unknown = DEFAULT_SLIDA_THEME,
-): Promise<SlidaResolvedTheme> {
+export async function resolveSlidaThemeLayouts(projectRoot: string, theme: unknown) {
   const name = normalizeThemeName(theme);
-  const resolvedTheme = resolveThemePackage(projectRoot, name);
-  await assertReadableCssTheme(name, resolvedTheme.filePath);
+  const resolvedTheme = resolveThemePackageRoot(projectRoot, name);
+  const packageRoot = resolvedTheme.packageRoot ?? dirname(resolvedTheme.filePath);
+  const layoutsDir = join(packageRoot, "layouts");
+  const layouts = await discoverThemeLayouts(name, layoutsDir);
 
   return {
     name,
-    importPath: toViteFsImportPath(resolvedTheme.filePath),
     filePath: resolvedTheme.filePath,
+    packageName: resolvedTheme.packageName,
+    packageRoot,
+    layoutsDir,
+    layouts,
+    slotNames: uniqueStrings(layouts.flatMap((layout) => layout.slotNames)).sort(),
     source: resolvedTheme.source,
   };
 }

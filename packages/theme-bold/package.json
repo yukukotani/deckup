@@ -3,11 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "files": [
-    "style.css"
+    "layouts"
   ],
   "type": "module",
   "exports": {
-    ".": "./style.css",
+    "./layouts/*.astro": "./layouts/*.astro",
     "./package.json": "./package.json"
   },
   "publishConfig": {

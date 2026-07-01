@@ -16,8 +16,15 @@ export {
   BUILTIN_SLIDA_THEME_PACKAGES,
   BUILTIN_SLIDA_THEMES,
   DEFAULT_SLIDA_THEME,
-  resolveSlidaTheme,
+  resolveSlidaThemeLayouts,
 } from "./theme.ts";
+export {
+  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  createGeneratedPageComponentSource,
+  discoverThemeLayouts,
+  extractAstroSlotNames,
+  toViteFsImportPath,
+} from "./theme-layouts.ts";
 export {
   normalizeBuildValues,
   normalizeDevValues,
@@ -43,5 +50,6 @@ export type {
   SlidaResolvedConfig,
   SlidaResolvedDeck,
   SlidaResolvedTheme,
+  SlidaResolvedThemeLayout,
   SlidaRuntimePaths,
 } from "./types.ts";

@@ -10,16 +10,40 @@ Select a theme in `slida.config.ts` with the top-level `theme` option:
 import { defineConfig } from "@slida/cli";
 
 export default defineConfig({
-  theme: "minimal",
+  theme: "google-basic",
 });
 ```
 
-Slida ships three first-party themes: `default`, `minimal`, and `bold`.
+Slida ships four first-party themes: `default`, `minimal`, `bold`, and `google-basic`.
 Omitting `theme` uses `default`.
-First-party themes are regular npm packages in this workspace (`@slida/theme-default`, `@slida/theme-minimal`, and `@slida/theme-bold`), while slide authors use the short names above.
+First-party themes are regular npm packages in this workspace (`@slida/theme-default`, `@slida/theme-minimal`, `@slida/theme-bold`, and `@slida/theme-google-basic`), while slide authors use the short names above.
 
-Theme CSS is loaded after Slida's base runtime CSS and before deck-authored CSS.
-You can still import deck-specific CSS from your `.astro` or `.mdx` deck; those imports remain later in the cascade and can override theme tokens.
+Themes provide Astro layout components instead of a package-root CSS file.
+A slide selects a layout with the existing metadata-only `<layout id="..." />` child, and Slida injects the slide body into the selected layout's slots.
+Single-region layouts use the default slot, so authors can write normal content without a `slot` attribute.
+Multi-region layouts use Astro's standard named slot syntax:
+
+```astro
+<Page title="Two-column page title">
+  <layout id="two-column" />
+  <h1>This is page title</h1>
+  <p slot="left">Left column content</p>
+  <p slot="right">Right column content</p>
+</Page>
+```
+
+In the built-in `google-basic` theme, the `two-column` layout exposes the `left` and `right` named slots shown above.
+
+The same `slot="left"` / `slot="right"` attributes work in MDX when using JSX elements:
+
+```mdx
+<layout id="two-column" />
+
+# This is page title
+
+<p slot="left">Left column content</p>
+<p slot="right">Right column content</p>
+```
 
 ### npm theme packages
 
@@ -31,30 +55,40 @@ export default defineConfig({
 });
 ```
 
-A theme package must export CSS from its package root:
+A theme package must expose its package metadata and convention-based Astro layout files from `layouts/*.astro`:
 
 ```json
 {
   "name": "@acme/slida-theme",
   "type": "module",
   "exports": {
-    ".": "./style.css"
+    "./layouts/*.astro": "./layouts/*.astro",
+    "./package.json": "./package.json"
   },
-  "files": ["style.css"]
+  "files": ["layouts"]
 }
 ```
 
-```css
-:root {
-  --slida-bg: #0f172a;
-  --slida-text: #cbd5e1;
-  --slida-text-strong: #f8fafc;
-  --slida-accent: #38bdf8;
-}
+Each layout id comes from its filename.
+For example, `layouts/default.astro` provides the `default` layout and `layouts/two-column.astro` provides the `two-column` layout:
+
+```astro
+---
+import "./styles.css";
+---
+
+<article class="theme-two-column">
+  <header><slot /></header>
+  <section><slot name="left" /></section>
+  <section><slot name="right" /></section>
+</article>
 ```
 
-Theme packages are CSS-only in this first version.
-Astro component/layout distribution is reserved for a later extension point.
+CSS-only theme packages that export `style.css` from `.` are no longer supported.
+Move shared styling into files imported by the layout components, such as `layouts/styles.css`.
+Programmatic integrations should use `resolveSlidaThemeLayouts()` for resolved theme metadata.
+The previous `resolveSlidaTheme` named export was intentionally removed with the CSS-only resolver; it no longer exists as a package-root CSS resolver.
+During development, Slida watches the selected theme's layout files and `layouts/` directory, re-discovers layout membership, and refreshes generated Page slot forwarding when layout slot declarations change.
 
 ## Development
 
@@ -101,8 +135,8 @@ vp run -r build
 Use the sample package in `example/` to verify that development and static output have the same visible deck behavior.
 
 1. Start the preview server with `vp run dev` or `vp run example#dev`.
-2. Open the printed local URL in a browser and confirm the first slide shows `Astro-native slides`.
-3. Press <kbd>→</kbd> or <kbd>PageDown</kbd> and confirm the second slide shows `MDX works too` and the URL hash changes to `#2`.
+2. Open the printed local URL in a browser and confirm the first slide shows `This is presentation title`.
+3. Press <kbd>→</kbd> or <kbd>PageDown</kbd> and confirm the second slide shows `This is section title` and the URL hash changes to `#2`.
 4. Press <kbd>←</kbd> or <kbd>PageUp</kbd> and confirm the first slide is visible again and the URL hash changes to `#1`.
 5. Run `vp run example#build`, serve the generated `example/dist/` directory, and repeat the same first-slide and navigation checks against the static output.
-6. Confirm the example config uses `theme: "minimal"` and that deck-authored Tailwind styles still override theme tokens where the slides define their own utility classes.
+6. Confirm the example config uses `theme: "google-basic"` and that the two-column slide routes the `slot="left"` and `slot="right"` content into the corresponding regions.

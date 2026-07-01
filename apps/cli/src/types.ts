@@ -39,12 +39,25 @@ export interface SlidaRuntimePaths {
   projectRoot: string;
   runtimeSourceDir: string;
   runtimeOutDir: string;
+  generatedPageFilePath?: string;
+}
+
+export interface SlidaResolvedThemeLayout {
+  id: string;
+  filePath: string;
+  importPath: string;
+  slotNames: string[];
 }
 
 export interface SlidaResolvedTheme {
   name: string;
-  importPath: string;
+  importPath?: string;
   filePath?: string;
+  packageName?: string;
+  packageRoot?: string;
+  layoutsDir?: string;
+  layouts?: SlidaResolvedThemeLayout[];
+  slotNames?: string[];
   source: "builtin" | "package";
 }
 

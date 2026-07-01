@@ -31,6 +31,11 @@ type SlidaMdxPage = {
   layout: string;
 };
 
+type SlidaMdxDeckAnalysis = {
+  pageCount: number;
+  layouts: Array<{ layout: string }>;
+};
+
 type VFileLike = {
   path?: string;
   history?: string[];
@@ -102,6 +107,10 @@ function resolveMdxPages(children: MdastNode[], filePath: string) {
   );
 }
 
+function getRenderableMdxNodes(children: MdastRoot["children"]) {
+  return children.filter((child) => child.type !== "mdxjsEsm");
+}
+
 function createPageNode(page: SlidaMdxPage): MdastNode {
   return {
     type: "mdxJsxFlowElement",
@@ -139,7 +148,7 @@ export function remarkSlidaMdxPages(options: SlidaMdxPagesOptions) {
     }
 
     const esmNodes = tree.children.filter((child) => child.type === "mdxjsEsm");
-    const renderableNodes = tree.children.filter((child) => child.type !== "mdxjsEsm");
+    const renderableNodes = getRenderableMdxNodes(tree.children);
     const pages = resolveMdxPages(renderableNodes, options.deckFile);
     tree.children = [createPageImportNode(), ...esmNodes, ...pages.map(createPageNode)];
   };
@@ -158,6 +167,15 @@ function parseMdxBody(source: string): MdastRoot {
   return unified().use(remarkParse).use(remarkMdx).parse(stripMdxFrontmatter(source)) as MdastRoot;
 }
 
+export function analyzeMdxDeckSource(source: string, filePath = "MDX deck"): SlidaMdxDeckAnalysis {
+  const renderableNodes = getRenderableMdxNodes(parseMdxBody(source).children);
+  const pages = resolveMdxPages(renderableNodes, filePath);
+  return {
+    pageCount: pages.length,
+    layouts: pages.map((page) => ({ layout: page.layout })),
+  };
+}
+
 export function countMdxDeckPages(source: string) {
-  return resolveMdxPages(parseMdxBody(source).children, "MDX deck").length;
+  return analyzeMdxDeckSource(source).pageCount;
 }

@@ -3,7 +3,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("./fonts/roboto-v30-latin-regular.woff2") format("woff2");
+  src: url("../fonts/roboto-v30-latin-regular.woff2") format("woff2");
 }
 
 :root {
@@ -235,10 +235,12 @@ body {
   line-height: 1.36;
 }
 
+[data-slida-layout="two-column"] .slida-google-column--left,
 [data-slida-layout="two-column"] .slida-google-column:first-of-type {
   left: calc(43.9 * var(--gb-u));
 }
 
+[data-slida-layout="two-column"] .slida-google-column--right,
 [data-slida-layout="two-column"] .slida-google-column:last-of-type {
   left: calc(376.4 * var(--gb-u));
 }
@@ -448,4 +450,31 @@ body {
   color: #fff;
   font-size: calc(48 * var(--gb-u));
   line-height: calc(57.5 / 48);
+}
+
+.slida-google-column :is(p, ul, ol) {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  font: inherit;
+  color: inherit;
+}
+
+.slida-google-column ul {
+  list-style: disc;
+  padding-left: calc(24 * var(--gb-u));
+}
+
+.slida-google-column ol {
+  list-style: decimal;
+  padding-left: calc(24 * var(--gb-u));
+}
+
+.slida-google-column li {
+  padding-left: calc(8 * var(--gb-u));
+  font: inherit;
+}
+
+.slida-google-column :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-top: calc(10 * var(--gb-u));
 }
