@@ -265,6 +265,9 @@ importers:
       '@slida/theme-default':
         specifier: workspace:*
         version: link:../../packages/theme-default
+      '@slida/theme-google-basic':
+        specifier: workspace:*
+        version: link:../../packages/theme-google-basic
       '@slida/theme-minimal':
         specifier: workspace:*
         version: link:../../packages/theme-minimal
@@ -336,6 +339,8 @@ importers:
   packages/theme-bold: {}
 
   packages/theme-default: {}
+
+  packages/theme-google-basic: {}
 
   packages/theme-minimal: {}
 

@@ -5,7 +5,7 @@ import { defineConfig } from "@slida/cli";
 
 export default defineConfig({
   port: 4321,
-  theme: "default",
+  theme: "google-basic",
   astro: {
     vite: {
       plugins: [tailwindcss() as never],

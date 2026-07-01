@@ -192,7 +192,7 @@ test("resolveSlidaTheme rejects empty themes", async () => {
 test("resolveSlidaTheme rejects missing npm themes with built-in guidance", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(resolveSlidaTheme(projectRoot, "missing-theme")).rejects.toThrow(
-      /Built-in themes: default, minimal, bold/,
+      /Built-in themes: default, minimal, bold, google-basic/,
     );
   });
 });

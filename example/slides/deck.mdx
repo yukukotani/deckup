@@ -1,44 +1,62 @@
 ---
-title: MDX Deck Example
+title: Google Basic MDX Deck Example
 ---
 
-import "../styles/tailwind.css";
+# This is presentation title
 
-<div className="space-y-8">
-  <p className="slida-kicker">MDX deck</p>
-
-# Markdown-first slides
-
-Write prose in Markdown, keep the deck in one selected `.mdx` file, and split pages with post-frontmatter dividers.
-
-  <ul className="mx-auto grid max-w-3xl gap-4 text-left md:grid-cols-3">
-    <li className="rounded-2xl border border-purple-300/40 bg-purple-500/10 p-4 text-purple-950 dark:text-purple-100">
-      Frontmatter sets the deck title.
-    </li>
-    <li className="rounded-2xl border border-purple-300/40 bg-purple-500/10 p-4 text-purple-950 dark:text-purple-100">
-      `---` after frontmatter starts a new page.
-    </li>
-    <li className="rounded-2xl border border-purple-300/40 bg-purple-500/10 p-4 text-purple-950 dark:text-purple-100">
-      JSX is available for custom layout.
-    </li>
-  </ul>
-</div>
+This is presentation subtitle
 
 ---
 
-<div className="space-y-8">
-  <p className="slida-kicker">Slide 2</p>
+<layout id="section" />
 
-# Compose with JSX
+# This is section title
 
-Use Markdown for text-heavy sections, then add components or HTML-like JSX when a slide needs structure.
+---
 
-  <div className="mx-auto grid max-w-2xl gap-3 text-left">
-    <div className="rounded-2xl border border-slate-300/50 p-4 dark:border-slate-700">
-      Preview: <code>slida dev slides/deck.mdx</code>
-    </div>
-    <div className="rounded-2xl border border-slate-300/50 p-4 dark:border-slate-700">
-      Build: <code>slida build slides/deck.mdx</code>
-    </div>
-  </div>
-</div>
+<layout id="page" />
+
+# This is page title
+
+This is page content
+
+- bullet
+- list
+
+This is new paragraph
+
+1. number
+2. list
+
+---
+
+<layout id="two-column" />
+
+# This is page title
+
+This is two-column page content
+
+This is two-column page content
+
+---
+
+<layout id="number" />
+
+xx%
+
+This is number page
+
+---
+
+<layout id="quote" />
+
+This is quote page
+
+\- name
+
+---
+
+<layout id="statement" />
+
+This is statement\
+page

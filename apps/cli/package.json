@@ -27,6 +27,7 @@
     "@astrojs/mdx": "catalog:",
     "@slida/theme-bold": "workspace:*",
     "@slida/theme-default": "workspace:*",
+    "@slida/theme-google-basic": "workspace:*",
     "@slida/theme-minimal": "workspace:*",
     "acorn": "^8.16.0",
     "astro": "catalog:",

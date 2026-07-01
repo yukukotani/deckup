@@ -1,0 +1,17 @@
+{
+  "name": "@slida/theme-google-basic",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "fonts",
+    "style.css"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./style.css",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

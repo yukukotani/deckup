@@ -1,45 +1,55 @@
 ---
 import Page from "@slida/cli/page";
-import "../styles/tailwind.css";
-
-const highlights = ["Astro components", "MDX authoring", "Static Web deck"];
 ---
 
-<Page title="Astro-native slides">
-  <article class="space-y-10">
-    <p class="slida-kicker">Slida MVP</p>
-    <div class="space-y-6">
-      <h1>Astro-native slides</h1>
-      <p>
-        Write a deck as one selected <code>.astro</code> or <code>.mdx</code> file, preview it with <code
-          >slida dev</code
-        >, then ship the same deck with <code>slida build</code>.
-      </p>
-    </div>
-    <ul class="mx-auto grid max-w-3xl gap-4 text-left md:grid-cols-3">
-      {
-        highlights.map((highlight) => (
-          <li class="rounded-2xl border border-purple-300/40 bg-purple-500/10 p-4 text-purple-950 dark:text-purple-100">
-            {highlight}
-          </li>
-        ))
-      }
-    </ul>
-  </article>
+<Page title="Presentation title">
+  <layout id="cover" />
+  <h1 class="slida-google-title">This is presentation title</h1>
+  <p class="slida-google-subtitle">This is presentation subtitle</p>
 </Page>
 
-<Page title="MDX-style authoring">
-  <div class="space-y-8">
-    <p class="slida-kicker">Slide 2</p>
-    <h1>MDX works too</h1>
-    <p>Use <strong>Markdown</strong> for fast prose, then drop into JSX when a slide needs layout.</p>
-    <div class="mx-auto grid max-w-2xl gap-3 text-left">
-      <div class="rounded-2xl border border-slate-300/50 p-4 dark:border-slate-700">
-        Keyboard navigation: <kbd>←</kbd> / <kbd>→</kbd>
-      </div>
-      <div class="rounded-2xl border border-slate-300/50 p-4 dark:border-slate-700">
-        URL state: <code>#1</code>, <code>#2</code>, ...
-      </div>
-    </div>
+<Page title="Section title">
+  <layout id="section" />
+  <h1 class="slida-google-title">This is section title</h1>
+</Page>
+
+<Page title="Page title">
+  <layout id="page" />
+  <h1 class="slida-google-title">This is page title</h1>
+  <div class="slida-google-body">
+    <p>This is page content</p>
+    <ul>
+      <li>bullet</li>
+      <li>list</li>
+    </ul>
+    <p>This is new paragraph</p>
+    <ol>
+      <li>number</li>
+      <li>list</li>
+    </ol>
   </div>
+</Page>
+
+<Page title="Two-column page title">
+  <layout id="two-column" />
+  <h1 class="slida-google-title">This is page title</h1>
+  <p class="slida-google-column">This is two-column page content</p>
+  <p class="slida-google-column">This is two-column page content</p>
+</Page>
+
+<Page title="Number page">
+  <layout id="number" />
+  <p class="slida-google-big-number">xx%</p>
+  <p class="slida-google-subtitle">This is number page</p>
+</Page>
+
+<Page title="Quote page">
+  <layout id="quote" />
+  <p class="slida-google-quote">This is quote page</p>
+  <p class="slida-google-quote-name">- name</p>
+</Page>
+
+<Page title="Statement page">
+  <layout id="statement" />
+  <p class="slida-google-statement">This is statement<br />page</p>
 </Page>
