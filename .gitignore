@@ -14,6 +14,7 @@ node_modules
 dist
 dist-ssr
 *.local
+/example/deck.pdf
 
 # Editor directories and files
 .vscode/*
