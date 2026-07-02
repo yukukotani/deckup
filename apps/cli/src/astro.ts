@@ -1,10 +1,13 @@
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import { build, dev, type AstroInlineConfig } from "astro";
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
+import { resolveChromiumExecutablePath } from "./browser.ts";
 import { loadSlidaConfig, resolveSlidaConfig } from "./config.ts";
 import { resolveDeckFile } from "./deck.ts";
 import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
@@ -20,6 +23,8 @@ import type {
   SlidaConfig,
   SlidaDevOptions,
   SlidaDevResult,
+  SlidaExportOptions,
+  SlidaExportResult,
   SlidaResolvedConfig,
   SlidaResolvedDeck,
   SlidaResolvedTheme,
@@ -29,6 +34,10 @@ import type {
 export const DEFAULT_DEV_HOST = "127.0.0.1";
 export const DEFAULT_DEV_PORT = 4321;
 export const DEFAULT_BUILD_OUT_DIR = "dist";
+export const DEFAULT_EXPORT_SEARCH_PARAM = "slida-export";
+export const DEFAULT_EXPORT_SEARCH_VALUE = "pdf";
+export const PDF_SLIDE_WIDTH = "16in";
+export const PDF_SLIDE_HEIGHT = "9in";
 
 const require = createRequire(import.meta.url);
 const astroPackageRoot = dirname(require.resolve("astro/package.json"));
@@ -60,6 +69,18 @@ function normalizeAliasEntries(alias: unknown) {
 
 export function normalizeBuildOutDir(projectRoot: string, outDir = DEFAULT_BUILD_OUT_DIR) {
   return resolve(projectRoot, outDir);
+}
+
+function defaultExportOutFile(deck: SlidaResolvedDeck) {
+  return `${basename(deck.filePath, extname(deck.filePath))}.pdf`;
+}
+
+export function normalizeExportOutFile(
+  projectRoot: string,
+  deck: SlidaResolvedDeck,
+  out = defaultExportOutFile(deck),
+) {
+  return resolve(projectRoot, out);
 }
 
 async function resolveRuntimeSlidaTheme(projectRoot: string, theme: unknown) {
@@ -106,9 +127,97 @@ function createMdxIntegration(deck?: SlidaResolvedDeck) {
   });
 }
 
+function isInsideDirectory(rootDir: string, filePath: string) {
+  const relativePath = relative(rootDir, filePath);
+  return relativePath.length === 0 || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+}
+
+function contentType(filePath: string) {
+  switch (extname(filePath)) {
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+      return "text/javascript; charset=utf-8";
+    case ".json":
+      return "application/json; charset=utf-8";
+    case ".svg":
+      return "image/svg+xml";
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".webp":
+      return "image/webp";
+    case ".woff":
+      return "font/woff";
+    case ".woff2":
+      return "font/woff2";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+async function serveStaticExportOutDir(outDir: string) {
+  const rootDir = await realpath(outDir);
+  const server = createServer(async (request, response) => {
+    try {
+      const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+      const pathname = decodeURIComponent(
+        requestUrl.pathname === "/" ? "/index.html" : requestUrl.pathname,
+      );
+      const filePath = resolve(rootDir, `.${pathname}`);
+
+      if (!isInsideDirectory(rootDir, filePath)) {
+        response.writeHead(403).end("Forbidden");
+        return;
+      }
+
+      const fileStat = await stat(filePath);
+      if (!fileStat.isFile()) {
+        response.writeHead(404).end("Not found");
+        return;
+      }
+
+      response.writeHead(200, { "content-type": contentType(filePath) });
+      createReadStream(filePath).pipe(response);
+    } catch (error) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+      response
+        .writeHead(code === "ENOENT" ? 404 : 500)
+        .end(code === "ENOENT" ? "Not found" : "Server error");
+    }
+  });
+
+  await new Promise<void>((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", rejectListen);
+      resolveListen();
+    });
+  });
+
+  const address = server.address();
+  if (typeof address === "string" || address === null) {
+    server.close();
+    throw new Error("Failed to start Slida export static server.");
+  }
+
+  return {
+    url: `http://127.0.0.1:${address.port}/`,
+    close: () =>
+      new Promise<void>((resolveClose, rejectClose) => {
+        server.close((error) => (error ? rejectClose(error) : resolveClose()));
+      }),
+  };
+}
+
 export function createAstroInlineConfig(
   paths: SlidaRuntimePaths,
-  options: SlidaDevOptions | SlidaBuildOptions = {},
+  options: SlidaDevOptions | SlidaBuildOptions | SlidaExportOptions = {},
   slidaConfig: SlidaConfig = {},
   deck?: SlidaResolvedDeck,
   slidaTheme?: SlidaResolvedTheme,
@@ -205,7 +314,7 @@ export function createAstroInlineConfig(
 }
 
 export async function createSlidaAstroConfig(
-  options: SlidaDevOptions | SlidaBuildOptions = {},
+  options: SlidaDevOptions | SlidaBuildOptions | SlidaExportOptions = {},
 ): Promise<SlidaResolvedConfig> {
   const projectRoot = await realpath(resolveProjectRoot(options.root));
   const deck = await resolveDeckFile(projectRoot, options.deckFile);
@@ -234,4 +343,68 @@ export async function startDevServer(options: SlidaDevOptions = {}): Promise<Sli
 export async function buildDeck(options: SlidaBuildOptions = {}) {
   const { astroConfig } = await createSlidaAstroConfig(options);
   await build(astroConfig);
+}
+
+export async function exportDeck(options: SlidaExportOptions = {}): Promise<SlidaExportResult> {
+  const { astroConfig, deck, paths } = await createSlidaAstroConfig(options);
+  if (!deck) {
+    throw new Error("Missing resolved Slida deck for PDF export.");
+  }
+
+  await build(astroConfig);
+
+  const outDir = normalizeBuildOutDir(paths.projectRoot, options.outDir);
+  const htmlFile = join(outDir, "index.html");
+  const pdfFile = normalizeExportOutFile(paths.projectRoot, deck, options.out);
+  await mkdir(dirname(pdfFile), { recursive: true });
+
+  const staticServer = await serveStaticExportOutDir(outDir);
+  const url = new URL(staticServer.url);
+  url.searchParams.set(DEFAULT_EXPORT_SEARCH_PARAM, DEFAULT_EXPORT_SEARCH_VALUE);
+
+  try {
+    const { chromium } = await import("playwright-core");
+    const browser = await chromium.launch({
+      executablePath: await resolveChromiumExecutablePath({
+        executablePath: options.browserExecutablePath,
+        cacheDir: options.browserCacheDir,
+      }),
+      headless: true,
+    });
+    let page: Awaited<ReturnType<typeof browser.newPage>> | undefined;
+    let printModePrepared = false;
+
+    try {
+      page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+      await page.goto(url.href, { waitUntil: "networkidle" });
+      await page.emulateMedia({ media: "print" });
+      await page.evaluate(async () => {
+        window.dispatchEvent(new Event("beforeprint"));
+        await document.fonts?.ready;
+      });
+      printModePrepared = true;
+      await page.pdf({
+        path: pdfFile,
+        printBackground: true,
+        preferCSSPageSize: true,
+        width: PDF_SLIDE_WIDTH,
+        height: PDF_SLIDE_HEIGHT,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+      });
+
+      await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+      printModePrepared = false;
+    } finally {
+      if (printModePrepared) {
+        await page
+          ?.evaluate(() => window.dispatchEvent(new Event("afterprint")))
+          .catch(() => undefined);
+      }
+      await browser.close();
+    }
+  } finally {
+    await staticServer.close();
+  }
+
+  return { outDir, htmlFile, pdfFile, url: url.href };
 }

@@ -1,4 +1,13 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,9 +17,16 @@ import {
   buildDeck,
   createAstroInlineConfig,
   DEFAULT_BUILD_OUT_DIR,
+  exportDeck,
   normalizeBuildOutDir,
+  normalizeExportOutFile,
 } from "../src/astro.ts";
-import { prepareRuntime, resolveProjectRoot, resolveRuntimeSourceDir } from "../src/runtime.ts";
+import {
+  pathExists,
+  prepareRuntime,
+  resolveProjectRoot,
+  resolveRuntimeSourceDir,
+} from "../src/runtime.ts";
 
 const cliPackageRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -29,6 +45,25 @@ async function linkCliPackage(projectRoot: string) {
   await symlink(cliPackageRoot, join(scopeDir, "cli"), "dir");
 }
 
+async function localBrowserExecutablePath() {
+  const candidates = [
+    process.env.SLIDA_CHROMIUM_EXECUTABLE_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+  ].filter(
+    (candidate): candidate is string => typeof candidate === "string" && candidate.length > 0,
+  );
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
 function slideCount(html: string) {
   return html.match(/data-slida-slide(?=[\s=>])/g)?.length ?? 0;
 }
@@ -45,9 +80,9 @@ function extractInlineCss(html: string) {
   return Array.from(html.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g), (match) => match[1]);
 }
 
-async function readBuiltCss(projectRoot: string, html: string) {
+async function readBuiltCss(projectRoot: string, html: string, outDir = "dist") {
   const cssParts = extractInlineCss(html);
-  const assetsDir = join(projectRoot, "dist", "_astro");
+  const assetsDir = join(projectRoot, outDir, "_astro");
 
   try {
     const entries = await readdir(assetsDir, { withFileTypes: true });
@@ -113,6 +148,17 @@ test("resolveRuntimeSourceDir points at the package runtime directory", () => {
 test("normalizeBuildOutDir resolves the default output under the project root", () => {
   const root = resolve("/tmp/slida-project");
   expect(normalizeBuildOutDir(root)).toBe(join(root, DEFAULT_BUILD_OUT_DIR));
+});
+
+test("normalizeExportOutFile resolves the default PDF output from the selected deck basename", () => {
+  const root = resolve("/tmp/slida-project");
+  expect(
+    normalizeExportOutFile(root, {
+      filePath: join(root, "slides", "talk.astro"),
+      projectRelativePath: "slides/talk.astro",
+      format: "astro",
+    }),
+  ).toBe(join(root, "talk.pdf"));
 });
 
 test("createAstroInlineConfig disables external config and wires runtime dirs", () => {
@@ -462,6 +508,65 @@ import Page from "@slida/cli/page";
     });
   });
 }
+
+test("buildDeck emits print CSS that reveals slides and hides navigation for PDF output", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Intro"><h1>Intro</h1></Page>
+<Page title="Details"><h1>Details</h1></Page>
+`,
+    );
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    const css = await readBuiltCss(projectRoot, html);
+
+    expect(css).toContain("@media print");
+    expect(css).toContain("@page");
+    expect(css).toContain("[data-slida-navigation]");
+    expect(css).toMatch(/\.slida-slide\[hidden\][^{]*\{[^}]*display:block!important/);
+    expect(css).toMatch(/break-after:page|page-break-after:always/);
+  });
+});
+
+test("exportDeck builds a deck and writes a PDF", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Intro"><h1>Intro</h1></Page>
+<Page title="Details"><h1>Details</h1></Page>
+`,
+    );
+    const result = await exportDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      out: "deck.pdf",
+      browserExecutablePath: await localBrowserExecutablePath(),
+      logLevel: "silent",
+    });
+    expect(result.pdfFile).toBe(join(await realpath(projectRoot), "deck.pdf"));
+    const pdf = await readFile(result.pdfFile);
+    expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+  });
+}, 60_000);
 
 test("buildDeck builds one selected MDX deck file split by dividers", async () => {
   await withProjectRoot(async (projectRoot) => {

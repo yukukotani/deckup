@@ -9,7 +9,11 @@ export {
   buildDeck,
   createAstroInlineConfig,
   createSlidaAstroConfig,
+  DEFAULT_EXPORT_SEARCH_PARAM,
+  DEFAULT_EXPORT_SEARCH_VALUE,
+  exportDeck,
   normalizeBuildOutDir,
+  normalizeExportOutFile,
 } from "./astro.ts";
 export { startDevServer } from "./astro.ts";
 export {
@@ -28,6 +32,7 @@ export {
 export {
   normalizeBuildValues,
   normalizeDevValues,
+  normalizeExportValues,
   normalizeLogLevel,
   runSlida,
 } from "./commands.ts";
@@ -45,6 +50,8 @@ export type {
   SlidaDeckFormat,
   SlidaDevOptions,
   SlidaDevResult,
+  SlidaExportOptions,
+  SlidaExportResult,
   SlidaLoadedConfig,
   SlidaLogLevel,
   SlidaResolvedConfig,

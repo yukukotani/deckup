@@ -6,6 +6,7 @@ import {
   formatSlideHash,
   getNextSlideIndex,
   parseSlideHash,
+  revealSlidesForPrint,
   setupDeckNavigation,
   showSlide,
 } from "../runtime/scripts/navigation.ts";
@@ -15,6 +16,15 @@ function fakeSlide() {
   return {
     hidden: false,
     attributes,
+    getAttribute(name: string) {
+      return attributes.get(name) ?? null;
+    },
+    hasAttribute(name: string) {
+      return attributes.has(name);
+    },
+    removeAttribute(name: string) {
+      attributes.delete(name);
+    },
     setAttribute(name: string, value: string) {
       attributes.set(name, value);
     },
@@ -154,6 +164,40 @@ test("showSlide drives self-wrapped Page sections by DOM order", () => {
   expect(second.attributes.has("data-active")).toBe(true);
   expect(current.textContent).toBe("2");
   expect(location.hash).toBe("#2");
+});
+
+test("revealSlidesForPrint temporarily reveals all slides and restores navigation state", () => {
+  const first = fakeSlide();
+  const second = fakeSlide();
+  first.setAttribute("aria-hidden", "false");
+  first.toggleAttribute("data-active", true);
+  second.hidden = true;
+  second.setAttribute("aria-hidden", "true");
+
+  const documentElement = fakeSlide();
+  const body = fakeSlide();
+  const document = {
+    documentElement,
+    body,
+    querySelectorAll: () => [first, second],
+  } as unknown as Document;
+
+  const restore = revealSlidesForPrint(document);
+  expect(first.hidden).toBe(false);
+  expect(second.hidden).toBe(false);
+  expect(second.attributes.get("aria-hidden")).toBe("false");
+  expect(documentElement.attributes.has("data-slida-print")).toBe(true);
+  expect(body.attributes.has("data-slida-print")).toBe(true);
+
+  restore();
+  expect(first.hidden).toBe(false);
+  expect(first.attributes.has("data-active")).toBe(true);
+  expect(first.attributes.get("aria-hidden")).toBe("false");
+  expect(second.hidden).toBe(true);
+  expect(second.attributes.has("data-active")).toBe(false);
+  expect(second.attributes.get("aria-hidden")).toBe("true");
+  expect(documentElement.attributes.has("data-slida-print")).toBe(false);
+  expect(body.attributes.has("data-slida-print")).toBe(false);
 });
 
 test("setupDeckNavigation moves through self-wrapped Page sections with ArrowRight and ArrowLeft", () => {

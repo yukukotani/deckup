@@ -9,11 +9,13 @@ catalogMode: prefer
 catalog:
   "@astrojs/markdown-remark": latest
   "@astrojs/mdx": latest
+  "@puppeteer/browsers": latest
   "@tailwindcss/vite": latest
   "@types/node": ^24
   astro: latest
   gunshi: latest
   jiti: ^2.7.0
+  playwright-core: latest
   tailwindcss: latest
   typescript: ^5
   vite: npm:@voidzero-dev/vite-plus-core@latest

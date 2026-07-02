@@ -1,7 +1,12 @@
 import { expect, test } from "vite-plus/test";
 
 import { DEFAULT_BUILD_OUT_DIR, DEFAULT_DEV_HOST } from "../src/astro.ts";
-import { normalizeBuildValues, normalizeDevValues, normalizeLogLevel } from "../src/commands.ts";
+import {
+  normalizeBuildValues,
+  normalizeDevValues,
+  normalizeExportValues,
+  normalizeLogLevel,
+} from "../src/commands.ts";
 
 test("normalizeLogLevel accepts known Astro log levels", () => {
   expect(normalizeLogLevel("debug")).toBe("debug");
@@ -33,4 +38,24 @@ test("normalizeBuildValues preserves selected deck file and applies Slida build 
     outDir: DEFAULT_BUILD_OUT_DIR,
     logLevel: "info",
   });
+});
+
+test("normalizeExportValues preserves selected deck file and applies Slida export defaults", () => {
+  expect(normalizeExportValues({ deckFile: "slides/talk.mdx" })).toEqual({
+    deckFile: "slides/talk.mdx",
+    outDir: DEFAULT_BUILD_OUT_DIR,
+    out: undefined,
+    force: false,
+    logLevel: "info",
+  });
+});
+
+test("normalizeExportValues keeps PDF target optional and leaves deck validation to runtime", () => {
+  expect(normalizeExportValues({}).deckFile).toBeUndefined();
+  expect(normalizeExportValues({ out: "talk.pdf" }).out).toBe("talk.pdf");
+});
+
+test("normalizeExportValues accepts only boolean force values", () => {
+  expect(normalizeExportValues({ force: true }).force).toBe(true);
+  expect(normalizeExportValues({ force: "true" }).force).toBe(false);
 });

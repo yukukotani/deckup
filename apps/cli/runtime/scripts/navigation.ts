@@ -6,6 +6,14 @@ const navigationMenuSelector = "[data-slida-navigation]";
 const dragHandleSelector = "[data-slida-nav-drag-handle]";
 const editableSelector =
   "input, textarea, select, button, [contenteditable=''], [contenteditable='true']";
+const printModeAttribute = "data-slida-print";
+
+type PrintSlideSnapshot = {
+  slide: HTMLElement;
+  hidden: HTMLElement["hidden"];
+  ariaHidden: string | null;
+  active: boolean;
+};
 
 export function clampSlideIndex(index: number, total: number) {
   if (total <= 0) {
@@ -75,6 +83,39 @@ export function showSlide(
   return nextIndex;
 }
 
+export function revealSlidesForPrint(document: Document = globalThis.document) {
+  const slides = Array.from(document.querySelectorAll<HTMLElement>(slideSelector));
+  const snapshots: PrintSlideSnapshot[] = slides.map((slide) => ({
+    slide,
+    hidden: slide.hidden,
+    ariaHidden: slide.getAttribute("aria-hidden"),
+    active: slide.hasAttribute("data-active"),
+  }));
+
+  document.documentElement.setAttribute(printModeAttribute, "");
+  document.body?.setAttribute(printModeAttribute, "");
+
+  for (const slide of slides) {
+    slide.hidden = false;
+    slide.setAttribute("aria-hidden", "false");
+  }
+
+  return () => {
+    for (const { slide, hidden, ariaHidden, active } of snapshots) {
+      slide.hidden = hidden;
+      if (ariaHidden === null) {
+        slide.removeAttribute("aria-hidden");
+      } else {
+        slide.setAttribute("aria-hidden", ariaHidden);
+      }
+      slide.toggleAttribute("data-active", active);
+    }
+
+    document.documentElement.removeAttribute(printModeAttribute);
+    document.body?.removeAttribute(printModeAttribute);
+  };
+}
+
 export function setupDeckNavigation(
   document: Document = globalThis.document,
   window: Window = globalThis.window,
@@ -93,6 +134,17 @@ export function setupDeckNavigation(
   let dragState:
     | { pointerId: number; offsetX: number; offsetY: number; width: number; height: number }
     | undefined;
+  let restorePrintMode: (() => void) | undefined;
+
+  const onBeforePrint = () => {
+    restorePrintMode?.();
+    restorePrintMode = revealSlidesForPrint(document);
+  };
+
+  const onAfterPrint = () => {
+    restorePrintMode?.();
+    restorePrintMode = undefined;
+  };
 
   const syncNavigationButtons = () => {
     if (previousButton) {
@@ -206,9 +258,12 @@ export function setupDeckNavigation(
   window.addEventListener("pointercancel", endDrag);
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("hashchange", onHashChange);
+  window.addEventListener("beforeprint", onBeforePrint);
+  window.addEventListener("afterprint", onAfterPrint);
 
   return {
     destroy() {
+      onAfterPrint();
       releaseActiveDrag();
       previousButton?.removeEventListener("click", onPreviousClick);
       nextButton?.removeEventListener("click", onNextClick);
@@ -218,6 +273,8 @@ export function setupDeckNavigation(
       window.removeEventListener("pointercancel", endDrag);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("hashchange", onHashChange);
+      window.removeEventListener("beforeprint", onBeforePrint);
+      window.removeEventListener("afterprint", onAfterPrint);
     },
   };
 }

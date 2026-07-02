@@ -7,8 +7,11 @@ import type {
   SlidaBuildOptions,
   SlidaConfig,
   SlidaDevOptions,
+  SlidaExportOptions,
   SlidaLoadedConfig,
 } from "./types.ts";
+
+type SlidaConfigResolveOptions = SlidaDevOptions | SlidaBuildOptions | SlidaExportOptions;
 
 export const SLIDA_CONFIG_FILES = [
   "slida.config.ts",
@@ -82,7 +85,7 @@ export async function loadSlidaConfig(projectRoot: string): Promise<SlidaLoadedC
 
 export function resolveSlidaConfig(
   config: SlidaConfig,
-  options: SlidaDevOptions | SlidaBuildOptions = {},
+  options: SlidaConfigResolveOptions = {},
 ): SlidaConfig {
   const devOptions = options as SlidaDevOptions;
   return {

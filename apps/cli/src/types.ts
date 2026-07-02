@@ -35,6 +35,19 @@ export interface SlidaBuildOptions extends SlidaBaseOptions {
   outDir?: string;
 }
 
+export interface SlidaExportOptions extends SlidaBuildOptions {
+  out?: string;
+  browserExecutablePath?: string;
+  browserCacheDir?: string;
+}
+
+export interface SlidaExportResult {
+  outDir: string;
+  htmlFile: string;
+  pdfFile: string;
+  url: string;
+}
+
 export interface SlidaRuntimePaths {
   projectRoot: string;
   runtimeSourceDir: string;
