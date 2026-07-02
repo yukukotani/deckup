@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
 import { DEFAULT_BUILD_OUT_DIR, DEFAULT_DEV_HOST } from "../src/astro.ts";
@@ -6,7 +8,15 @@ import {
   normalizeDevValues,
   normalizeExportValues,
   normalizeLogLevel,
+  VERSION,
 } from "../src/commands.ts";
+
+test("VERSION matches the package.json version", () => {
+  const packageJson = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+  ) as { version: string };
+  expect(VERSION).toBe(packageJson.version);
+});
 
 test("normalizeLogLevel accepts known Astro log levels", () => {
   expect(normalizeLogLevel("debug")).toBe("debug");

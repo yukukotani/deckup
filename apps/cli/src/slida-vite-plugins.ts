@@ -1,66 +1,48 @@
 import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, sep } from "node:path";
+import { dirname } from "node:path";
 
 import { parse } from "@astrojs/compiler-rs";
 import type { Plugin } from "vite-plus";
 
+import {
+  findAstroRoot,
+  getAttribute,
+  isJsxElementNamed,
+  type AstroNode,
+  type AstroRoot,
+} from "./astro-ast.ts";
 import { resolveSlidaLayout } from "./layout.ts";
 import { analyzeMdxDeckSource } from "./slida-mdx-pages.ts";
 import {
   VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  createThemeLayoutDiscoveryCache,
   createGeneratedPageComponentSource,
-  discoverThemeLayouts,
 } from "./theme-layouts.ts";
 import type { SlidaResolvedDeck, SlidaResolvedTheme } from "./types.ts";
+import { normalizePath, uniqueStrings } from "./utils.ts";
 
 export const VIRTUAL_SLIDA_DECK_ID = "virtual:slida/deck";
 
 const resolvedVirtualSlidaDeckId = `\0${VIRTUAL_SLIDA_DECK_ID}`;
 const resolvedVirtualSlidaThemeLayoutsId = `\0${VIRTUAL_SLIDA_THEME_LAYOUTS_ID}`;
 const pageComponentExport = "@slida/cli/page";
+// Coupling point to Astro's compiled output. The Astro compiler emits
+// `$$renderComponent($$result, "Page", Page, { ...props }, ...)` for each
+// deck Page. If an Astro upgrade changes this shape, the integration tests
+// in tests/astro.test.ts (buildDeck + data-slida-layout assertions) and the
+// characterization tests in tests/slida-vite-plugins.test.ts fail first.
+// Keep this tolerant to whitespace-only formatting changes.
+const compiledPageRenderPattern = /\$\$renderComponent\(\s*\$\$result\s*,\s*"Page"\s*,\s*Page\s*,/g;
+const utf8Encoder = new TextEncoder();
 
-type AstroIdentifier = { type?: string; name?: string };
-type AstroAttribute = {
-  type?: string;
-  name?: AstroIdentifier;
-  value?: { type?: string; value?: unknown; raw?: string } | null;
-  start?: number;
-  end?: number;
-};
-type AstroNode = {
-  type?: string;
-  value?: string;
-  start?: number;
-  end?: number;
-  openingElement?: {
-    name?: AstroIdentifier;
-    attributes?: AstroAttribute[];
-    selfClosing?: boolean;
-    start?: number;
-    end?: number;
-  };
-  children?: AstroNode[];
-};
-type AstroImportDeclaration = {
-  type?: string;
-  source?: { value?: unknown };
-  specifiers?: Array<{ type?: string; local?: { name?: string } }>;
-};
-type AstroRoot = {
-  type?: "AstroRoot";
-  frontmatter?: { program?: { body?: AstroImportDeclaration[] } };
-  body?: AstroNode[];
-};
 type AstroSourceEdit = { start: number; end: number; value: string };
 type AstroPageLayout = { layout: string };
 type SlidaVitePluginOptions = {
   generatedPageFilePath?: string;
 };
-
-function normalizePath(path: string) {
-  return path.split(sep).join("/");
-}
+type DiscoverThemeLayouts = ReturnType<typeof createThemeLayoutDiscoveryCache>;
+type GeneratedPageMemo = { lastSource: string | undefined };
 
 function stripQuery(id: string) {
   return id.split("?", 1)[0];
@@ -74,16 +56,8 @@ function isSelectedDeckId(id: string, deck: SlidaResolvedDeck) {
   );
 }
 
-function getIdentifierName(name?: AstroIdentifier) {
-  return name?.type === "JSXIdentifier" ? name.name : undefined;
-}
-
 function isWhitespace(node: AstroNode) {
   return node.type === "JSXText" && (node.value ?? "").trim().length === 0;
-}
-
-function isJsxElementNamed(node: AstroNode, name: string) {
-  return node.type === "JSXElement" && getIdentifierName(node.openingElement?.name) === name;
 }
 
 function isTopLevelPage(node: AstroNode) {
@@ -92,14 +66,6 @@ function isTopLevelPage(node: AstroNode) {
 
 function isLayoutDeclaration(node: AstroNode) {
   return isJsxElementNamed(node, "layout");
-}
-
-function getAttributeName(attribute: AstroAttribute) {
-  return getIdentifierName(attribute.name);
-}
-
-function getAttribute(node: AstroNode, name: string) {
-  return node.openingElement?.attributes?.find((attribute) => getAttributeName(attribute) === name);
 }
 
 function hasAttribute(node: AstroNode, name: string) {
@@ -120,24 +86,6 @@ function hasDefaultPageImport(ast: AstroRoot) {
   );
 }
 
-function findAstroRoot(value: unknown): AstroRoot | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const node = value as AstroRoot & Record<string, unknown>;
-  if (node.type === "AstroRoot") return node;
-  for (const child of Object.values(node)) {
-    if (Array.isArray(child)) {
-      for (const item of child) {
-        const found = findAstroRoot(item);
-        if (found) return found;
-      }
-    } else {
-      const found = findAstroRoot(child);
-      if (found) return found;
-    }
-  }
-  return undefined;
-}
-
 function parseAstroDeck(source: string, filePath: string) {
   const result = parse(source);
   if (result.diagnostics.length > 0) {
@@ -151,52 +99,59 @@ function parseAstroDeck(source: string, filePath: string) {
   return ast;
 }
 
-function toSourceIndex(source: string, byteOffset: number, context: string) {
-  if (!Number.isInteger(byteOffset) || byteOffset < 0) {
-    throw new Error(`Failed to transform Astro deck: invalid source offset for ${context}.`);
-  }
-
+// Exported for tests only; not part of the public package surface (index.ts).
+export function createSourceIndexConverter(source: string) {
+  // byteToIndex[b] = JS string index for UTF-8 byte offset b (boundaries only).
+  const byteToIndex = new Map<number, number>();
   let bytes = 0;
   for (let index = 0; index < source.length; ) {
-    if (bytes === byteOffset) {
-      return index;
-    }
-
-    const codePoint = source.codePointAt(index);
-    if (codePoint === undefined) {
-      break;
-    }
-
+    byteToIndex.set(bytes, index);
+    const codePoint = source.codePointAt(index) as number;
     const character = String.fromCodePoint(codePoint);
-    bytes += new TextEncoder().encode(character).length;
+    bytes += utf8Encoder.encode(character).length;
     index += character.length;
   }
+  byteToIndex.set(bytes, source.length);
 
-  if (bytes === byteOffset) {
-    return source.length;
-  }
-
-  throw new Error(
-    `Failed to transform Astro deck: source offset ${byteOffset} is not a UTF-8 boundary for ${context}.`,
-  );
+  return function toSourceIndex(byteOffset: number, context: string) {
+    if (!Number.isInteger(byteOffset) || byteOffset < 0) {
+      throw new Error(`Failed to transform Astro deck: invalid source offset for ${context}.`);
+    }
+    const index = byteToIndex.get(byteOffset);
+    if (index === undefined) {
+      throw new Error(
+        `Failed to transform Astro deck: source offset ${byteOffset} is not a UTF-8 boundary for ${context}.`,
+      );
+    }
+    return index;
+  };
 }
 
-function getRequiredSpan(source: string, node: AstroNode, context: string) {
+function getRequiredSpan(
+  toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
+  node: AstroNode,
+  context: string,
+) {
   if (typeof node.start !== "number" || typeof node.end !== "number") {
     throw new Error(`Failed to transform Astro deck: missing source span for ${context}.`);
   }
   return {
-    start: toSourceIndex(source, node.start, `${context} start`),
-    end: toSourceIndex(source, node.end, `${context} end`),
+    start: toSourceIndex(node.start, `${context} start`),
+    end: toSourceIndex(node.end, `${context} end`),
   };
 }
 
-function getPageAttributeInsertionOffset(source: string, page: AstroNode, context: string) {
+function getPageAttributeInsertionOffset(
+  source: string,
+  toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
+  page: AstroNode,
+  context: string,
+) {
   const end = page.openingElement?.end;
   if (typeof end !== "number") {
     throw new Error(`Failed to transform Astro deck: missing opening tag span for ${context}.`);
   }
-  const endIndex = toSourceIndex(source, end, `${context} opening tag end`);
+  const endIndex = toSourceIndex(end, `${context} opening tag end`);
   return source[endIndex - 2] === "/" ? endIndex - 2 : endIndex - 1;
 }
 
@@ -236,14 +191,15 @@ function resolveAstroPageLayout(page: AstroNode, pageIndex: number, filePath: st
 function analyzeAstroLayouts(source: string, pages: AstroNode[], filePath: string) {
   const edits: AstroSourceEdit[] = [];
   const layouts: AstroPageLayout[] = [];
+  const toSourceIndex = createSourceIndexConverter(source);
   for (const [pageIndex, page] of pages.entries()) {
     const context = `${filePath} page ${pageIndex + 1}`;
     const { layout, layoutNodes } = resolveAstroPageLayout(page, pageIndex, filePath);
     layouts.push({ layout });
-    const insertAt = getPageAttributeInsertionOffset(source, page, context);
+    const insertAt = getPageAttributeInsertionOffset(source, toSourceIndex, page, context);
     edits.push({ start: insertAt, end: insertAt, value: ` layout=${JSON.stringify(layout)}` });
     for (const layoutNode of layoutNodes) {
-      edits.push({ ...getRequiredSpan(source, layoutNode, context), value: "" });
+      edits.push({ ...getRequiredSpan(toSourceIndex, layoutNode, context), value: "" });
     }
   }
   return { edits, layouts };
@@ -313,19 +269,19 @@ function findMatchingBrace(source: string, openIndex: number) {
   return -1;
 }
 
+function findCompiledPageRenderMatches(source: string) {
+  compiledPageRenderPattern.lastIndex = 0;
+  return [...source.matchAll(compiledPageRenderPattern)];
+}
+
 function findCompiledPagePropsSpans(source: string) {
-  const marker = '$$renderComponent($$result, "Page", Page,';
   const spans: Array<{ start: number; end: number }> = [];
-  let searchIndex = 0;
-  while (searchIndex < source.length) {
-    const markerIndex = source.indexOf(marker, searchIndex);
-    if (markerIndex < 0) break;
-    const start = source.indexOf("{", markerIndex + marker.length);
+  for (const match of findCompiledPageRenderMatches(source)) {
+    const start = source.indexOf("{", match.index + match[0].length);
     if (start < 0) break;
     const end = findMatchingBrace(source, start);
     if (end < 0) break;
     spans.push({ start, end: end + 1 });
-    searchIndex = end + 1;
   }
   return spans;
 }
@@ -342,7 +298,8 @@ function addCompiledLayoutProp(
   return { start: span.start, end: span.end, value: replacement };
 }
 
-function transformCompiledAstroDeckSource(
+// Exported for tests only; not part of the public package surface (index.ts).
+export function transformCompiledAstroDeckSource(
   source: string,
   layouts: AstroPageLayout[],
   filePath: string,
@@ -363,10 +320,6 @@ function hasThemeLayouts(theme?: SlidaResolvedTheme) {
   return (theme?.layouts?.length ?? 0) > 0;
 }
 
-function uniqueStrings(values: string[]) {
-  return [...new Set(values)];
-}
-
 function createThemeModuleImport(theme?: SlidaResolvedTheme) {
   if (hasThemeLayouts(theme)) return `import ${JSON.stringify(VIRTUAL_SLIDA_THEME_LAYOUTS_ID)};`;
   return undefined;
@@ -381,12 +334,13 @@ function assertPluginTheme(theme?: SlidaResolvedTheme) {
 
 async function refreshThemeLayouts(
   theme?: SlidaResolvedTheme,
+  discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
 ): Promise<SlidaResolvedTheme | undefined> {
   if (!theme) return undefined;
   if (!hasThemeLayouts(theme) || !theme.layoutsDir) return theme;
 
   try {
-    const layouts = await discoverThemeLayouts(theme.name, theme.layoutsDir);
+    const layouts = await discoverCached(theme.name, theme.layoutsDir);
     return {
       ...theme,
       layouts,
@@ -406,21 +360,27 @@ async function refreshThemeLayouts(
 async function writeFreshGeneratedPage(
   theme: SlidaResolvedTheme | undefined,
   options: SlidaVitePluginOptions,
+  generatedPageMemo: GeneratedPageMemo,
 ) {
   if (!theme || !hasThemeLayouts(theme) || !options.generatedPageFilePath) return;
-  await mkdir(dirname(options.generatedPageFilePath), { recursive: true });
-  await writeFile(
-    options.generatedPageFilePath,
-    createGeneratedPageComponentSource(theme.slotNames ?? [], VIRTUAL_SLIDA_THEME_LAYOUTS_ID),
+  const source = createGeneratedPageComponentSource(
+    theme.slotNames ?? [],
+    VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
   );
+  if (source === generatedPageMemo.lastSource) return;
+  await mkdir(dirname(options.generatedPageFilePath), { recursive: true });
+  await writeFile(options.generatedPageFilePath, source);
+  generatedPageMemo.lastSource = source;
 }
 
 async function refreshThemeRuntime(
   theme: SlidaResolvedTheme | undefined,
   options: SlidaVitePluginOptions,
+  discoverCached: DiscoverThemeLayouts,
+  generatedPageMemo: GeneratedPageMemo,
 ) {
-  const refreshedTheme = await refreshThemeLayouts(theme);
-  await writeFreshGeneratedPage(refreshedTheme, options);
+  const refreshedTheme = await refreshThemeLayouts(theme, discoverCached);
+  await writeFreshGeneratedPage(refreshedTheme, options, generatedPageMemo);
   return refreshedTheme;
 }
 
@@ -475,6 +435,8 @@ function addThemeLayoutWatchFiles(
 function createVirtualThemeLayoutsPlugin(
   theme: SlidaResolvedTheme | undefined,
   options: SlidaVitePluginOptions,
+  discoverCached: DiscoverThemeLayouts,
+  generatedPageMemo: GeneratedPageMemo,
 ): Plugin {
   return {
     name: "slida:virtual-theme-layouts",
@@ -483,7 +445,12 @@ function createVirtualThemeLayoutsPlugin(
     },
     async load(id) {
       if (id !== resolvedVirtualSlidaThemeLayoutsId) return undefined;
-      const runtimeTheme = await refreshThemeRuntime(theme, options);
+      const runtimeTheme = await refreshThemeRuntime(
+        theme,
+        options,
+        discoverCached,
+        generatedPageMemo,
+      );
       addThemeLayoutWatchFiles(this, runtimeTheme);
       return createThemeLayoutsModule(runtimeTheme);
     },
@@ -536,6 +503,8 @@ function createVirtualDeckPlugin(
   deck: SlidaResolvedDeck,
   theme: SlidaResolvedTheme | undefined,
   options: SlidaVitePluginOptions,
+  discoverCached: DiscoverThemeLayouts,
+  generatedPageMemo: GeneratedPageMemo,
 ): Plugin {
   return {
     name: "slida:virtual-deck",
@@ -544,7 +513,12 @@ function createVirtualDeckPlugin(
     },
     async load(id) {
       if (id !== resolvedVirtualSlidaDeckId) return undefined;
-      const runtimeTheme = await refreshThemeRuntime(theme, options);
+      const runtimeTheme = await refreshThemeRuntime(
+        theme,
+        options,
+        discoverCached,
+        generatedPageMemo,
+      );
       this.addWatchFile(deck.filePath);
       if (runtimeTheme?.filePath) this.addWatchFile(runtimeTheme.filePath);
       addThemeLayoutWatchFiles(this, runtimeTheme);
@@ -557,19 +531,20 @@ function createVirtualDeckPlugin(
 function createAstroDeckValidationPlugin(
   deck: SlidaResolvedDeck,
   theme?: SlidaResolvedTheme,
+  discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
 ): Plugin {
   return {
     name: "slida:astro-deck-validation",
     enforce: "pre",
     async transform(source, id) {
       if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) return undefined;
-      const runtimeTheme = await refreshThemeLayouts(theme);
+      const runtimeTheme = await refreshThemeLayouts(theme, discoverCached);
       if (source.includes("<Page")) {
         const analysis = analyzeAstroDeckSource(source, deck.filePath);
         validateThemeLayoutIds(deck, runtimeTheme, analysis.layouts);
         return applySourceEdits(source, analysis.edits);
       }
-      if (!source.includes('$$renderComponent($$result, "Page", Page,')) return undefined;
+      if (findCompiledPageRenderMatches(source).length === 0) return undefined;
       const originalSource = readFileSync(deck.filePath, "utf8");
       const { layouts } = analyzeAstroDeckSource(originalSource, deck.filePath);
       validateThemeLayoutIds(deck, runtimeTheme, layouts);
@@ -584,9 +559,11 @@ export function createSlidaVitePlugins(
   options: SlidaVitePluginOptions = {},
 ): Plugin[] {
   assertPluginTheme(theme);
+  const discoverCached = createThemeLayoutDiscoveryCache();
+  const generatedPageMemo = { lastSource: undefined as string | undefined };
   return [
-    createVirtualThemeLayoutsPlugin(theme, options),
-    createVirtualDeckPlugin(deck, theme, options),
-    createAstroDeckValidationPlugin(deck, theme),
+    createVirtualThemeLayoutsPlugin(theme, options, discoverCached, generatedPageMemo),
+    createVirtualDeckPlugin(deck, theme, options, discoverCached, generatedPageMemo),
+    createAstroDeckValidationPlugin(deck, theme, discoverCached),
   ];
 }

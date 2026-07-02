@@ -1,9 +1,12 @@
-import { constants } from "node:fs";
-import { access, cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { SlidaRuntimePaths } from "./types.ts";
+
+export { pathExists } from "./fs-utils.ts";
+
+import { pathExists } from "./fs-utils.ts";
 
 export const SLIDA_WORK_DIR = ".slida";
 export const SLIDA_RUNTIME_DIR = "runtime";
@@ -31,20 +34,6 @@ export function resolveProjectRoot(root = process.cwd()) {
 
 export function resolveRuntimeSourceDir() {
   return resolve(dirname(fileURLToPath(import.meta.url)), "../runtime");
-}
-
-export async function pathExists(path: string) {
-  try {
-    await access(path, constants.F_OK);
-    return true;
-  } catch (error) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-    if (code === "ENOENT") {
-      return false;
-    }
-    throw error;
-  }
 }
 
 async function writeFallbackRuntime(runtimeOutDir: string) {

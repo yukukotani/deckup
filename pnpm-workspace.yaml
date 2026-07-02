@@ -7,12 +7,12 @@ packages:
 catalogMode: prefer
 
 catalog:
-  "@astrojs/markdown-remark": latest
-  "@astrojs/mdx": latest
+  "@astrojs/markdown-remark": ^7.2.0
+  "@astrojs/mdx": ^7.0.0
   "@puppeteer/browsers": latest
   "@tailwindcss/vite": latest
   "@types/node": ^24
-  astro: latest
+  astro: ^7.0.4
   gunshi: latest
   jiti: ^2.7.0
   playwright-core: latest

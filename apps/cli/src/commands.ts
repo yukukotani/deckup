@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 
 import { cli, define } from "gunshi";
 
@@ -22,7 +24,20 @@ import type {
   SlidaLogLevel,
 } from "./types.ts";
 
-export const VERSION = "0.0.0";
+function readCliVersion() {
+  // package.json sits one directory above both src/ (dev) and dist/ (packed).
+  const packageJsonUrl = new URL("../package.json", import.meta.url);
+  try {
+    const packageJson = JSON.parse(readFileSync(fileURLToPath(packageJsonUrl), "utf8")) as {
+      version?: unknown;
+    };
+    return typeof packageJson.version === "string" ? packageJson.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+export const VERSION = readCliVersion();
 
 const logLevels = [
   "debug",

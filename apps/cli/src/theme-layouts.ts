@@ -1,56 +1,18 @@
 import { constants } from "node:fs";
-import { access, readFile, readdir } from "node:fs/promises";
-import { basename, extname, join, sep } from "node:path";
+import { access, readFile, readdir, stat } from "node:fs/promises";
+import { basename, extname, join } from "node:path";
 
 import { parse } from "@astrojs/compiler-rs";
 
+import { findAstroRoot, getAttribute, isJsxElementNamed, type AstroNode } from "./astro-ast.ts";
 import { assertValidSlidaLayoutId } from "./layout.ts";
 import type { SlidaResolvedThemeLayout } from "./types.ts";
+import { normalizePath } from "./utils.ts";
 
 export const VIRTUAL_SLIDA_THEME_LAYOUTS_ID = "virtual:slida/theme-layouts";
 
-type AstroIdentifier = { type?: string; name?: string };
-type AstroAttribute = {
-  type?: string;
-  name?: AstroIdentifier;
-  value?: { type?: string; value?: unknown; raw?: string } | null;
-};
-type AstroNode = {
-  type?: string;
-  value?: string;
-  openingElement?: {
-    name?: AstroIdentifier;
-    attributes?: AstroAttribute[];
-  };
-  children?: AstroNode[];
-};
-type AstroRoot = {
-  type?: "AstroRoot";
-  body?: AstroNode[];
-};
-
-function normalizePath(path: string) {
-  return path.split(sep).join("/");
-}
-
 export function toViteFsImportPath(filePath: string) {
   return `/@fs/${normalizePath(filePath)}`;
-}
-
-function getIdentifierName(name?: AstroIdentifier) {
-  return name?.type === "JSXIdentifier" ? name.name : undefined;
-}
-
-function isJsxElementNamed(node: AstroNode, name: string) {
-  return node.type === "JSXElement" && getIdentifierName(node.openingElement?.name) === name;
-}
-
-function getAttributeName(attribute: AstroAttribute) {
-  return getIdentifierName(attribute.name);
-}
-
-function getAttribute(node: AstroNode, name: string) {
-  return node.openingElement?.attributes?.find((attribute) => getAttributeName(attribute) === name);
 }
 
 function getStringAttribute(node: AstroNode, name: string, context: string) {
@@ -64,24 +26,6 @@ function getStringAttribute(node: AstroNode, name: string, context: string) {
     );
   }
   return attribute.value.value;
-}
-
-function findAstroRoot(value: unknown): AstroRoot | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const node = value as AstroRoot & Record<string, unknown>;
-  if (node.type === "AstroRoot") return node;
-  for (const child of Object.values(node)) {
-    if (Array.isArray(child)) {
-      for (const item of child) {
-        const found = findAstroRoot(item);
-        if (found) return found;
-      }
-    } else {
-      const found = findAstroRoot(child);
-      if (found) return found;
-    }
-  }
-  return undefined;
 }
 
 function parseAstroLayout(source: string, filePath: string) {
@@ -136,6 +80,22 @@ function layoutIdFromFileName(fileName: string) {
   return basename(fileName, extname(fileName));
 }
 
+async function fingerprintLayoutsDir(layoutsDir: string) {
+  const entries = await readdir(layoutsDir, { withFileTypes: true });
+  const files = entries
+    .filter(
+      (entry) => entry.isFile() && extname(entry.name) === ".astro" && !entry.name.startsWith("_"),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const stats = await Promise.all(
+    files.map(async (entry) => {
+      const fileStat = await stat(join(layoutsDir, entry.name));
+      return `${entry.name}:${fileStat.mtimeMs}:${fileStat.size}`;
+    }),
+  );
+  return stats.join("|");
+}
+
 export async function discoverThemeLayouts(
   themeName: string,
   layoutsDir: string,
@@ -162,22 +122,46 @@ export async function discoverThemeLayouts(
     );
   }
 
-  const layouts: SlidaResolvedThemeLayout[] = [];
-  for (const entry of layoutFiles) {
-    const id = layoutIdFromFileName(entry.name);
-    assertValidSlidaLayoutId(id, `${themeName} theme layout ${entry.name}`);
-    const filePath = join(layoutsDir, entry.name);
-    await assertReadableAstroLayout(themeName, id, filePath);
-    const source = await readFile(filePath, "utf8");
-    layouts.push({
-      id,
-      filePath,
-      importPath: toViteFsImportPath(filePath),
-      slotNames: extractAstroSlotNames(source, filePath),
-    });
-  }
+  return Promise.all(
+    layoutFiles.map(async (entry) => {
+      const id = layoutIdFromFileName(entry.name);
+      assertValidSlidaLayoutId(id, `${themeName} theme layout ${entry.name}`);
+      const filePath = join(layoutsDir, entry.name);
+      await assertReadableAstroLayout(themeName, id, filePath);
+      const source = await readFile(filePath, "utf8");
+      return {
+        id,
+        filePath,
+        importPath: toViteFsImportPath(filePath),
+        slotNames: extractAstroSlotNames(source, filePath),
+      };
+    }),
+  );
+}
 
-  return layouts;
+export function createThemeLayoutDiscoveryCache() {
+  let cached:
+    | { layoutsDir: string; fingerprint: string; layouts: SlidaResolvedThemeLayout[] }
+    | undefined;
+
+  return async function discoverCached(themeName: string, layoutsDir: string) {
+    let fingerprint: string | undefined;
+    try {
+      fingerprint = await fingerprintLayoutsDir(layoutsDir);
+    } catch {
+      // Fall through: let discoverThemeLayouts produce its canonical error.
+    }
+    if (
+      fingerprint !== undefined &&
+      cached?.layoutsDir === layoutsDir &&
+      cached.fingerprint === fingerprint
+    ) {
+      return cached.layouts;
+    }
+    const layouts = await discoverThemeLayouts(themeName, layoutsDir);
+    cached = fingerprint !== undefined ? { layoutsDir, fingerprint, layouts } : undefined;
+    return layouts;
+  };
 }
 
 export function createGeneratedPageComponentSource(

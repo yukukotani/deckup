@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
 import { discoverThemeLayouts } from "./theme-layouts.ts";
+import { uniqueStrings } from "./utils.ts";
 
 export const DEFAULT_SLIDA_THEME = "default";
 export const BUILTIN_SLIDA_THEME_PACKAGES = {
@@ -25,10 +26,6 @@ type ResolvedThemePackage = {
   packageRoot?: string;
   source: "builtin" | "package";
 };
-
-function uniqueStrings(values: string[]) {
-  return [...new Set(values)];
-}
 
 function isBuiltinThemeName(themeName: string): themeName is SlidaBuiltinTheme {
   return Object.hasOwn(BUILTIN_SLIDA_THEME_PACKAGES, themeName);

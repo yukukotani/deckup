@@ -30,6 +30,7 @@ import type {
   SlidaResolvedTheme,
   SlidaRuntimePaths,
 } from "./types.ts";
+import { uniqueStrings } from "./utils.ts";
 
 export const DEFAULT_DEV_HOST = "127.0.0.1";
 export const DEFAULT_DEV_PORT = 4321;
@@ -48,10 +49,6 @@ function toArray<T>(value: T | T[] | undefined): T[] {
     return [];
   }
   return Array.isArray(value) ? value : [value];
-}
-
-function uniqueStrings(values: string[]) {
-  return [...new Set(values)];
 }
 
 function normalizeAliasEntries(alias: unknown) {

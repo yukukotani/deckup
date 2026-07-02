@@ -1,4 +1,3 @@
-import { access } from "node:fs/promises";
 import { join } from "node:path";
 
 import { createJiti } from "jiti";
@@ -10,6 +9,7 @@ import type {
   SlidaExportOptions,
   SlidaLoadedConfig,
 } from "./types.ts";
+import { pathExists } from "./fs-utils.ts";
 
 type SlidaConfigResolveOptions = SlidaDevOptions | SlidaBuildOptions | SlidaExportOptions;
 
@@ -26,20 +26,6 @@ export function defineConfig(config: SlidaConfig): SlidaConfig {
   return config;
 }
 
-async function fileExists(filePath: string) {
-  try {
-    await access(filePath);
-    return true;
-  } catch (error) {
-    const code =
-      typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-    if (code === "ENOENT") {
-      return false;
-    }
-    throw error;
-  }
-}
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === "[object Object]";
 }
@@ -49,7 +35,7 @@ export async function findSlidaConfigFiles(projectRoot: string): Promise<string[
 
   for (const fileName of SLIDA_CONFIG_FILES) {
     const filePath = join(projectRoot, fileName);
-    if (await fileExists(filePath)) {
+    if (await pathExists(filePath)) {
       filePaths.push(filePath);
     }
   }
