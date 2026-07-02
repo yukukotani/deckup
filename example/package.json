@@ -9,7 +9,8 @@
     "dev:mdx": "vp run @slida/cli#build && slida dev slides/deck.mdx",
     "build": "vp run @slida/cli#build && slida build slides/deck.astro && slida build slides/deck.mdx",
     "build:astro": "vp run @slida/cli#build && slida build slides/deck.astro",
-    "build:mdx": "vp run @slida/cli#build && slida build slides/deck.mdx"
+    "build:mdx": "vp run @slida/cli#build && slida build slides/deck.mdx",
+    "export:mdx": "vp run @slida/cli#build && slida export slides/deck.mdx"
   },
   "devDependencies": {
     "@slida/cli": "workspace:*",
