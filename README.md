@@ -14,9 +14,9 @@ export default defineConfig({
 });
 ```
 
-Slida ships four first-party themes: `default`, `minimal`, `bold`, and `google-basic`.
+Slida ships five first-party themes: `default`, `minimal`, `bold`, `google-basic`, and `apple-basic`.
 Omitting `theme` uses `default`.
-First-party themes are regular npm packages in this workspace (`@slida/theme-default`, `@slida/theme-minimal`, `@slida/theme-bold`, and `@slida/theme-google-basic`), while slide authors use the short names above.
+First-party themes are regular npm packages in this workspace (`@slida/theme-default`, `@slida/theme-minimal`, `@slida/theme-bold`, `@slida/theme-google-basic`, and `@slida/theme-apple-basic`), while slide authors use the short names above.
 
 Themes provide Astro layout components instead of a package-root CSS file.
 A slide selects a layout with the existing metadata-only `<layout id="..." />` child, and Slida injects the slide body into the selected layout's slots.
@@ -32,7 +32,7 @@ Multi-region layouts use Astro's standard named slot syntax:
 </Page>
 ```
 
-In the built-in `google-basic` theme, the `two-column` layout exposes the `left` and `right` named slots shown above.
+In the built-in `google-basic` and `apple-basic` themes, the `two-column` layout exposes the `left` and `right` named slots shown above.
 
 The same `slot="left"` / `slot="right"` attributes work in MDX when using JSX elements:
 

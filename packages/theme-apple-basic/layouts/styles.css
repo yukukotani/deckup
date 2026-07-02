@@ -1,0 +1,392 @@
+:root {
+  color-scheme: light;
+  --slida-bg: #fff;
+  --slida-text: #000;
+  --slida-text-strong: #000;
+  --slida-border: transparent;
+  --slida-code-bg: transparent;
+  --slida-accent: #000;
+  --slida-accent-bg: transparent;
+  --slida-shadow: none;
+  --slida-sans:
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans", -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Arial, sans-serif;
+  --slida-heading: var(--slida-sans);
+  --slida-mono: var(--slida-sans);
+}
+
+body {
+  font-family: var(--slida-sans);
+  color: #000;
+  background: #111;
+}
+
+.slida-shell {
+  border: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.slida-slide {
+  --ab-u: calc(100cqw / 1920);
+  position: relative;
+  display: block;
+  padding: 0;
+  color: #000;
+  background: #fff;
+  font-family: var(--slida-sans);
+  text-align: left;
+}
+
+.slida-slide > * {
+  max-width: none;
+  margin: 0;
+}
+
+.slida-apple-title,
+.slida-apple-subtitle,
+.slida-apple-body,
+.slida-apple-big-number,
+.slida-apple-quote,
+.slida-apple-quote-name,
+.slida-apple-statement,
+.slida-apple-column {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  color: #000;
+  font-family: var(--slida-sans);
+  letter-spacing: 0;
+  text-wrap: pretty;
+}
+
+.slida-apple-title {
+  font-weight: 600;
+}
+
+.slida-apple-subtitle {
+  font-weight: 600;
+}
+
+.slida-apple-body,
+.slida-apple-column,
+.slida-apple-quote,
+.slida-apple-statement {
+  font-weight: 300;
+}
+
+.slida-apple-quote-name,
+.slida-apple-big-number {
+  font-weight: 600;
+}
+
+[data-slida-layout="cover"] .slida-apple-title {
+  top: calc(449 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(116 * var(--ab-u));
+  line-height: 1;
+}
+
+[data-slida-layout="cover"] .slida-apple-subtitle {
+  top: calc(573 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(55 * var(--ab-u));
+  line-height: 1;
+}
+
+[data-slida-layout="section"] .slida-apple-title {
+  top: calc(482 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(116 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+}
+
+[data-slida-layout="page"] .slida-apple-title,
+[data-slida-layout="two-column"] .slida-apple-title {
+  top: calc(89 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(85 * var(--ab-u));
+  line-height: 1;
+}
+
+[data-slida-layout="page"] .slida-apple-subtitle,
+[data-slida-layout="two-column"] .slida-apple-subtitle {
+  top: calc(191 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(55 * var(--ab-u));
+  line-height: 1;
+}
+
+[data-slida-layout="page"] .slida-apple-body {
+  top: calc(339 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(48 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+}
+
+.slida-apple-body p,
+.slida-apple-body ul,
+.slida-apple-body ol {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  color: inherit;
+  font: inherit;
+}
+
+.slida-apple-body p + ul,
+.slida-apple-body ul + p,
+.slida-apple-body p + ol {
+  margin-top: calc(58 * var(--ab-u));
+}
+
+.slida-apple-body ul,
+.slida-apple-body ol {
+  list-style-position: outside;
+  padding-left: calc(48 * var(--ab-u));
+}
+
+.slida-apple-body li {
+  padding-left: calc(0 * var(--ab-u));
+  font: inherit;
+}
+
+.slida-apple-body li + li {
+  margin-top: calc(64 * var(--ab-u));
+}
+
+.slida-apple-body :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-top: calc(58 * var(--ab-u));
+}
+
+[data-slida-layout="two-column"] .slida-apple-column {
+  top: calc(339 * var(--ab-u));
+  font-size: calc(36 * var(--ab-u));
+  line-height: 1;
+}
+
+[data-slida-layout="two-column"] .slida-apple-column--left {
+  left: calc(99 * var(--ab-u));
+}
+
+[data-slida-layout="two-column"] .slida-apple-column--right {
+  left: calc(1066 * var(--ab-u));
+}
+
+.slida-apple-column :is(p, ul, ol) {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  color: inherit;
+  font: inherit;
+}
+
+.slida-apple-column :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-top: calc(30 * var(--ab-u));
+}
+
+[data-slida-layout="number"] {
+  text-align: center;
+}
+
+.slida-apple-big-number {
+  top: calc(401 * var(--ab-u));
+  left: 0;
+  width: 100%;
+  font-size: calc(250 * var(--ab-u));
+  line-height: 1;
+  text-align: center;
+}
+
+[data-slida-layout="number"] .slida-apple-subtitle {
+  top: calc(655 * var(--ab-u));
+  left: 0;
+  width: 100%;
+  font-size: calc(55 * var(--ab-u));
+  line-height: 1;
+  text-align: center;
+}
+
+.slida-apple-quote {
+  top: calc(393 * var(--ab-u));
+  left: calc(155 * var(--ab-u));
+  font-size: calc(85 * var(--ab-u));
+  line-height: 1;
+}
+
+.slida-apple-quote-name {
+  top: calc(844 * var(--ab-u));
+  left: calc(195 * var(--ab-u));
+  font-size: calc(36 * var(--ab-u));
+  line-height: 1;
+}
+
+.slida-apple-statement {
+  top: calc(482 * var(--ab-u));
+  left: 0;
+  width: 100%;
+  font-size: calc(116 * var(--ab-u));
+  line-height: 1;
+  text-align: center;
+}
+
+/* Markdown-first and plain-slot defaults. */
+[data-slida-layout] > :is(h1, p, ul, ol) {
+  position: absolute;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  color: #000;
+  font-family: var(--slida-sans);
+  letter-spacing: 0;
+  text-wrap: pretty;
+}
+
+[data-slida-layout="cover"] > h1 {
+  top: calc(449 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(116 * var(--ab-u));
+  font-weight: 600;
+  line-height: 1;
+}
+
+[data-slida-layout="cover"] > p {
+  top: calc(573 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(55 * var(--ab-u));
+  font-weight: 600;
+  line-height: 1;
+}
+
+[data-slida-layout="section"] > h1 {
+  top: calc(482 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(116 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+}
+
+[data-slida-layout="page"] > h1,
+[data-slida-layout="two-column"] > h1 {
+  top: calc(89 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(85 * var(--ab-u));
+  font-weight: 600;
+  line-height: 1;
+}
+
+[data-slida-layout="page"] > p:first-of-type,
+[data-slida-layout="two-column"] > p:first-of-type {
+  top: calc(191 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  font-size: calc(55 * var(--ab-u));
+  font-weight: 600;
+  line-height: 1;
+}
+
+[data-slida-layout="page"] > :is(p, ul, ol):not(:first-of-type) {
+  left: calc(99 * var(--ab-u));
+  font-size: calc(48 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+}
+
+[data-slida-layout="page"] > p:nth-of-type(2) {
+  top: calc(339 * var(--ab-u));
+}
+
+[data-slida-layout="page"] > ul {
+  top: calc(451 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  padding-left: calc(48 * var(--ab-u));
+  font-size: calc(48 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+  list-style: disc outside;
+}
+
+[data-slida-layout="page"] > p:nth-of-type(3) {
+  top: calc(675 * var(--ab-u));
+}
+
+[data-slida-layout="page"] > ol {
+  top: calc(787 * var(--ab-u));
+  left: calc(99 * var(--ab-u));
+  padding-left: calc(70 * var(--ab-u));
+  font-size: calc(48 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+  list-style: decimal outside;
+}
+
+[data-slida-layout="page"] > :is(ul, ol) li {
+  padding-left: 0;
+  font: inherit;
+}
+
+[data-slida-layout="page"] > :is(ul, ol) li + li {
+  margin-top: calc(64 * var(--ab-u));
+}
+
+[data-slida-layout="two-column"] > p:not(:first-of-type) {
+  top: calc(339 * var(--ab-u));
+  font-size: calc(36 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+}
+
+[data-slida-layout="two-column"] > p:nth-of-type(2) {
+  left: calc(99 * var(--ab-u));
+}
+
+[data-slida-layout="two-column"] > p:nth-of-type(3) {
+  left: calc(1066 * var(--ab-u));
+}
+
+[data-slida-layout="number"] > p:first-of-type {
+  top: calc(401 * var(--ab-u));
+  left: 0;
+  width: 100%;
+  font-size: calc(250 * var(--ab-u));
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+}
+
+[data-slida-layout="number"] > p:nth-of-type(2) {
+  top: calc(655 * var(--ab-u));
+  left: 0;
+  width: 100%;
+  font-size: calc(55 * var(--ab-u));
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+}
+
+[data-slida-layout="quote"] > p:first-of-type {
+  top: calc(393 * var(--ab-u));
+  left: calc(155 * var(--ab-u));
+  font-size: calc(85 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+}
+
+[data-slida-layout="quote"] > p:nth-of-type(2) {
+  top: calc(844 * var(--ab-u));
+  left: calc(195 * var(--ab-u));
+  font-size: calc(36 * var(--ab-u));
+  font-weight: 600;
+  line-height: 1;
+}
+
+[data-slida-layout="statement"] > p {
+  top: calc(482 * var(--ab-u));
+  left: 0;
+  width: 100%;
+  font-size: calc(116 * var(--ab-u));
+  font-weight: 300;
+  line-height: 1;
+  text-align: center;
+}

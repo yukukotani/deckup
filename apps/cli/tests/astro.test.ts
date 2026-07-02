@@ -101,7 +101,7 @@ async function readBuiltCss(projectRoot: string, html: string, outDir = "dist") 
   return cssParts.join("\n");
 }
 
-const builtInViewerThemes = ["default", "minimal", "bold", "google-basic"] as const;
+const builtInViewerThemes = ["default", "minimal", "bold", "google-basic", "apple-basic"] as const;
 
 async function writeThemeLayoutPackage(projectRoot: string, packageName: string) {
   const packageDir = join(projectRoot, "node_modules", ...packageName.split("/"));
@@ -498,7 +498,7 @@ import Page from "@slida/cli/page";
       expect(css).not.toMatch(/\.slida-status\{display:none!important\}/);
       expect(css).not.toMatch(/\.slida-navigation\{display:none!important\}/);
 
-      if (theme !== "google-basic") {
+      if (theme !== "google-basic" && theme !== "apple-basic") {
         expect(css).not.toMatch(/body\{[^}]*background:var\(--slida-bg\)/);
         expect(css).toContain("--slida-cqw:1cqw");
         expect(css).toContain("var(--slida-cqw)");

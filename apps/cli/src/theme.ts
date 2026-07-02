@@ -10,6 +10,7 @@ export const BUILTIN_SLIDA_THEME_PACKAGES = {
   minimal: "@slida/theme-minimal",
   bold: "@slida/theme-bold",
   "google-basic": "@slida/theme-google-basic",
+  "apple-basic": "@slida/theme-apple-basic",
 } as const;
 export const BUILTIN_SLIDA_THEMES = Object.keys(BUILTIN_SLIDA_THEME_PACKAGES) as Array<
   keyof typeof BUILTIN_SLIDA_THEME_PACKAGES

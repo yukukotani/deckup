@@ -238,6 +238,7 @@ test("resolveSlidaThemeLayouts resolves every built-in theme from layout compone
       minimal: ["cover", "default"],
       bold: ["cover", "default"],
       "google-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],
+      "apple-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],
     } as const;
 
     for (const [themeName, layoutIds] of Object.entries(expectedLayouts)) {
@@ -338,7 +339,7 @@ test("resolveSlidaThemeLayouts rejects empty themes", async () => {
 test("resolveSlidaThemeLayouts rejects missing npm themes with built-in guidance", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(resolveSlidaThemeLayouts(projectRoot, "missing-theme")).rejects.toThrow(
-      /Built-in themes: default, minimal, bold, google-basic/,
+      /Built-in themes: default, minimal, bold, google-basic, apple-basic/,
     );
   });
 });

@@ -268,6 +268,9 @@ importers:
       '@puppeteer/browsers':
         specifier: 'catalog:'
         version: 3.0.5
+      '@slida/theme-apple-basic':
+        specifier: workspace:*
+        version: link:../../packages/theme-apple-basic
       '@slida/theme-bold':
         specifier: workspace:*
         version: link:../../packages/theme-bold
@@ -335,6 +338,8 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.1(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.0(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
+
+  packages/theme-apple-basic: {}
 
   packages/theme-bold: {}
 
