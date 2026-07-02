@@ -20,10 +20,39 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
   <body>
     <div class="slida-shell" data-slida-shell data-slide-count={slideCount}>
       <slot />
-      <footer class="slida-status" aria-live="polite">
-        <span data-slida-current>1</span>/<span data-slida-total>{Math.max(slideCount, 1)}</span>
-      </footer>
     </div>
+    <nav class="slida-navigation slida-status" data-slida-navigation aria-label="Slide navigation">
+      <button
+        type="button"
+        class="slida-navigation__handle"
+        data-slida-nav-drag-handle
+        aria-label="Move navigation menu"
+        title="Move navigation menu"
+      >
+        ⋮⋮
+      </button>
+      <button
+        type="button"
+        class="slida-navigation__button"
+        data-slida-nav-prev
+        aria-label="Previous slide"
+        disabled
+      >
+        ‹
+      </button>
+      <span class="slida-navigation__status" aria-live="polite">
+        <span data-slida-current>1</span>/<span data-slida-total>{Math.max(slideCount, 1)}</span>
+      </span>
+      <button
+        type="button"
+        class="slida-navigation__button"
+        data-slida-nav-next
+        aria-label="Next slide"
+        disabled={slideCount <= 1}
+      >
+        ›
+      </button>
+    </nav>
     <script>
       import "../scripts/navigation.ts";
     </script>

@@ -1,5 +1,9 @@
 const slideSelector = "[data-slida-slide]";
 const currentSelector = "[data-slida-current]";
+const previousButtonSelector = "[data-slida-nav-prev]";
+const nextButtonSelector = "[data-slida-nav-next]";
+const navigationMenuSelector = "[data-slida-navigation]";
+const dragHandleSelector = "[data-slida-nav-drag-handle]";
 const editableSelector =
   "input, textarea, select, button, [contenteditable=''], [contenteditable='true']";
 
@@ -24,6 +28,17 @@ export function getNextSlideIndex(current: number, delta: number, total: number)
 
 export function formatSlideHash(index: number) {
   return `#${index + 1}`;
+}
+
+export function clampMenuPosition(
+  position: { left: number; top: number },
+  viewport: { width: number; height: number },
+  menu: { width: number; height: number },
+) {
+  return {
+    left: Math.min(Math.max(position.left, 0), Math.max(viewport.width - menu.width, 0)),
+    top: Math.min(Math.max(position.top, 0), Math.max(viewport.height - menu.height, 0)),
+  };
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -69,10 +84,38 @@ export function setupDeckNavigation(
     return undefined;
   }
 
+  const previousButton = document.querySelector<HTMLButtonElement>(previousButtonSelector);
+  const nextButton = document.querySelector<HTMLButtonElement>(nextButtonSelector);
+  const navigationMenu = document.querySelector<HTMLElement>(navigationMenuSelector);
+  const dragHandle = document.querySelector<HTMLElement>(dragHandleSelector);
+
   let current = showSlide(slides, parseSlideHash(window.location.hash, slides.length), window);
+  let dragState:
+    | { pointerId: number; offsetX: number; offsetY: number; width: number; height: number }
+    | undefined;
+
+  const syncNavigationButtons = () => {
+    if (previousButton) {
+      previousButton.disabled = current <= 0;
+    }
+    if (nextButton) {
+      nextButton.disabled = current >= slides.length - 1;
+    }
+  };
 
   const goTo = (index: number) => {
     current = showSlide(slides, index, window);
+    syncNavigationButtons();
+  };
+
+  const onPreviousClick = (event: MouseEvent) => {
+    event.preventDefault();
+    goTo(getNextSlideIndex(current, -1, slides.length));
+  };
+
+  const onNextClick = (event: MouseEvent) => {
+    event.preventDefault();
+    goTo(getNextSlideIndex(current, 1, slides.length));
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -108,11 +151,71 @@ export function setupDeckNavigation(
     goTo(parseSlideHash(window.location.hash, slides.length));
   };
 
+  const applyMenuPosition = (left: number, top: number) => {
+    if (!navigationMenu || !dragState) return;
+    const position = clampMenuPosition(
+      { left, top },
+      { width: window.innerWidth, height: window.innerHeight },
+      { width: dragState.width, height: dragState.height },
+    );
+    navigationMenu.style.left = `${position.left}px`;
+    navigationMenu.style.top = `${position.top}px`;
+    navigationMenu.style.right = "auto";
+    navigationMenu.style.bottom = "auto";
+  };
+
+  const onDragPointerDown = (event: PointerEvent) => {
+    if (!navigationMenu || dragState || event.button !== 0 || event.isPrimary === false) {
+      return;
+    }
+    const rect = navigationMenu.getBoundingClientRect();
+    dragState = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+    dragHandle?.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const releaseActiveDrag = () => {
+    if (!dragState) return;
+    dragHandle?.releasePointerCapture(dragState.pointerId);
+    dragState = undefined;
+  };
+
+  const onDragPointerMove = (event: PointerEvent) => {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    applyMenuPosition(event.clientX - dragState.offsetX, event.clientY - dragState.offsetY);
+    event.preventDefault();
+  };
+
+  const endDrag = (event: PointerEvent) => {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    releaseActiveDrag();
+  };
+
+  syncNavigationButtons();
+  previousButton?.addEventListener("click", onPreviousClick);
+  nextButton?.addEventListener("click", onNextClick);
+  dragHandle?.addEventListener("pointerdown", onDragPointerDown);
+  window.addEventListener("pointermove", onDragPointerMove);
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointercancel", endDrag);
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("hashchange", onHashChange);
 
   return {
     destroy() {
+      releaseActiveDrag();
+      previousButton?.removeEventListener("click", onPreviousClick);
+      nextButton?.removeEventListener("click", onNextClick);
+      dragHandle?.removeEventListener("pointerdown", onDragPointerDown);
+      window.removeEventListener("pointermove", onDragPointerMove);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("hashchange", onHashChange);
     },

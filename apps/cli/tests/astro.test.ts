@@ -417,6 +417,16 @@ import Page from "@slida/cli/page";
       expect(slideSectionCount(html)).toBe(1);
       expect(layoutCount(html, "cover")).toBe(1);
       expect(html).toContain('data-slide-count="1"');
+      expect(html).toContain("data-slida-navigation");
+      expect(html).toContain("data-slida-nav-drag-handle");
+      expect(html).toContain("data-slida-nav-prev");
+      expect(html).toContain("data-slida-nav-next");
+      expect(html).toContain("data-slida-current");
+      expect(html).toContain("data-slida-total");
+      expect(html).toContain('aria-label="Slide navigation"');
+      expect(html).toContain('aria-label="Move navigation menu"');
+      expect(html).toContain('aria-label="Previous slide"');
+      expect(html).toContain('aria-label="Next slide"');
       expect(css).toMatch(
         /body\{(?=[^}]*display:grid)(?=[^}]*place-items:center)(?=[^}]*background:#111)[^}]*\}/,
       );
@@ -426,7 +436,21 @@ import Page from "@slida/cli/page";
         /\.slida-deck,\.slida-empty\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/,
       );
       expect(css).toMatch(/\.slida-slide\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/);
+      expect(css).toMatch(
+        /\.slida-status\{(?=[^}]*position:fixed)(?=[^}]*display:inline-flex)[^}]*\}/,
+      );
+      expect(css).toContain(".slida-navigation__button");
+      expect(css).toContain(".slida-navigation__handle");
+      expect(css).toMatch(/\.slida-navigation__handle\{[^}]*touch-action:none/);
+      expect(css).toMatch(
+        /\.slida-navigation__button:not\(:disabled\),\.slida-navigation__handle\{[^}]*cursor:pointer/,
+      );
+      expect(css).toMatch(
+        /\.slida-navigation__button:not\(:disabled\):hover,[^}]*\.slida-navigation__handle:focus-visible\{[^}]*background:/,
+      );
+      expect(css).toMatch(/\.slida-navigation__button:disabled\{[^}]*opacity:/);
       expect(css).not.toMatch(/\.slida-status\{display:none!important\}/);
+      expect(css).not.toMatch(/\.slida-navigation\{display:none!important\}/);
 
       if (theme !== "google-basic") {
         expect(css).not.toMatch(/body\{[^}]*background:var\(--slida-bg\)/);

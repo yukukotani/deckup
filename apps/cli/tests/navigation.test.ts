@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import {
+  clampMenuPosition,
   clampSlideIndex,
   formatSlideHash,
   getNextSlideIndex,
@@ -22,6 +23,68 @@ function fakeSlide() {
       else attributes.delete(name);
     },
   } as unknown as HTMLElement & { attributes: Map<string, string> };
+}
+
+function fakeEventTarget() {
+  const listeners = new Map<string, Set<EventListener>>();
+  return {
+    listeners,
+    addEventListener: (name: string, listener: EventListener) => {
+      const callbacks = listeners.get(name) ?? new Set<EventListener>();
+      callbacks.add(listener);
+      listeners.set(name, callbacks);
+    },
+    removeEventListener: (name: string, listener: EventListener) => {
+      const callbacks = listeners.get(name);
+      callbacks?.delete(listener);
+      if (callbacks?.size === 0) listeners.delete(name);
+    },
+    dispatch: (name: string, event: Event) => {
+      for (const listener of listeners.get(name) ?? []) {
+        listener(event);
+      }
+    },
+  };
+}
+
+function fakeButton() {
+  const target = fakeEventTarget();
+  return Object.assign(target, {
+    disabled: false,
+  }) as unknown as HTMLButtonElement & ReturnType<typeof fakeEventTarget>;
+}
+
+function fakeDragElement(
+  rect: { left?: number; top?: number; width?: number; height?: number } = {},
+) {
+  const target = fakeEventTarget();
+  const pointerCaptures: number[] = [];
+  const pointerReleases: number[] = [];
+  const style: Partial<CSSStyleDeclaration> = {};
+  const left = rect.left ?? 0;
+  const top = rect.top ?? 0;
+  const width = rect.width ?? 120;
+  const height = rect.height ?? 40;
+
+  return Object.assign(target, {
+    pointerCaptures,
+    pointerReleases,
+    style,
+    getBoundingClientRect() {
+      return { left, top, width, height, right: left + width, bottom: top + height };
+    },
+    setPointerCapture(pointerId: number) {
+      pointerCaptures.push(pointerId);
+    },
+    releasePointerCapture(pointerId: number) {
+      pointerReleases.push(pointerId);
+    },
+  }) as unknown as HTMLElement &
+    ReturnType<typeof fakeEventTarget> & {
+      pointerCaptures: number[];
+      pointerReleases: number[];
+      style: Partial<CSSStyleDeclaration>;
+    };
 }
 
 test("parseSlideHash reads numeric and slide-prefixed hashes", () => {
@@ -49,6 +112,23 @@ test("formatSlideHash uses one-based slide numbers", () => {
 
 test("clampSlideIndex handles empty decks", () => {
   expect(clampSlideIndex(5, 0)).toBe(0);
+});
+
+test("clampMenuPosition keeps a menu within viewport bounds", () => {
+  expect(
+    clampMenuPosition(
+      { left: -10, top: 590 },
+      { width: 800, height: 600 },
+      { width: 120, height: 80 },
+    ),
+  ).toEqual({ left: 0, top: 520 });
+  expect(
+    clampMenuPosition(
+      { left: 900, top: -20 },
+      { width: 800, height: 600 },
+      { width: 120, height: 80 },
+    ),
+  ).toEqual({ left: 680, top: 0 });
 });
 
 test("showSlide drives self-wrapped Page sections by DOM order", () => {
@@ -82,13 +162,13 @@ test("setupDeckNavigation moves through self-wrapped Page sections with ArrowRig
   try {
     const first = fakeSlide();
     const second = fakeSlide();
-    const listeners = new Map<string, EventListener>();
     const current = { textContent: "" };
     const document = {
       querySelectorAll: () => [first, second],
-      querySelector: () => current,
+      querySelector: (selector: string) => (selector === "[data-slida-current]" ? current : null),
     } as unknown as Document;
     const location = { hash: "" };
+    const windowEvents = fakeEventTarget();
     const window = {
       document,
       location,
@@ -97,25 +177,332 @@ test("setupDeckNavigation moves through self-wrapped Page sections with ArrowRig
           location.hash = hash;
         },
       },
-      addEventListener: (name: string, listener: EventListener) => listeners.set(name, listener),
-      removeEventListener: (name: string) => listeners.delete(name),
+      addEventListener: windowEvents.addEventListener,
+      removeEventListener: windowEvents.removeEventListener,
     } as unknown as Window;
     const navigation = setupDeckNavigation(document, window);
 
-    listeners.get("keydown")?.({
+    windowEvents.dispatch("keydown", {
       key: "ArrowRight",
       preventDefault() {},
       target: null,
     } as unknown as KeyboardEvent);
     expect(second.attributes.has("data-active")).toBe(true);
     expect(location.hash).toBe("#2");
-    listeners.get("keydown")?.({
+    windowEvents.dispatch("keydown", {
       key: "ArrowLeft",
       preventDefault() {},
       target: null,
     } as unknown as KeyboardEvent);
     expect(first.attributes.has("data-active")).toBe(true);
     expect(location.hash).toBe("#1");
+    navigation?.destroy();
+  } finally {
+    if (OriginalElement) {
+      Object.defineProperty(globalThis, "Element", { configurable: true, value: OriginalElement });
+    } else {
+      delete (globalThis as { Element?: unknown }).Element;
+    }
+  }
+});
+
+test("setupDeckNavigation syncs menu buttons with slide state", () => {
+  const first = fakeSlide();
+  const second = fakeSlide();
+  const windowEvents = fakeEventTarget();
+  const current = { textContent: "" };
+  const previousButton = fakeButton();
+  const nextButton = fakeButton();
+  const document = {
+    querySelectorAll: () => [first, second],
+    querySelector: (selector: string) => {
+      if (selector === "[data-slida-current]") return current;
+      if (selector === "[data-slida-nav-prev]") return previousButton;
+      if (selector === "[data-slida-nav-next]") return nextButton;
+      return null;
+    },
+  } as unknown as Document;
+  const location = { hash: "" };
+  const window = {
+    document,
+    location,
+    history: {
+      replaceState: (_state: unknown, _title: string, hash: string) => {
+        location.hash = hash;
+      },
+    },
+    addEventListener: windowEvents.addEventListener,
+    removeEventListener: windowEvents.removeEventListener,
+  } as unknown as Window;
+  const navigation = setupDeckNavigation(document, window);
+
+  expect(previousButton.disabled).toBe(true);
+  expect(nextButton.disabled).toBe(false);
+  nextButton.dispatch("click", { preventDefault() {} } as MouseEvent);
+  expect(second.attributes.has("data-active")).toBe(true);
+  expect(current.textContent).toBe("2");
+  expect(location.hash).toBe("#2");
+  expect(previousButton.disabled).toBe(false);
+  expect(nextButton.disabled).toBe(true);
+
+  previousButton.dispatch("click", { preventDefault() {} } as MouseEvent);
+  expect(first.attributes.has("data-active")).toBe(true);
+  expect(current.textContent).toBe("1");
+  expect(location.hash).toBe("#1");
+  expect(previousButton.disabled).toBe(true);
+  expect(nextButton.disabled).toBe(false);
+
+  navigation?.destroy();
+  expect(previousButton.listeners.has("click")).toBe(false);
+  expect(nextButton.listeners.has("click")).toBe(false);
+  expect(windowEvents.listeners.has("keydown")).toBe(false);
+  expect(windowEvents.listeners.has("hashchange")).toBe(false);
+});
+
+test("setupDeckNavigation rejects secondary and non-primary drag acquisition", () => {
+  const first = fakeSlide();
+  const second = fakeSlide();
+  const windowEvents = fakeEventTarget();
+  const current = { textContent: "" };
+  const previousButton = fakeButton();
+  const nextButton = fakeButton();
+  const navigationMenu = fakeDragElement({ left: 100, top: 100, width: 120, height: 80 });
+  const dragHandle = fakeDragElement();
+  const document = {
+    querySelectorAll: () => [first, second],
+    querySelector: (selector: string) => {
+      if (selector === "[data-slida-current]") return current;
+      if (selector === "[data-slida-nav-prev]") return previousButton;
+      if (selector === "[data-slida-nav-next]") return nextButton;
+      if (selector === "[data-slida-navigation]") return navigationMenu;
+      if (selector === "[data-slida-nav-drag-handle]") return dragHandle;
+      return null;
+    },
+  } as unknown as Document;
+  const location = { hash: "" };
+  const window = {
+    document,
+    innerWidth: 800,
+    innerHeight: 600,
+    location,
+    history: {
+      replaceState: (_state: unknown, _title: string, hash: string) => {
+        location.hash = hash;
+      },
+    },
+    addEventListener: windowEvents.addEventListener,
+    removeEventListener: windowEvents.removeEventListener,
+  } as unknown as Window;
+  const navigation = setupDeckNavigation(document, window);
+
+  dragHandle.dispatch("pointerdown", {
+    pointerId: 11,
+    button: 2,
+    isPrimary: true,
+    clientX: 110,
+    clientY: 110,
+    preventDefault() {},
+  } as unknown as PointerEvent);
+  dragHandle.dispatch("pointerdown", {
+    pointerId: 12,
+    button: 0,
+    isPrimary: false,
+    clientX: 110,
+    clientY: 110,
+    preventDefault() {},
+  } as unknown as PointerEvent);
+  windowEvents.dispatch("pointermove", {
+    pointerId: 11,
+    clientX: 500,
+    clientY: 500,
+    preventDefault() {},
+  } as PointerEvent);
+  windowEvents.dispatch("pointermove", {
+    pointerId: 12,
+    clientX: 500,
+    clientY: 500,
+    preventDefault() {},
+  } as PointerEvent);
+
+  expect(dragHandle.pointerCaptures).toEqual([]);
+  expect(dragHandle.pointerReleases).toEqual([]);
+  expect(navigationMenu.style.left).toBeUndefined();
+  expect(navigationMenu.style.top).toBeUndefined();
+
+  navigation?.destroy();
+});
+
+test("setupDeckNavigation drags the menu from the handle within viewport bounds", () => {
+  const first = fakeSlide();
+  const second = fakeSlide();
+  const windowEvents = fakeEventTarget();
+  const current = { textContent: "" };
+  const previousButton = fakeButton();
+  const nextButton = fakeButton();
+  const navigationMenu = fakeDragElement({ left: 700, top: 550, width: 120, height: 80 });
+  const dragHandle = fakeDragElement();
+  const document = {
+    querySelectorAll: () => [first, second],
+    querySelector: (selector: string) => {
+      if (selector === "[data-slida-current]") return current;
+      if (selector === "[data-slida-nav-prev]") return previousButton;
+      if (selector === "[data-slida-nav-next]") return nextButton;
+      if (selector === "[data-slida-navigation]") return navigationMenu;
+      if (selector === "[data-slida-nav-drag-handle]") return dragHandle;
+      return null;
+    },
+  } as unknown as Document;
+  const location = { hash: "" };
+  const window = {
+    document,
+    innerWidth: 800,
+    innerHeight: 600,
+    location,
+    history: {
+      replaceState: (_state: unknown, _title: string, hash: string) => {
+        location.hash = hash;
+      },
+    },
+    addEventListener: windowEvents.addEventListener,
+    removeEventListener: windowEvents.removeEventListener,
+  } as unknown as Window;
+  const navigation = setupDeckNavigation(document, window);
+
+  expect(previousButton.listeners.has("pointerdown")).toBe(false);
+  windowEvents.dispatch("pointermove", {
+    pointerId: 7,
+    clientX: 900,
+    clientY: 700,
+    preventDefault() {},
+  } as PointerEvent);
+  expect(navigationMenu.style.left).toBeUndefined();
+
+  dragHandle.dispatch("pointerdown", {
+    pointerId: 7,
+    button: 0,
+    isPrimary: true,
+    clientX: 710,
+    clientY: 560,
+    preventDefault() {},
+  } as unknown as PointerEvent);
+  dragHandle.dispatch("pointerdown", {
+    pointerId: 8,
+    button: 0,
+    isPrimary: true,
+    clientX: 720,
+    clientY: 570,
+    preventDefault() {},
+  } as unknown as PointerEvent);
+  expect(dragHandle.pointerCaptures).toEqual([7]);
+  windowEvents.dispatch("pointermove", {
+    pointerId: 8,
+    clientX: 10,
+    clientY: 10,
+    preventDefault() {},
+  } as PointerEvent);
+  expect(navigationMenu.style.left).toBeUndefined();
+
+  windowEvents.dispatch("pointermove", {
+    pointerId: 7,
+    clientX: 900,
+    clientY: 700,
+    preventDefault() {},
+  } as PointerEvent);
+  expect(navigationMenu.style.left).toBe("680px");
+  expect(navigationMenu.style.top).toBe("520px");
+  expect(navigationMenu.style.right).toBe("auto");
+  expect(navigationMenu.style.bottom).toBe("auto");
+
+  windowEvents.dispatch("pointercancel", { pointerId: 7 } as PointerEvent);
+  expect(dragHandle.pointerReleases).toEqual([7]);
+  windowEvents.dispatch("pointermove", {
+    pointerId: 7,
+    clientX: 20,
+    clientY: 20,
+    preventDefault() {},
+  } as PointerEvent);
+  expect(navigationMenu.style.left).toBe("680px");
+  expect(navigationMenu.style.top).toBe("520px");
+
+  dragHandle.dispatch("pointerdown", {
+    pointerId: 9,
+    button: 0,
+    isPrimary: true,
+    clientX: 710,
+    clientY: 560,
+    preventDefault() {},
+  } as unknown as PointerEvent);
+  navigation?.destroy();
+  expect(dragHandle.pointerReleases).toEqual([7, 9]);
+  expect(dragHandle.listeners.has("pointerdown")).toBe(false);
+  expect(windowEvents.listeners.has("pointermove")).toBe(false);
+  expect(windowEvents.listeners.has("pointerup")).toBe(false);
+  expect(windowEvents.listeners.has("pointercancel")).toBe(false);
+});
+
+test("setupDeckNavigation keeps keyboard guards and hash sync aligned with menu buttons", () => {
+  const OriginalElement = globalThis.Element;
+  class FakeElement {
+    closest() {
+      return this;
+    }
+  }
+  Object.defineProperty(globalThis, "Element", { configurable: true, value: FakeElement });
+  try {
+    const first = fakeSlide();
+    const second = fakeSlide();
+    const windowEvents = fakeEventTarget();
+    const current = { textContent: "" };
+    const previousButton = fakeButton();
+    const nextButton = fakeButton();
+    const navigationMenu = fakeDragElement({ width: 120, height: 40 });
+    const dragHandle = fakeDragElement();
+    const document = {
+      querySelectorAll: () => [first, second],
+      querySelector: (selector: string) => {
+        if (selector === "[data-slida-current]") return current;
+        if (selector === "[data-slida-nav-prev]") return previousButton;
+        if (selector === "[data-slida-nav-next]") return nextButton;
+        if (selector === "[data-slida-navigation]") return navigationMenu;
+        if (selector === "[data-slida-nav-drag-handle]") return dragHandle;
+        return null;
+      },
+    } as unknown as Document;
+    const location = { hash: "" };
+    const window = {
+      document,
+      innerWidth: 800,
+      innerHeight: 600,
+      location,
+      history: {
+        replaceState: (_state: unknown, _title: string, hash: string) => {
+          location.hash = hash;
+        },
+      },
+      addEventListener: windowEvents.addEventListener,
+      removeEventListener: windowEvents.removeEventListener,
+    } as unknown as Window;
+    const navigation = setupDeckNavigation(document, window);
+
+    location.hash = "#2";
+    windowEvents.dispatch("hashchange", {} as Event);
+    expect(second.attributes.has("data-active")).toBe(true);
+    expect(current.textContent).toBe("2");
+    expect(previousButton.disabled).toBe(false);
+    expect(nextButton.disabled).toBe(true);
+
+    windowEvents.dispatch("keydown", {
+      key: "ArrowLeft",
+      preventDefault() {
+        throw new Error("keyboard event from a button should be ignored");
+      },
+      target: new FakeElement(),
+    } as unknown as KeyboardEvent);
+
+    expect(second.attributes.has("data-active")).toBe(true);
+    expect(current.textContent).toBe("2");
+    expect(location.hash).toBe("#2");
+
     navigation?.destroy();
   } finally {
     if (OriginalElement) {

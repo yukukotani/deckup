@@ -74,15 +74,64 @@ body {
   bottom: 1rem;
   z-index: 2;
   display: inline-flex;
-  gap: 0.25rem;
+  gap: 0.2rem;
   align-items: center;
   border: 1px solid var(--slida-border, #e5e4e7);
   border-radius: 999px;
-  padding: 0.35rem 0.7rem;
+  padding: 0.25rem;
   color: var(--slida-text-strong, #08060d);
   background: color-mix(in srgb, var(--slida-bg, #fff) 88%, transparent);
   box-shadow: var(--slida-shadow, rgba(0, 0, 0, 0.1) 0 10px 15px -3px);
   font: 0.85rem/1 var(--slida-mono, ui-monospace, Consolas, monospace);
+  user-select: none;
+}
+
+.slida-navigation__status {
+  min-width: 3.25ch;
+  padding-inline: 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.slida-navigation__button,
+.slida-navigation__handle {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: 1;
+}
+
+.slida-navigation__button:not(:disabled),
+.slida-navigation__handle {
+  cursor: pointer;
+}
+
+.slida-navigation__button:not(:disabled):hover,
+.slida-navigation__button:not(:disabled):focus-visible,
+.slida-navigation__handle:hover,
+.slida-navigation__handle:focus-visible {
+  background: color-mix(in srgb, var(--slida-text-strong, #08060d) 10%, transparent);
+}
+
+.slida-navigation__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.slida-navigation__handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.slida-navigation__handle:active {
+  cursor: grabbing;
 }
 
 @media (max-width: 768px) {
