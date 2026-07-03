@@ -6,6 +6,7 @@
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "vp run example#dev",
+    "dev:web": "vp run @slida/web#dev",
     "prepare": "vp config"
   },
   "devDependencies": {
