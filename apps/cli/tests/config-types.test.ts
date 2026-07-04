@@ -35,6 +35,9 @@ expect(themedConfig.theme).toBe("bold");
 const packageThemeConfig = defineConfig({ theme: "@acme/slida-layout-theme" });
 expect(packageThemeConfig.theme).toBe("@acme/slida-layout-theme");
 
+const npmThemeConfig = defineConfig({ theme: "npm:@acme/slida-theme@1.2.3" });
+expect(npmThemeConfig.theme).toBe("npm:@acme/slida-theme@1.2.3");
+
 const publicResolvedThemeLayout: SlidaResolvedThemeLayout = {
   id: "two-column",
   filePath: "/theme/layouts/two-column.astro",
@@ -67,10 +70,36 @@ expect(publicRuntimePaths.generatedPageFilePath).toContain("generated/Page.astro
 expect("resolveSlidaTheme" in slida).toBe(false);
 // @ts-expect-error resolveSlidaTheme was intentionally removed; use resolveSlidaThemeLayouts
 void slida.resolveSlidaTheme;
+expect("parseNpmThemeSource" in slida).toBe(false);
+expect("resolveCachedNpmThemePackage" in slida).toBe(false);
+expect("SLIDA_THEME_CACHE_ENV" in slida).toBe(false);
+
+// @ts-expect-error npm theme cache options are internal, not public package types
+type PublicNpmThemeOptions = import("../src/index.ts").SlidaNpmThemeOptions;
+expect(undefined as unknown as PublicNpmThemeOptions).toBeUndefined();
+
+// @ts-expect-error npm theme download request is internal, not a public package type
+type PublicNpmDownloadRequest = import("../src/index.ts").SlidaNpmThemeDownloadRequest;
+expect(undefined as unknown as PublicNpmDownloadRequest).toBeUndefined();
 
 defineConfig({
   // @ts-expect-error Theme config remains a string selector for layout-component packages
   theme: { name: "minimal" },
+});
+
+defineConfig({
+  // @ts-expect-error npm theme cache location is controlled by SLIDA_THEME_CACHE_DIR, not slida.config.*
+  themeCacheDir: ".slida-theme-cache",
+});
+
+defineConfig({
+  // @ts-expect-error npm theme cacheDir is an internal resolver option, not slida.config.*
+  cacheDir: ".slida-theme-cache",
+});
+
+defineConfig({
+  // @ts-expect-error npm theme confirmation is internal resolver behavior, not slida.config.*
+  confirmDownload: async () => true,
 });
 
 defineConfig({

@@ -45,11 +45,11 @@ export default defineConfig({
 
 ## Public fields
 
-| Field   | Type                       | Description                                                   |
-| ------- | -------------------------- | ------------------------------------------------------------- |
-| `port`  | `number`                   | Default dev-server port. A CLI `--port` value overrides this. |
-| `theme` | `string`                   | Built-in short theme name or exact npm package specifier.     |
-| `astro` | `AstroInlineConfig` subset | Extra Astro config Slida allows users to provide.             |
+| Field   | Type                       | Description                                                                                       |
+| ------- | -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `port`  | `number`                   | Default dev-server port. A CLI `--port` value overrides this.                                     |
+| `theme` | `string`                   | Built-in theme name, installed npm package specifier, or auto-downloaded `npm:package[@version]`. |
+| `astro` | `AstroInlineConfig` subset | Extra Astro config Slida allows users to provide.                                                 |
 
 ## Astro boundary
 

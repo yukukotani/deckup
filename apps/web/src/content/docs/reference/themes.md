@@ -31,13 +31,35 @@ Built-in names resolve to first-party packages such as `@slida/theme-default` an
 
 ## Npm theme packages
 
-For a third-party theme, install the package in your deck project and use the package specifier exactly:
+For a third-party theme, you can either install the package in your deck project or let Slida download an npm package into a Slida-managed cache.
+Both modes use the same package contract: Slida reads package metadata first, then reads Astro layout components from the package's `layouts/` directory.
+
+### Installed package themes
+
+Install the package in your deck project and use the package specifier exactly:
 
 ```ts
 export default defineConfig({
   theme: "@acme/slida-theme",
 });
 ```
+
+### Auto-downloaded npm themes
+
+Use the `npm:` prefix to let Slida resolve the theme from the npm registry before Astro starts:
+
+```ts
+export default defineConfig({
+  theme: "npm:@acme/slida-theme@1.2.3",
+});
+```
+
+`npm:package` and exact `npm:package@version` specs are supported.
+Slida stores downloaded packages in its user cache and reuses the cache for the same spec.
+Set `SLIDA_THEME_CACHE_DIR` to use a different cache directory.
+
+When an uncached `npm:` theme needs a download, Slida asks for confirmation before contacting the npm registry.
+In non-interactive environments, Slida stops with guidance instead of downloading automatically.
 
 A theme package must expose package metadata and Astro layout files:
 
@@ -53,7 +75,6 @@ A theme package must expose package metadata and Astro layout files:
 }
 ```
 
-Slida resolves `${packageName}/package.json` first, then reads layout components from the package's `layouts/` directory.
 CSS-only package-root themes are not supported.
 Put shared styling in files imported by layout components instead.
 

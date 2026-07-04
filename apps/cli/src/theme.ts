@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
+import { parseNpmThemeSource, resolveCachedNpmThemePackage } from "./npm-theme.ts";
 import { discoverThemeLayouts } from "./theme-layouts.ts";
 import { uniqueStrings } from "./utils.ts";
 
@@ -76,7 +77,10 @@ function resolveThemePackageRoot(projectRoot: string, themeName: string): Resolv
 
 export async function resolveSlidaThemeLayouts(projectRoot: string, theme: unknown) {
   const name = normalizeThemeName(theme);
-  const resolvedTheme = resolveThemePackageRoot(projectRoot, name);
+  const npmSource = parseNpmThemeSource(name);
+  const resolvedTheme = npmSource
+    ? await resolveCachedNpmThemePackage(npmSource)
+    : resolveThemePackageRoot(projectRoot, name);
   const packageRoot = resolvedTheme.packageRoot ?? dirname(resolvedTheme.filePath);
   const layoutsDir = join(packageRoot, "layouts");
   const layouts = await discoverThemeLayouts(name, layoutsDir);

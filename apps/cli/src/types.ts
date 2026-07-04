@@ -19,6 +19,19 @@ export interface SlidaLoadedConfig {
   filePath?: string;
 }
 
+export interface SlidaNpmThemeDownloadRequest {
+  spec: string;
+  packageName: string;
+  cacheDir: string;
+}
+
+export interface SlidaNpmThemeOptions {
+  /** @internal Slida-managed npm theme cache override for tests and controlled runtimes. */
+  cacheDir?: string;
+  /** @internal Confirmation hook used before Slida downloads an uncached npm theme. */
+  confirmDownload?: (request: SlidaNpmThemeDownloadRequest) => boolean | Promise<boolean>;
+}
+
 export interface SlidaBaseOptions {
   root?: string;
   deckFile?: string;

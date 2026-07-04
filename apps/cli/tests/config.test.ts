@@ -1,10 +1,29 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { stdin as input, stdout as output } from "node:process";
 import { expect, test } from "vite-plus/test";
 
 import { createAstroInlineConfig, createSlidaAstroConfig, DEFAULT_DEV_PORT } from "../src/astro.ts";
 import { loadSlidaConfig } from "../src/config.ts";
+import {
+  getNpmThemeCacheEntryDir,
+  parseNpmThemeSource,
+  resolveCachedNpmThemePackage,
+  SLIDA_THEME_CACHE_ENV,
+  type NpmThemeInstallOperations,
+  type SlidaNpmThemeSource,
+} from "../src/npm-theme.ts";
 import { VIRTUAL_SLIDA_THEME_LAYOUTS_ID } from "../src/theme-layouts.ts";
 import { resolveSlidaThemeLayouts } from "../src/theme.ts";
 import type { SlidaRuntimePaths } from "../src/types.ts";
@@ -129,6 +148,157 @@ async function writeMinimalThemeLayoutPackage(projectRoot: string, packageName: 
   await writeFile(join(layoutsDir, "cover.astro"), "<slot />\n");
   await writeFile(join(layoutsDir, "default.astro"), "<slot />\n");
 }
+
+async function withThemeCache(run: (cacheDir: string) => Promise<void>) {
+  const cacheDir = await mkdtemp(join(tmpdir(), "slida-npm-theme-cache-"));
+  try {
+    await run(cacheDir);
+  } finally {
+    await rm(cacheDir, { force: true, recursive: true });
+  }
+}
+
+let processGlobalMutationLock: Promise<void> = Promise.resolve();
+
+async function withSerializedProcessGlobals<T>(run: () => Promise<T>): Promise<T> {
+  const previousLock = processGlobalMutationLock;
+  let releaseCurrentLock!: () => void;
+  processGlobalMutationLock = new Promise<void>((resolve) => {
+    releaseCurrentLock = resolve;
+  });
+  await previousLock;
+  try {
+    return await run();
+  } finally {
+    releaseCurrentLock();
+  }
+}
+
+async function withNpmThemeCacheEnv(cacheDir: string, run: () => Promise<void>) {
+  const previousCacheDir = process.env[SLIDA_THEME_CACHE_ENV];
+  process.env[SLIDA_THEME_CACHE_ENV] = cacheDir;
+  try {
+    await run();
+  } finally {
+    if (previousCacheDir === undefined) {
+      delete process.env[SLIDA_THEME_CACHE_ENV];
+    } else {
+      process.env[SLIDA_THEME_CACHE_ENV] = previousCacheDir;
+    }
+  }
+}
+
+async function writeCachedThemePackage(
+  packageRoot: string,
+  packageName: string,
+  version = "1.0.0",
+) {
+  const layoutsDir = join(packageRoot, "layouts");
+  await mkdir(layoutsDir, { recursive: true });
+  await writeFile(
+    join(packageRoot, "package.json"),
+    JSON.stringify({
+      name: packageName,
+      version,
+      type: "module",
+      exports: {
+        "./layouts/*.astro": "./layouts/*.astro",
+        "./package.json": "./package.json",
+      },
+    }),
+  );
+  await writeFile(join(layoutsDir, "default.astro"), "<slot />\n");
+}
+
+async function writeCachedThemeMetadata(
+  cacheEntryDir: string,
+  source: SlidaNpmThemeSource,
+  version = "1.0.0",
+) {
+  await writeFile(
+    join(cacheEntryDir, "slida-npm-theme.json"),
+    `${JSON.stringify(
+      {
+        source: source.originalName,
+        spec: source.spec,
+        packageName: source.packageName,
+        version,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+function fakeNpmThemeOperations(packageName: string, version = "1.0.0", calls: string[] = []) {
+  return {
+    async manifest(spec, options) {
+      calls.push(`manifest:${spec}:${options.cache}`);
+      return {
+        name: packageName,
+        version,
+        dist: {
+          integrity: "sha512-test-integrity",
+          tarball: `https://registry.example.test/${packageName.replace("/", "-")}-${version}.tgz`,
+        },
+      };
+    },
+    async extract(spec, target, options) {
+      calls.push(`extract:${spec}:${options.cache}:${options.integrity ?? "none"}`);
+      await writeCachedThemePackage(target, packageName, version);
+      return { from: spec, resolved: spec, integrity: options.integrity };
+    },
+  } satisfies NpmThemeInstallOperations;
+}
+
+async function withNonInteractiveStdio(run: () => Promise<void>) {
+  const restorers: Array<() => void> = [];
+  try {
+    const inputIsTty = Object.getOwnPropertyDescriptor(input, "isTTY");
+    Object.defineProperty(input, "isTTY", { configurable: true, value: false });
+    restorers.push(() => {
+      if (inputIsTty) Object.defineProperty(input, "isTTY", inputIsTty);
+      else delete (input as { isTTY?: boolean }).isTTY;
+    });
+
+    const outputIsTty = Object.getOwnPropertyDescriptor(output, "isTTY");
+    Object.defineProperty(output, "isTTY", { configurable: true, value: false });
+    restorers.push(() => {
+      if (outputIsTty) Object.defineProperty(output, "isTTY", outputIsTty);
+      else delete (output as { isTTY?: boolean }).isTTY;
+    });
+
+    await run();
+  } finally {
+    for (const restore of restorers.reverse()) restore();
+  }
+}
+
+test("parseNpmThemeSource accepts bare and exact npm theme specs", () => {
+  expect(parseNpmThemeSource("minimal")).toBeUndefined();
+  expect(parseNpmThemeSource("npm:@acme/slida-theme")).toEqual({
+    originalName: "npm:@acme/slida-theme",
+    spec: "@acme/slida-theme",
+    packageName: "@acme/slida-theme",
+    version: undefined,
+  });
+  expect(parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")).toEqual({
+    originalName: "npm:@acme/slida-theme@1.2.3",
+    spec: "@acme/slida-theme@1.2.3",
+    packageName: "@acme/slida-theme",
+    version: "1.2.3",
+  });
+});
+
+test("parseNpmThemeSource rejects unsupported npm theme specs", () => {
+  expect(() => parseNpmThemeSource("npm:")).toThrow(/must include a package name/);
+  expect(() => parseNpmThemeSource("npm:@acme/slida-theme@^1.0.0")).toThrow(
+    /must use npm:package or npm:package@version/,
+  );
+  expect(() => parseNpmThemeSource("npm:github:user/repo")).toThrow(
+    /must reference an npm registry package|Invalid Slida npm theme spec/,
+  );
+});
 
 test("loadSlidaConfig loads a project-root TypeScript config", async () => {
   await withProjectRoot(async (projectRoot) => {
@@ -297,6 +467,40 @@ test("resolveSlidaThemeLayouts resolves npm theme layouts from the project root"
   });
 });
 
+test("resolveSlidaThemeLayouts resolves npm theme layouts from the Slida cache", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await withThemeCache(async (cacheDir) => {
+      const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+      const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+      await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.2.3");
+      await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+
+      await withSerializedProcessGlobals(() =>
+        withNpmThemeCacheEnv(cacheDir, async () => {
+          const theme = await resolveSlidaThemeLayouts(projectRoot, "npm:@acme/slida-theme@1.2.3");
+
+          expect(theme).toMatchObject({
+            name: "npm:@acme/slida-theme@1.2.3",
+            packageName: "@acme/slida-theme",
+            source: "package",
+            slotNames: [],
+          });
+          expect(theme.packageRoot).toBe(await realpath(join(cacheEntryDir, "package")));
+          expect(theme.layoutsDir).toBe(join(theme.packageRoot!, "layouts"));
+          expect(theme.layouts).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                id: "default",
+                importPath: expect.stringContaining("/@fs/"),
+              }),
+            ]),
+          );
+        }),
+      );
+    });
+  });
+});
+
 test("resolveSlidaThemeLayouts rejects CSS-only npm themes", async () => {
   await withProjectRoot(async (projectRoot) => {
     const packageDir = join(projectRoot, "node_modules", "css-only-theme");
@@ -344,6 +548,244 @@ test("resolveSlidaThemeLayouts rejects missing npm themes with built-in guidance
   });
 });
 
+test("resolveCachedNpmThemePackage downloads approved missing themes into the cache", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const calls: string[] = [];
+    const confirmations: unknown[] = [];
+
+    const resolved = await resolveCachedNpmThemePackage(source, {
+      cacheDir,
+      confirmDownload: async (request) => {
+        confirmations.push(request);
+        calls.push(`confirm:${request.spec}:${request.cacheDir}`);
+        return true;
+      },
+      operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3", calls),
+    });
+
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    expect(confirmations).toEqual([
+      { spec: "@acme/slida-theme@1.2.3", packageName: "@acme/slida-theme", cacheDir },
+    ]);
+    expect(calls).toEqual([
+      `confirm:@acme/slida-theme@1.2.3:${cacheDir}`,
+      expect.stringContaining("manifest:@acme/slida-theme@1.2.3:"),
+      expect.stringContaining("extract:https://registry.example.test/@acme-slida-theme-1.2.3.tgz:"),
+    ]);
+    expect(calls[2]).toContain("sha512-test-integrity");
+    expect(resolved).toMatchObject({
+      packageName: "@acme/slida-theme",
+      packageRoot: await realpath(join(cacheEntryDir, "package")),
+      version: "1.2.3",
+      source: "package",
+    });
+    await expect(readFile(join(cacheEntryDir, "slida-npm-theme.json"), "utf8")).resolves.toBe(
+      `${JSON.stringify(
+        {
+          source: "npm:@acme/slida-theme@1.2.3",
+          spec: "@acme/slida-theme@1.2.3",
+          packageName: "@acme/slida-theme",
+          version: "1.2.3",
+        },
+        null,
+        2,
+      )}\n`,
+    );
+  });
+});
+
+test("resolveCachedNpmThemePackage reuses valid cached themes without prompting", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.2.3");
+    await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+
+    const resolved = await resolveCachedNpmThemePackage(source, {
+      cacheDir,
+      confirmDownload: async () => {
+        throw new Error("cache hits must not prompt");
+      },
+      operations: {
+        async manifest() {
+          throw new Error("cache hits must not fetch manifests");
+        },
+        async extract() {
+          throw new Error("cache hits must not extract packages");
+        },
+      },
+    });
+
+    expect(resolved.packageRoot).toBe(await realpath(join(cacheEntryDir, "package")));
+  });
+});
+
+test("resolveCachedNpmThemePackage repairs invalid cache entries before downloading", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    await mkdir(cacheEntryDir, { recursive: true });
+    await writeFile(join(cacheEntryDir, "slida-npm-theme.json"), "{}\n");
+
+    const calls: string[] = [];
+    const resolved = await resolveCachedNpmThemePackage(source, {
+      cacheDir,
+      confirmDownload: async () => true,
+      operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3", calls),
+    });
+
+    expect(calls).toEqual([
+      expect.stringContaining("manifest:@acme/slida-theme@1.2.3:"),
+      expect.stringContaining("extract:https://registry.example.test/@acme-slida-theme-1.2.3.tgz:"),
+    ]);
+    expect(resolved.packageRoot).toBe(await realpath(join(cacheEntryDir, "package")));
+  });
+});
+
+test("resolveCachedNpmThemePackage repairs metadata/package version mismatches before downloading", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.0.0");
+    await writeCachedThemeMetadata(cacheEntryDir, source, "2.0.0");
+
+    const calls: string[] = [];
+    const resolved = await resolveCachedNpmThemePackage(source, {
+      cacheDir,
+      confirmDownload: async () => true,
+      operations: fakeNpmThemeOperations("@acme/slida-theme", "2.0.0", calls),
+    });
+
+    expect(calls).toEqual([
+      expect.stringContaining("manifest:@acme/slida-theme:"),
+      expect.stringContaining("extract:https://registry.example.test/@acme-slida-theme-2.0.0.tgz:"),
+    ]);
+    expect(resolved.version).toBe("2.0.0");
+  });
+});
+
+test("resolveCachedNpmThemePackage serializes same-cache-key repair and download", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    await mkdir(cacheEntryDir, { recursive: true });
+    await writeFile(join(cacheEntryDir, "slida-npm-theme.json"), "{}\n");
+
+    let manifestCalls = 0;
+    const operations = fakeNpmThemeOperations("@acme/slida-theme", "1.2.3");
+    const wrappedOperations = {
+      ...operations,
+      async manifest(spec, options) {
+        manifestCalls += 1;
+        return operations.manifest(spec, options);
+      },
+    } satisfies NpmThemeInstallOperations;
+
+    const [first, second] = await Promise.all([
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => true,
+        operations: wrappedOperations,
+      }),
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => true,
+        operations: wrappedOperations,
+      }),
+    ]);
+
+    expect(manifestCalls).toBe(1);
+    expect(first.packageRoot).toBe(second.packageRoot);
+  });
+});
+
+test("resolveCachedNpmThemePackage validates existing cache entry when promotion collides", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    const calls: string[] = [];
+
+    const operations = fakeNpmThemeOperations("@acme/slida-theme", "1.2.3", calls);
+    const resolved = await resolveCachedNpmThemePackage(source, {
+      cacheDir,
+      confirmDownload: async () => true,
+      operations: {
+        ...operations,
+        async extract(spec, target, options) {
+          await operations.extract(spec, target, options);
+          await writeCachedThemePackage(
+            join(cacheEntryDir, "package"),
+            "@acme/slida-theme",
+            "1.2.3",
+          );
+          await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+          return { from: spec, resolved: spec, integrity: options.integrity };
+        },
+      },
+    });
+
+    expect(resolved.packageRoot).toBe(await realpath(join(cacheEntryDir, "package")));
+    expect(await readdir(join(cacheDir, "tmp"))).toEqual([]);
+  });
+});
+
+test("resolveCachedNpmThemePackage preserves original errors when temp cleanup fails", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+
+    await expect(
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => true,
+        operations: {
+          async manifest() {
+            return { name: "@acme/slida-theme", version: "1.2.3" };
+          },
+          async extract(_spec, target) {
+            await rm(target, { force: true, recursive: true });
+            await writeFile(target, "not a directory anymore");
+            throw new Error("extract failed");
+          },
+        },
+      }),
+    ).rejects.toThrow("extract failed");
+  });
+});
+
+test("resolveCachedNpmThemePackage stops before network work when download is denied", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+
+    await expect(
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => false,
+        operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3"),
+      }),
+    ).rejects.toThrow(/download cancelled/);
+    await expect(stat(cacheEntryDir)).rejects.toThrow();
+  });
+});
+
+test("resolveCachedNpmThemePackage fails uncached non-interactive downloads with guidance", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+
+    await withSerializedProcessGlobals(() =>
+      withNonInteractiveStdio(async () => {
+        await expect(
+          resolveCachedNpmThemePackage(source, {
+            cacheDir,
+            operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3"),
+          }),
+        ).rejects.toThrow(/Re-run in an interactive terminal to approve the download/);
+      }),
+    );
+  });
+});
+
 test("createSlidaAstroConfig resolves config theme before Astro starts", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
@@ -355,6 +797,67 @@ test("createSlidaAstroConfig resolves config theme before Astro starts", async (
     });
 
     expect(slidaTheme).toMatchObject({ name: "bold", source: "builtin" });
+  });
+});
+
+test("createSlidaAstroConfig wires cached npm themes into generated Page and Vite fs allow", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    await withThemeCache(async (cacheDir) => {
+      const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+      const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+      await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.2.3");
+      await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+      await writeFile(
+        join(projectRoot, "slida.config.ts"),
+        "export default { theme: 'npm:@acme/slida-theme@1.2.3' };\n",
+      );
+
+      await withSerializedProcessGlobals(() =>
+        withNpmThemeCacheEnv(cacheDir, async () => {
+          const { astroConfig, paths, slidaTheme } = await createSlidaAstroConfig({
+            root: projectRoot,
+            deckFile: "slides/deck.astro",
+          });
+          const packageRoot = await realpath(join(cacheEntryDir, "package"));
+
+          expect(slidaTheme).toMatchObject({
+            name: "npm:@acme/slida-theme@1.2.3",
+            packageName: "@acme/slida-theme",
+            packageRoot,
+            source: "package",
+          });
+          expect(paths.generatedPageFilePath).toBeDefined();
+          expect(await readFile(paths.generatedPageFilePath!, "utf8")).toContain(
+            VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+          );
+          expect(astroConfig.vite?.server?.fs?.allow).toEqual(
+            expect.arrayContaining([packageRoot, join(packageRoot, "layouts")]),
+          );
+        }),
+      );
+    });
+  });
+});
+
+test("createSlidaAstroConfig fails uncached npm themes before Astro starts in non-interactive mode", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    await writeFile(
+      join(projectRoot, "slida.config.ts"),
+      "export default { theme: 'npm:@acme/slida-theme@1.2.3' };\n",
+    );
+    await withThemeCache(async (cacheDir) => {
+      await withSerializedProcessGlobals(() =>
+        withNpmThemeCacheEnv(cacheDir, () =>
+          withNonInteractiveStdio(async () => {
+            await expect(
+              createSlidaAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
+            ).rejects.toThrow(/Re-run in an interactive terminal to approve the download/);
+          }),
+        ),
+      );
+    });
   });
 });
 
