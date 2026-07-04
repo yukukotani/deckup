@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { basename, extname } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
@@ -86,6 +87,15 @@ export function normalizeBuildFormat(value: unknown): SlidaOutputFormat {
   );
 }
 
+function defaultHtmlOutDir(deckFile: string | undefined) {
+  if (!deckFile) {
+    return DEFAULT_BUILD_OUT_DIR;
+  }
+
+  const name = basename(deckFile, extname(deckFile));
+  return name.length > 0 ? name : DEFAULT_BUILD_OUT_DIR;
+}
+
 export function normalizeOpenValues(values: CommandValues): SlidaDevOptions {
   return {
     deckFile: stringValue(values.deckFile),
@@ -99,11 +109,12 @@ export function normalizeOpenValues(values: CommandValues): SlidaDevOptions {
 export function normalizeBuildValues(values: CommandValues): SlidaBuildCommandOptions {
   const format = normalizeBuildFormat(values.format);
   const output = stringValue(values.out);
+  const deckFile = stringValue(values.deckFile);
 
   return {
-    deckFile: stringValue(values.deckFile),
+    deckFile,
     format,
-    outDir: format === "html" ? (output ?? DEFAULT_BUILD_OUT_DIR) : DEFAULT_BUILD_OUT_DIR,
+    outDir: format === "html" ? (output ?? defaultHtmlOutDir(deckFile)) : DEFAULT_BUILD_OUT_DIR,
     out: format === "pdf" ? output : undefined,
     force: booleanValue(values.force) ?? false,
     logLevel: normalizeLogLevel(values.logLevel),

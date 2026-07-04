@@ -68,13 +68,24 @@ test("normalizeBuildValues defaults to PDF output and preserves selected deck fi
   });
 });
 
-test("normalizeBuildValues maps html output to the internal output directory", () => {
+test("normalizeBuildValues maps html output to the requested output directory", () => {
   expect(
     normalizeBuildValues({ deckFile: "slides/talk.mdx", format: "html", out: "public-deck" }),
   ).toEqual({
     deckFile: "slides/talk.mdx",
     format: "html",
     outDir: "public-deck",
+    out: undefined,
+    force: false,
+    logLevel: "info",
+  });
+});
+
+test("normalizeBuildValues defaults html output to the deck basename", () => {
+  expect(normalizeBuildValues({ deckFile: "slides/talk.mdx", format: "html" })).toEqual({
+    deckFile: "slides/talk.mdx",
+    format: "html",
+    outDir: "talk",
     out: undefined,
     force: false,
     logLevel: "info",

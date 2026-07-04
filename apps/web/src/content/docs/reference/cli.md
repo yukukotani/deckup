@@ -60,12 +60,12 @@ slida build slides/deck.mdx --format html --out public-deck
 
 ### Options
 
-| Option                 | Default                          | Description                                                             |
-| ---------------------- | -------------------------------- | ----------------------------------------------------------------------- |
-| `--format <html\|pdf>` | `pdf`                            | Output format. Use `html` for static HTML/assets or `pdf` for PDF.      |
-| `--out <path>`         | PDF: deck basename; HTML: `dist` | Output PDF file for `pdf`, or static output directory for `html`.       |
-| `--force`, `-f`        | `false`                          | Overwrite an existing PDF without prompting. Only affects `pdf` output. |
-| `--logLevel <level>`   | `info`                           | Astro log level.                                                        |
+| Option                 | Default                               | Description                                                             |
+| ---------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
+| `--format <html\|pdf>` | `pdf`                                 | Output format. Use `html` for static HTML/assets or `pdf` for PDF.      |
+| `--out <path>`         | Deck basename (`deck/` or `deck.pdf`) | Output PDF file for `pdf`, or static output directory for `html`.       |
+| `--force`, `-f`        | `false`                               | Overwrite an existing PDF without prompting. Only affects `pdf` output. |
+| `--logLevel <level>`   | `info`                                | Astro log level.                                                        |
 
 PDF output uses an internal static build staging directory before writing the PDF; that staging directory is not part of the public CLI surface.
 If the target PDF already exists, Slida asks before overwriting in an interactive terminal.

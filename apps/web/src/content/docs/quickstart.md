@@ -69,7 +69,7 @@ Build the deck as static HTML and assets by selecting the `html` output format:
 npx slida build slides/deck.mdx --format html
 ```
 
-By default for HTML output, Slida writes the build to `dist/`.
+The default HTML output directory comes from the deck filename, so `slides/deck.mdx` builds to `deck/`.
 Use `--out` to choose a different directory:
 
 ```bash
