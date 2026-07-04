@@ -2,8 +2,10 @@ import { expect, test } from "vite-plus/test";
 
 import {
   defineConfig,
+  type SlidaBuildCommandOptions,
   type SlidaRuntimePaths,
   type SlidaConfig,
+  type SlidaOutputFormat,
   type SlidaResolvedTheme,
   type SlidaResolvedThemeLayout,
 } from "../src/index.ts";
@@ -67,12 +69,31 @@ const publicRuntimePaths: SlidaRuntimePaths = {
 };
 expect(publicRuntimePaths.generatedPageFilePath).toContain("generated/Page.astro");
 
+const publicOutputFormat: SlidaOutputFormat = "pdf";
+expect(publicOutputFormat).toBe("pdf");
+
+const publicBuildCommandOptions: SlidaBuildCommandOptions = {
+  deckFile: "slides/deck.mdx",
+  format: publicOutputFormat,
+  outDir: "dist",
+  out: "deck.pdf",
+  force: false,
+  logLevel: "info",
+};
+expect(publicBuildCommandOptions.format).toBe("pdf");
+
 expect("resolveSlidaTheme" in slida).toBe(false);
 // @ts-expect-error resolveSlidaTheme was intentionally removed; use resolveSlidaThemeLayouts
 void slida.resolveSlidaTheme;
 expect("parseNpmThemeSource" in slida).toBe(false);
 expect("resolveCachedNpmThemePackage" in slida).toBe(false);
 expect("SLIDA_THEME_CACHE_ENV" in slida).toBe(false);
+expect("normalizeDevValues" in slida).toBe(false);
+// @ts-expect-error normalizeDevValues was intentionally replaced by normalizeOpenValues
+void slida.normalizeDevValues;
+expect("normalizeExportValues" in slida).toBe(false);
+// @ts-expect-error normalizeExportValues was intentionally removed with the export command surface
+void slida.normalizeExportValues;
 
 // @ts-expect-error npm theme cache options are internal, not public package types
 type PublicNpmThemeOptions = import("../src/index.ts").SlidaNpmThemeOptions;

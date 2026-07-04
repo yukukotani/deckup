@@ -52,43 +52,43 @@ If you omit a layout declaration, the first page uses the `cover` layout and lat
 Start the local preview server:
 
 ```bash
-npx slida dev slides/deck.mdx
+npx slida open slides/deck.mdx
 ```
 
 Use `--host`, `--port` (or `-p`), and `--open` when you need to change the local server behavior:
 
 ```bash
-npx slida dev slides/deck.mdx --port 4321 --open
+npx slida open slides/deck.mdx --port 4321 --open
 ```
 
 ## Build static HTML
 
-Build the deck as static HTML and assets:
+Build the deck as static HTML and assets by selecting the `html` output format:
 
 ```bash
-npx slida build slides/deck.mdx
+npx slida build slides/deck.mdx --format html
 ```
 
-By default, Slida writes the build to `dist/`.
-Use `--outDir` to choose a different directory:
+By default for HTML output, Slida writes the build to `dist/`.
+Use `--out` to choose a different directory:
 
 ```bash
-npx slida build slides/deck.mdx --outDir public-deck
+npx slida build slides/deck.mdx --format html --out public-deck
 ```
 
 ## Export a PDF
 
-Export the deck to PDF:
+Build the deck as a PDF. PDF is the default `slida build` output format:
 
 ```bash
-npx slida export slides/deck.mdx
+npx slida build slides/deck.mdx
 ```
 
 The default PDF filename comes from the deck filename, so `slides/deck.mdx` exports `deck.pdf`.
 Use `--out` to choose a file and `--force` (or `-f`) to overwrite an existing PDF without an interactive prompt:
 
 ```bash
-npx slida export slides/deck.mdx --out slides.pdf --force
+npx slida build slides/deck.mdx --format pdf --out slides.pdf --force
 ```
 
 ## Next steps

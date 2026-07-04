@@ -19,7 +19,7 @@ If you are new to Slida, follow these pages in order:
 
 Use the reference section when you need exact command options or configuration details:
 
-- CLI reference — `slida dev`, `slida build`, and `slida export`.
+- CLI reference — `slida open` and `slida build --format html|pdf`.
 - Configuration reference — `slida.config.*`, `defineConfig()`, and the supported Slida config fields.
 - Theme reference — built-in themes, layout IDs, named slots, and npm theme package requirements.
 

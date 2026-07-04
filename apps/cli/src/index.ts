@@ -30,10 +30,10 @@ export {
   toViteFsImportPath,
 } from "./theme-layouts.ts";
 export {
+  normalizeBuildFormat,
   normalizeBuildValues,
-  normalizeDevValues,
-  normalizeExportValues,
   normalizeLogLevel,
+  normalizeOpenValues,
   runSlida,
 } from "./commands.ts";
 export {
@@ -45,6 +45,7 @@ export {
 export type {
   SlidaAstroConfig,
   SlidaBaseOptions,
+  SlidaBuildCommandOptions,
   SlidaBuildOptions,
   SlidaConfig,
   SlidaDeckFormat,
@@ -54,6 +55,7 @@ export type {
   SlidaExportResult,
   SlidaLoadedConfig,
   SlidaLogLevel,
+  SlidaOutputFormat,
   SlidaResolvedConfig,
   SlidaResolvedDeck,
   SlidaResolvedTheme,

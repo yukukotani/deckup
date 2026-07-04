@@ -37,7 +37,7 @@ export async function resolveDeckFile(
 ): Promise<SlidaResolvedDeck> {
   if (!deckFile) {
     throw new Error(
-      "Missing Slida deck file. Usage: slida dev <deck-file> or slida build <deck-file>.",
+      "Missing Slida deck file. Usage: slida open <deck-file> or slida build <deck-file>.",
     );
   }
 

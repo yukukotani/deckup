@@ -17,11 +17,11 @@ import {
 import { resolveDeckFile } from "./deck.ts";
 import { pathExists, resolveProjectRoot } from "./runtime.ts";
 import type {
-  SlidaBuildOptions,
+  SlidaBuildCommandOptions,
   SlidaDevOptions,
   SlidaDevResult,
-  SlidaExportOptions,
   SlidaLogLevel,
+  SlidaOutputFormat,
 } from "./types.ts";
 
 function readCliVersion() {
@@ -48,7 +48,8 @@ const logLevels = [
 ] as const satisfies readonly SlidaLogLevel[];
 
 type CommandValues = Record<string, unknown>;
-type SlidaExportCommandOptions = SlidaExportOptions & { force: boolean };
+
+const buildOutputFormats = ["html", "pdf"] as const satisfies readonly SlidaOutputFormat[];
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -72,7 +73,20 @@ export function normalizeLogLevel(value: unknown): SlidaLogLevel {
     : "info";
 }
 
-export function normalizeDevValues(values: CommandValues): SlidaDevOptions {
+export function normalizeBuildFormat(value: unknown): SlidaOutputFormat {
+  const format = stringValue(value);
+  if (format === undefined) {
+    return "pdf";
+  }
+  if (buildOutputFormats.includes(format as SlidaOutputFormat)) {
+    return format as SlidaOutputFormat;
+  }
+  throw new Error(
+    `Unsupported Slida build format: ${format}. Supported formats: ${buildOutputFormats.join(", ")}.`,
+  );
+}
+
+export function normalizeOpenValues(values: CommandValues): SlidaDevOptions {
   return {
     deckFile: stringValue(values.deckFile),
     host: booleanOrStringValue(values.host) ?? DEFAULT_DEV_HOST,
@@ -82,19 +96,15 @@ export function normalizeDevValues(values: CommandValues): SlidaDevOptions {
   };
 }
 
-export function normalizeBuildValues(values: CommandValues): SlidaBuildOptions {
-  return {
-    deckFile: stringValue(values.deckFile),
-    outDir: stringValue(values.outDir) ?? DEFAULT_BUILD_OUT_DIR,
-    logLevel: normalizeLogLevel(values.logLevel),
-  };
-}
+export function normalizeBuildValues(values: CommandValues): SlidaBuildCommandOptions {
+  const format = normalizeBuildFormat(values.format);
+  const output = stringValue(values.out);
 
-export function normalizeExportValues(values: CommandValues): SlidaExportCommandOptions {
   return {
     deckFile: stringValue(values.deckFile),
-    outDir: stringValue(values.outDir) ?? DEFAULT_BUILD_OUT_DIR,
-    out: stringValue(values.out),
+    format,
+    outDir: format === "html" ? (output ?? DEFAULT_BUILD_OUT_DIR) : DEFAULT_BUILD_OUT_DIR,
+    out: format === "pdf" ? output : undefined,
     force: booleanValue(values.force) ?? false,
     logLevel: normalizeLogLevel(values.logLevel),
   };
@@ -113,7 +123,7 @@ function formatDevUrl(
   return `http://${host}:${address.port}/`;
 }
 
-async function resolveExportTarget(options: SlidaExportCommandOptions) {
+async function resolveExportTarget(options: SlidaBuildCommandOptions) {
   const projectRoot = await realpath(resolveProjectRoot(options.root));
   const deck = await resolveDeckFile(projectRoot, options.deckFile);
   return normalizeExportOutFile(projectRoot, deck, options.out);
@@ -129,7 +139,7 @@ async function confirmOverwrite(filePath: string) {
   }
 }
 
-async function assertCanWriteExportTarget(options: SlidaExportCommandOptions) {
+async function assertCanWriteExportTarget(options: SlidaBuildCommandOptions) {
   const pdfFile = await resolveExportTarget(options);
   if (!(await pathExists(pdfFile)) || options.force) {
     return;
@@ -137,18 +147,18 @@ async function assertCanWriteExportTarget(options: SlidaExportCommandOptions) {
 
   if (!input.isTTY || !output.isTTY) {
     throw new Error(
-      `Slida export PDF already exists: ${pdfFile}. Re-run with --force to overwrite in non-interactive mode.`,
+      `Slida build PDF already exists: ${pdfFile}. Re-run with --force to overwrite in non-interactive mode.`,
     );
   }
 
   if (!(await confirmOverwrite(pdfFile))) {
-    throw new Error(`Slida export cancelled. PDF already exists: ${pdfFile}`);
+    throw new Error(`Slida build cancelled. PDF already exists: ${pdfFile}`);
   }
 }
 
-export const devCommand = define({
-  name: "dev",
-  description: "Start the Slida Astro preview server.",
+export const openCommand = define({
+  name: "open",
+  description: "Open the Slida Astro preview server.",
   args: {
     deckFile: {
       type: "positional",
@@ -173,52 +183,29 @@ export const devCommand = define({
     logLevel: { type: "string", default: "info", description: "Astro log level." },
   },
   async run(ctx) {
-    const options = normalizeDevValues(ctx.values as CommandValues);
+    const options = normalizeOpenValues(ctx.values as CommandValues);
     const { address } = await startDevServer(options);
-    return `Slida dev server running at ${formatDevUrl(address, options.host)}`;
+    return `Slida preview server running at ${formatDevUrl(address, options.host)}`;
   },
 });
 
 export const buildCommand = define({
   name: "build",
-  description: "Build the Slida deck as static HTML/assets.",
+  description: "Build the Slida deck as PDF or static HTML/assets.",
   args: {
     deckFile: {
       type: "positional",
       required: true,
       description: "Deck file to build (.astro or .mdx).",
     },
-    outDir: {
+    format: {
       type: "string",
-      default: DEFAULT_BUILD_OUT_DIR,
-      description: "Static output directory.",
-    },
-    logLevel: { type: "string", default: "info", description: "Astro log level." },
-  },
-  async run(ctx) {
-    const options = normalizeBuildValues(ctx.values as CommandValues);
-    await buildDeck(options);
-    return `Slida deck built at ${options.outDir ?? DEFAULT_BUILD_OUT_DIR}`;
-  },
-});
-
-export const exportCommand = define({
-  name: "export",
-  description: "Export the Slida deck to PDF.",
-  args: {
-    deckFile: {
-      type: "positional",
-      required: true,
-      description: "Deck file to export (.astro or .mdx).",
+      default: "pdf",
+      description: "Output format: pdf or html.",
     },
     out: {
       type: "string",
-      description: "PDF output file. Defaults to the deck basename with .pdf.",
-    },
-    outDir: {
-      type: "string",
-      default: DEFAULT_BUILD_OUT_DIR,
-      description: "Static build output directory used before PDF export.",
+      description: "Output directory for html, or PDF output file for pdf.",
     },
     force: {
       type: "boolean",
@@ -229,11 +216,18 @@ export const exportCommand = define({
     logLevel: { type: "string", default: "info", description: "Astro log level." },
   },
   async run(ctx) {
-    const options = normalizeExportValues(ctx.values as CommandValues);
+    const options = normalizeBuildValues(ctx.values as CommandValues);
+
+    if (options.format === "html") {
+      const { force: _force, format: _format, out: _out, ...buildOptions } = options;
+      await buildDeck(buildOptions);
+      return `Slida HTML deck built at ${buildOptions.outDir ?? DEFAULT_BUILD_OUT_DIR}`;
+    }
+
     await assertCanWriteExportTarget(options);
-    const { force: _force, ...exportOptions } = options;
+    const { force: _force, format: _format, ...exportOptions } = options;
     const result = await exportDeck(exportOptions);
-    return `Slida deck exported at ${result.pdfFile}`;
+    return `Slida PDF deck built at ${result.pdfFile}`;
   },
 });
 
@@ -241,7 +235,7 @@ export const entryCommand = define({
   name: "slida",
   description: "Astro-based slide deck tool.",
   run() {
-    return "Run `slida dev <deck-file>` to preview slides, `slida build <deck-file>` to create a static Web deck, or `slida export <deck-file>` to write a PDF.";
+    return "Run `slida open <deck-file>` to preview slides, or `slida build <deck-file>` to write a PDF by default. Use `slida build <deck-file> --format html` for a static Web deck.";
   },
 });
 
@@ -250,9 +244,8 @@ export async function runSlida(argv = process.argv.slice(2)) {
     name: "slida",
     version: VERSION,
     subCommands: {
-      dev: devCommand,
+      open: openCommand,
       build: buildCommand,
-      export: exportCommand,
     },
   });
 }

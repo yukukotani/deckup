@@ -1,25 +1,24 @@
 ---
 title: CLI reference
-description: Command syntax and options for slida dev, slida build, and slida export.
+description: Command syntax and options for slida open and slida build output formats.
 ---
 
 # CLI reference
 
-The `slida` command currently provides three workflows:
+The `slida` command provides two workflows:
 
-- `slida dev <deck-file>` previews a deck with Astro's dev server.
-- `slida build <deck-file>` builds static HTML and assets.
-- `slida export <deck-file>` builds the deck and writes a PDF.
+- `slida open <deck-file>` previews a deck with Astro's dev server.
+- `slida build <deck-file>` builds a deck as PDF by default, or as static HTML/assets with `--format html`.
 
 Deck files can be `.astro` or `.mdx`.
 All commands accept Astro log levels through `--logLevel`; unsupported values fall back to `info`.
 
-## `slida dev`
+## `slida open`
 
 Preview a deck locally:
 
 ```bash
-slida dev slides/deck.mdx
+slida open slides/deck.mdx
 ```
 
 ### Arguments
@@ -41,10 +40,16 @@ When the server starts, Slida prints the local URL.
 
 ## `slida build`
 
-Build a static web version of a deck:
+Build a deck. The default output format is PDF:
 
 ```bash
 slida build slides/deck.mdx
+```
+
+Build static HTML and assets explicitly with `--format html`:
+
+```bash
+slida build slides/deck.mdx --format html --out public-deck
 ```
 
 ### Arguments
@@ -55,37 +60,17 @@ slida build slides/deck.mdx
 
 ### Options
 
-| Option               | Default | Description              |
-| -------------------- | ------- | ------------------------ |
-| `--outDir <dir>`     | `dist`  | Static output directory. |
-| `--logLevel <level>` | `info`  | Astro log level.         |
+| Option                 | Default                          | Description                                                             |
+| ---------------------- | -------------------------------- | ----------------------------------------------------------------------- |
+| `--format <html\|pdf>` | `pdf`                            | Output format. Use `html` for static HTML/assets or `pdf` for PDF.      |
+| `--out <path>`         | PDF: deck basename; HTML: `dist` | Output PDF file for `pdf`, or static output directory for `html`.       |
+| `--force`, `-f`        | `false`                          | Overwrite an existing PDF without prompting. Only affects `pdf` output. |
+| `--logLevel <level>`   | `info`                           | Astro log level.                                                        |
 
-## `slida export`
-
-Export a deck to PDF:
-
-```bash
-slida export slides/deck.mdx
-```
-
-### Arguments
-
-| Argument    | Required | Description                               |
-| ----------- | -------- | ----------------------------------------- |
-| `deck-file` | Yes      | Deck file to export (`.astro` or `.mdx`). |
-
-### Options
-
-| Option               | Default                   | Description                                           |
-| -------------------- | ------------------------- | ----------------------------------------------------- |
-| `--out <file>`       | Deck basename with `.pdf` | PDF output file.                                      |
-| `--outDir <dir>`     | `dist`                    | Static build output directory used before PDF export. |
-| `--force`, `-f`      | `false`                   | Overwrite an existing PDF without prompting.          |
-| `--logLevel <level>` | `info`                    | Astro log level.                                      |
-
+PDF output uses an internal static build staging directory before writing the PDF; that staging directory is not part of the public CLI surface.
 If the target PDF already exists, Slida asks before overwriting in an interactive terminal.
-In non-interactive mode, rerun with `--force` to overwrite an existing file.
+In non-interactive mode, rerun with `--force` to overwrite an existing PDF.
 
 ## Root command
 
-Running `slida` without a subcommand prints a short reminder to use `slida dev <deck-file>`, `slida build <deck-file>`, or `slida export <deck-file>`.
+Running `slida` without a subcommand prints a short reminder to use `slida open <deck-file>` or `slida build <deck-file>`.

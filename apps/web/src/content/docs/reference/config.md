@@ -70,7 +70,7 @@ User Vite plugins and aliases are appended after Slida's required runtime plugin
 
 ## CLI precedence
 
-For `slida dev`, the dev-server port is resolved in this order:
+For `slida open`, the dev-server port is resolved in this order:
 
 1. `--port` or `-p` from the command line.
 2. `port` from `slida.config.*`.

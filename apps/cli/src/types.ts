@@ -7,6 +7,7 @@ export type SlidaAstroConfig = Omit<
   "root" | "srcDir" | "configFile" | "output" | "server" | "outDir" | "logLevel" | "devToolbar"
 >;
 export type SlidaDeckFormat = "astro" | "mdx";
+export type SlidaOutputFormat = "html" | "pdf";
 
 export interface SlidaConfig {
   port?: number;
@@ -52,6 +53,11 @@ export interface SlidaExportOptions extends SlidaBuildOptions {
   out?: string;
   browserExecutablePath?: string;
   browserCacheDir?: string;
+}
+
+export interface SlidaBuildCommandOptions extends SlidaExportOptions {
+  format: SlidaOutputFormat;
+  force: boolean;
 }
 
 export interface SlidaExportResult {
