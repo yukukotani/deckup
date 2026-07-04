@@ -184,8 +184,10 @@ test("revealSlidesForPrint temporarily reveals all slides and restores navigatio
 
   const restore = revealSlidesForPrint(document);
   expect(first.hidden).toBe(false);
+  expect(first.attributes.has("data-active")).toBe(true);
   expect(second.hidden).toBe(false);
   expect(second.attributes.get("aria-hidden")).toBe("false");
+  expect(second.attributes.has("data-active")).toBe(true);
   expect(documentElement.attributes.has("data-slida-print")).toBe(true);
   expect(body.attributes.has("data-slida-print")).toBe(true);
 

@@ -98,6 +98,7 @@ export function revealSlidesForPrint(document: Document = globalThis.document) {
   for (const slide of slides) {
     slide.hidden = false;
     slide.setAttribute("aria-hidden", "false");
+    slide.toggleAttribute("data-active", true);
   }
 
   return () => {

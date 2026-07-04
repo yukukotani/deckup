@@ -189,7 +189,6 @@ body {
     width: 100%;
     height: 100vh;
     min-height: 0;
-    display: block !important;
     break-after: page;
     page-break-after: always;
     overflow: hidden;

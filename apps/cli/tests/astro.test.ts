@@ -395,7 +395,7 @@ import Page from "@slida/cli/page";
   });
 });
 
-test("buildDeck renders Astro pages through the Google Basic two-column layout", async () => {
+test("buildDeck renders Astro pages through the Google Basic flow layouts", async () => {
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await writeFile(
@@ -409,7 +409,8 @@ test("buildDeck renders Astro pages through the Google Basic two-column layout",
 import Page from "@slida/cli/page";
 ---
 
-<Page title="Google Columns"><layout id="two-column" /><h1>Google title</h1><p slot="left">Google left</p><p slot="right">Google right</p></Page>
+<Page title="Google Page"><layout id="page" /><h1>Google page title</h1><p>Google page body</p><ul><li>Google bullet</li></ul><p>Google follow-up</p></Page>
+<Page title="Google Columns"><layout id="two-column" /><h1>Google column title</h1><p slot="left">Google left</p><p slot="right">Google right</p></Page>
 `,
     );
 
@@ -421,13 +422,62 @@ import Page from "@slida/cli/page";
     });
 
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
-    expect(slideSectionCount(html)).toBe(1);
+    expect(slideSectionCount(html)).toBe(2);
+    expect(layoutCount(html, "page")).toBe(1);
     expect(layoutCount(html, "two-column")).toBe(1);
-    expect(html).toContain("Google title");
+    expect(html).toContain("Google page title");
+    expect(html).toContain("Google page body");
+    expect(html).toContain("Google bullet");
+    expect(html).toContain("Google follow-up");
+    expect(html).toContain("Google column title");
     expect(html).toContain('class="slida-google-column slida-google-column--left"');
     expect(html).toContain("Google left");
     expect(html).toContain('class="slida-google-column slida-google-column--right"');
     expect(html).toContain("Google right");
+    expect(html).not.toContain("<layout");
+  });
+});
+
+test("buildDeck renders Astro pages through the Apple Basic flow layouts", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeFile(
+      join(projectRoot, "slida.config.ts"),
+      "export default { theme: 'apple-basic' };\n",
+    );
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Apple Page"><layout id="page" /><h1>Apple page title</h1><p>Apple page subtitle</p><p>Apple page body</p><ul><li>Apple bullet</li></ul></Page>
+<Page title="Apple Columns"><layout id="two-column" /><h1>Apple column title</h1><p slot="left">Apple left</p><p slot="right">Apple right</p></Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideSectionCount(html)).toBe(2);
+    expect(layoutCount(html, "page")).toBe(1);
+    expect(layoutCount(html, "two-column")).toBe(1);
+    expect(html).toContain("Apple page title");
+    expect(html).toContain("Apple page subtitle");
+    expect(html).toContain("Apple page body");
+    expect(html).toContain("Apple bullet");
+    expect(html).toContain("Apple column title");
+    expect(html).toContain('class="slida-apple-column slida-apple-column--left"');
+    expect(html).toContain("Apple left");
+    expect(html).toContain('class="slida-apple-column slida-apple-column--right"');
+    expect(html).toContain("Apple right");
+    expect(html).not.toContain("<layout");
   });
 });
 
@@ -498,13 +548,68 @@ import Page from "@slida/cli/page";
       expect(css).not.toMatch(/\.slida-status\{display:none!important\}/);
       expect(css).not.toMatch(/\.slida-navigation\{display:none!important\}/);
 
-      if (theme !== "google-basic" && theme !== "apple-basic") {
-        expect(css).not.toMatch(/body\{[^}]*background:var\(--slida-bg\)/);
-        expect(css).toContain("--slida-cqw:1cqw");
-        expect(css).toContain("var(--slida-cqw)");
-        expect(css).not.toContain("6vw");
-        expect(css).not.toContain("9vw");
+      expect(css).not.toMatch(/body\{[^}]*background:var\(--slida-bg\)/);
+      expect(css).toContain("--slida-cqw:1cqw");
+      expect(css).toContain("var(--slida-cqw)");
+      expect(css).not.toContain("6vw");
+      expect(css).not.toContain("9vw");
+
+      if (theme === "google-basic" || theme === "apple-basic") {
+        expect(css).not.toMatch(/\[data-slida-layout\]>:is\(h1,p,ul,ol\)\{[^}]*position:absolute/);
+        expect(css).not.toMatch(
+          /\[data-slida-layout=(?:"page"|page|"two-column"|two-column)\]>[^{}]*(?:first-of-type|nth-of-type)[^{]*\{(?=[^}]*(?:top|left):)[^}]*\}/,
+        );
+        expect(css).not.toMatch(
+          /[^{}]*\.slida-(?:google|apple)-column[^{}]*\{[^}]*position:absolute/,
+        );
       }
+    });
+  });
+}
+
+for (const theme of ["google-basic", "apple-basic"] as const) {
+  test(`buildDeck renders ${theme} non-page flow layouts`, async () => {
+    await withProjectRoot(async (projectRoot) => {
+      await linkCliPackage(projectRoot);
+      await writeFile(
+        join(projectRoot, "slida.config.ts"),
+        `export default { theme: '${theme}' };\n`,
+      );
+      await mkdir(join(projectRoot, "slides"));
+      await writeFile(
+        join(projectRoot, "slides", "deck.astro"),
+        `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Cover"><layout id="cover" /><h1>Cover title</h1><p>Cover subtitle</p></Page>
+<Page title="Section"><layout id="section" /><h1>Section title</h1></Page>
+<Page title="Number"><layout id="number" /><p>42</p><p>Number caption</p></Page>
+<Page title="Quote"><layout id="quote" /><p>Quote body</p><p>Quote name</p></Page>
+<Page title="Statement"><layout id="statement" /><p>Statement body</p></Page>
+`,
+      );
+
+      await buildDeck({
+        root: projectRoot,
+        deckFile: "slides/deck.astro",
+        outDir: "dist",
+        logLevel: "silent",
+      });
+
+      const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+      expect(slideSectionCount(html)).toBe(5);
+      expect(layoutCount(html, "cover")).toBe(1);
+      expect(layoutCount(html, "section")).toBe(1);
+      expect(layoutCount(html, "number")).toBe(1);
+      expect(layoutCount(html, "quote")).toBe(1);
+      expect(layoutCount(html, "statement")).toBe(1);
+      expect(html).toContain("Cover title");
+      expect(html).toContain("Section title");
+      expect(html).toContain("42");
+      expect(html).toContain("Quote body");
+      expect(html).toContain("Statement body");
+      expect(html).not.toContain("<layout");
     });
   });
 }
@@ -535,8 +640,14 @@ import Page from "@slida/cli/page";
     expect(css).toContain("@media print");
     expect(css).toContain("@page");
     expect(css).toContain("[data-slida-navigation]");
-    expect(css).toMatch(/\.slida-slide\[hidden\][^{]*\{[^}]*display:block!important/);
     expect(css).toMatch(/break-after:page|page-break-after:always/);
+    expect(css).toMatch(/@page\{size:16in 9in;margin:0\}/);
+    expect(css).toMatch(
+      /\.slida-slide,\.slida-slide\[hidden\],\.slida-slide:not\(:first-child\):not\(\[data-active\]\)\{(?=[^}]*height:100vh)(?=[^}]*overflow:hidden)[^}]*\}/,
+    );
+    expect(css).not.toMatch(
+      /\.slida-slide,\.slida-slide\[hidden\],\.slida-slide:not\(:first-child\):not\(\[data-active\]\)\{[^}]*display:block!important/,
+    );
   });
 });
 
@@ -655,7 +766,7 @@ title: MDX Layout Deck
   });
 });
 
-test("buildDeck renders MDX pages through the Google Basic two-column layout", async () => {
+test("buildDeck renders MDX pages through the Google Basic flow layouts", async () => {
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await writeFile(
@@ -669,9 +780,21 @@ test("buildDeck renders MDX pages through the Google Basic two-column layout", a
 title: Google Basic MDX
 ---
 
+<layout id="page" />
+
+# Google MDX page title
+
+Google MDX page body
+
+- Google MDX bullet
+
+Google MDX follow-up
+
+---
+
 <layout id="two-column" />
 
-# Google MDX title
+# Google MDX column title
 
 <p slot="left">Google MDX left</p>
 
@@ -687,13 +810,78 @@ title: Google Basic MDX
     });
 
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
-    expect(slideSectionCount(html)).toBe(1);
+    expect(slideSectionCount(html)).toBe(2);
+    expect(layoutCount(html, "page")).toBe(1);
     expect(layoutCount(html, "two-column")).toBe(1);
-    expect(html).toContain("Google MDX title");
+    expect(html).toContain("Google MDX page title");
+    expect(html).toContain("Google MDX page body");
+    expect(html).toContain("Google MDX bullet");
+    expect(html).toContain("Google MDX follow-up");
+    expect(html).toContain("Google MDX column title");
     expect(html).toContain('class="slida-google-column slida-google-column--left"');
     expect(html).toContain("Google MDX left");
     expect(html).toContain('class="slida-google-column slida-google-column--right"');
     expect(html).toContain("Google MDX right");
+    expect(html).not.toContain("<layout");
+  });
+});
+
+test("buildDeck renders MDX pages through the Apple Basic flow layouts", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeFile(
+      join(projectRoot, "slida.config.ts"),
+      "export default { theme: 'apple-basic' };\n",
+    );
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.mdx"),
+      `---
+title: Apple Basic MDX
+---
+
+<layout id="page" />
+
+# Apple MDX page title
+
+Apple MDX page subtitle
+
+Apple MDX page body
+
+- Apple MDX bullet
+
+---
+
+<layout id="two-column" />
+
+# Apple MDX column title
+
+<p slot="left">Apple MDX left</p>
+
+<p slot="right">Apple MDX right</p>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.mdx",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideSectionCount(html)).toBe(2);
+    expect(layoutCount(html, "page")).toBe(1);
+    expect(layoutCount(html, "two-column")).toBe(1);
+    expect(html).toContain("Apple MDX page title");
+    expect(html).toContain("Apple MDX page subtitle");
+    expect(html).toContain("Apple MDX page body");
+    expect(html).toContain("Apple MDX bullet");
+    expect(html).toContain("Apple MDX column title");
+    expect(html).toContain('class="slida-apple-column slida-apple-column--left"');
+    expect(html).toContain("Apple MDX left");
+    expect(html).toContain('class="slida-apple-column slida-apple-column--right"');
+    expect(html).toContain("Apple MDX right");
     expect(html).not.toContain("<layout");
   });
 });
