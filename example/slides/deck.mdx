@@ -60,3 +60,23 @@ This is quote page
 
 This is statement\
 page
+
+---
+
+<layout id="page" />
+
+# TypeScript code block
+
+This slide shows a TypeScript code block in an MDX deck.
+
+```ts
+type Slide = {
+  title: string;
+  layout: "cover" | "page";
+};
+
+const slide: Slide = {
+  title: "Hello TypeScript",
+  layout: "page",
+};
+```

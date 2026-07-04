@@ -51,3 +51,18 @@ import Page from "@slida/cli/page";
   <layout id="statement" />
   <p>This is statement<br />page</p>
 </Page>
+
+<Page title="TypeScript code block">
+  <layout id="page" />
+  <h1>TypeScript code block</h1>
+  <p>This slide shows a TypeScript code block in an Astro deck.</p>
+  <pre><code>{`type Slide = {
+  title: string;
+  layout: "cover" | "page";
+};
+
+const slide: Slide = {
+  title: "Hello TypeScript",
+  layout: "page",
+};`}</code></pre>
+</Page>
