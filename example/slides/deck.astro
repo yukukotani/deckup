@@ -56,13 +56,13 @@ import Page from "@slida/cli/page";
   <layout id="page" />
   <h1>TypeScript code block</h1>
   <p>This slide shows a TypeScript code block in an Astro deck.</p>
-  <pre><code>{`type Slide = {
+  <pre><code class="language-ts">type Slide = &#123;
   title: string;
   layout: "cover" | "page";
-};
+&#125;;
 
-const slide: Slide = {
+const slide: Slide = &#123;
   title: "Hello TypeScript",
   layout: "page",
-};`}</code></pre>
+&#125;;</code></pre>
 </Page>

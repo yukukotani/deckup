@@ -14,7 +14,13 @@ import { dirname, join, resolve } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { expect, test } from "vite-plus/test";
 
-import { createAstroInlineConfig, createSlidaAstroConfig, DEFAULT_DEV_PORT } from "../src/astro.ts";
+import {
+  createAstroInlineConfig,
+  createMarkdownConfig,
+  createSlidaAstroConfig,
+  DEFAULT_DEV_PORT,
+  resolveRawAstroCodeHighlightOptions,
+} from "../src/astro.ts";
 import { loadSlidaConfig } from "../src/config.ts";
 import {
   getNpmThemeCacheEntryDir,
@@ -47,6 +53,13 @@ function testPaths(projectRoot = resolve("/tmp/slida-project")): SlidaRuntimePat
 
 function serverPort(config: ReturnType<typeof createAstroInlineConfig>) {
   return (config.server as { port?: number } | undefined)?.port;
+}
+
+function markdownConfig(config: ReturnType<typeof createAstroInlineConfig>) {
+  return config.markdown as {
+    syntaxHighlight?: unknown;
+    shikiConfig?: Record<string, unknown>;
+  };
 }
 
 type TestVitePlugin = {
@@ -866,6 +879,94 @@ test("no config preserves the default dev port", () => {
   expect(serverPort(config)).toBe(DEFAULT_DEV_PORT);
 });
 
+test("no config defaults Markdown syntax highlighting to Shiki", () => {
+  const config = createAstroInlineConfig(testPaths());
+
+  expect(markdownConfig(config)).toMatchObject({
+    syntaxHighlight: "shiki",
+    shikiConfig: {},
+  });
+});
+
+test("user Astro markdown config merges without replacing Shiki config", () => {
+  const config = createAstroInlineConfig(
+    testPaths(),
+    {},
+    {
+      astro: {
+        markdown: {
+          shikiConfig: {
+            theme: "github-light",
+            wrap: true,
+          },
+        },
+      },
+    },
+  );
+
+  expect(markdownConfig(config)).toMatchObject({
+    syntaxHighlight: "shiki",
+    shikiConfig: {
+      theme: "github-light",
+      wrap: true,
+    },
+  });
+});
+
+test("raw Astro code highlighting uses the Markdown Shiki theme subset", () => {
+  const markdown = createMarkdownConfig({
+    shikiConfig: {
+      theme: "github-light",
+      wrap: true,
+    },
+  });
+
+  expect(resolveRawAstroCodeHighlightOptions(markdown)).toEqual({
+    enabled: true,
+    theme: "github-light",
+  });
+});
+
+test("raw Astro code highlighting falls back to the Astro default theme", () => {
+  const markdown = createMarkdownConfig({
+    shikiConfig: {
+      themes: {
+        light: "github-light",
+        dark: "github-dark",
+      },
+    },
+  });
+
+  expect(resolveRawAstroCodeHighlightOptions(markdown)).toEqual({
+    enabled: true,
+    theme: "github-dark",
+  });
+});
+
+test("user Astro markdown syntaxHighlight override disables raw Astro highlighting", () => {
+  expect(
+    resolveRawAstroCodeHighlightOptions(
+      createMarkdownConfig({
+        syntaxHighlight: false,
+        shikiConfig: {
+          theme: "github-light",
+        },
+      }),
+    ),
+  ).toEqual({ enabled: false });
+
+  expect(
+    resolveRawAstroCodeHighlightOptions(
+      createMarkdownConfig({
+        syntaxHighlight: "prism",
+        shikiConfig: {
+          theme: "github-light",
+        },
+      }),
+    ),
+  ).toEqual({ enabled: false });
+});
+
 test("no config does not install Tailwind as a built-in Vite plugin", () => {
   const config = createAstroInlineConfig(testPaths());
   expect(config.vite?.plugins).toEqual([]);
@@ -1244,6 +1345,11 @@ test("user Astro config appends without replacing Slida-owned values", () => {
     {},
     {
       astro: {
+        markdown: {
+          shikiConfig: {
+            theme: "github-light",
+          },
+        },
         integrations: [userIntegration],
         vite: {
           root: join(paths.projectRoot, "other-root"),
@@ -1285,6 +1391,12 @@ test("user Astro config appends without replacing Slida-owned values", () => {
   );
 
   expect(config.root).toBe(paths.projectRoot);
+  expect(markdownConfig(config)).toMatchObject({
+    syntaxHighlight: "shiki",
+    shikiConfig: {
+      theme: "github-light",
+    },
+  });
   expect(config.configFile).toBe(false);
   expect(config.srcDir).toBe(paths.runtimeOutDir);
   expect(config.output).toBe("static");

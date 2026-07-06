@@ -39,6 +39,11 @@ export const DEFAULT_EXPORT_SEARCH_PARAM = "slida-export";
 export const DEFAULT_EXPORT_SEARCH_VALUE = "pdf";
 export const PDF_SLIDE_WIDTH = "16in";
 export const PDF_SLIDE_HEIGHT = "9in";
+const DEFAULT_CODE_HIGHLIGHT_THEME = "github-dark";
+
+type SlidaMarkdownConfig = NonNullable<AstroInlineConfig["markdown"]>;
+
+export type RawAstroCodeHighlightOptions = { enabled: true; theme: string } | { enabled: false };
 
 const require = createRequire(import.meta.url);
 const astroPackageRoot = dirname(require.resolve("astro/package.json"));
@@ -122,6 +127,29 @@ function createMdxIntegration(deck?: SlidaResolvedDeck) {
       remarkPlugins: [[remarkSlidaMdxPages, { deckFile: deck.filePath }] as never],
     }),
   });
+}
+
+export function createMarkdownConfig(markdown: AstroInlineConfig["markdown"] | undefined) {
+  return {
+    syntaxHighlight: "shiki",
+    ...markdown,
+    shikiConfig: {
+      ...markdown?.shikiConfig,
+    },
+  } satisfies SlidaMarkdownConfig;
+}
+
+export function resolveRawAstroCodeHighlightOptions(
+  markdown: SlidaMarkdownConfig,
+): RawAstroCodeHighlightOptions {
+  if (markdown.syntaxHighlight === false || markdown.syntaxHighlight === "prism") {
+    return { enabled: false };
+  }
+  const theme = markdown.shikiConfig?.theme;
+  return {
+    enabled: true,
+    theme: typeof theme === "string" ? theme : DEFAULT_CODE_HIGHLIGHT_THEME,
+  };
 }
 
 function isInsideDirectory(rootDir: string, filePath: string) {
@@ -222,6 +250,9 @@ export function createAstroInlineConfig(
   const devOptions = options as SlidaDevOptions;
   const buildOptions = options as SlidaBuildOptions;
   const userAstroConfig = slidaConfig.astro ?? {};
+  const userMarkdownConfig = userAstroConfig.markdown;
+  const markdownConfig = createMarkdownConfig(userMarkdownConfig);
+  const rawAstroCodeHighlight = resolveRawAstroCodeHighlightOptions(markdownConfig);
   const userViteConfig = { ...userAstroConfig.vite };
   delete (userViteConfig as { root?: unknown }).root;
   const userViteServer = userViteConfig.server ?? {};
@@ -230,6 +261,7 @@ export function createAstroInlineConfig(
   const slidaVitePlugins = deck
     ? createSlidaVitePlugins(deck, slidaTheme, {
         generatedPageFilePath: paths.generatedPageFilePath,
+        codeHighlight: rawAstroCodeHighlight,
       })
     : [];
   const slidaPageAlias =
@@ -276,6 +308,7 @@ export function createAstroInlineConfig(
     devToolbar: { enabled: false },
     output: "static",
     logLevel: options.logLevel ?? "info",
+    markdown: markdownConfig,
     integrations: [createMdxIntegration(deck), ...toArray(userAstroConfig.integrations as never)],
     server: {
       host: devOptions.host ?? DEFAULT_DEV_HOST,

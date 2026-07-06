@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { parse } from "@astrojs/compiler-rs";
+import { bundledLanguages, createHighlighter } from "shiki";
 import type { Plugin } from "vite-plus";
 
 import {
@@ -12,6 +13,7 @@ import {
   type AstroNode,
   type AstroRoot,
 } from "./astro-ast.ts";
+import type { RawAstroCodeHighlightOptions } from "./astro.ts";
 import { resolveSlidaLayout } from "./layout.ts";
 import { analyzeMdxDeckSource } from "./slida-mdx-pages.ts";
 import {
@@ -34,15 +36,105 @@ const pageComponentExport = "@slida/cli/page";
 // characterization tests in tests/slida-vite-plugins.test.ts fail first.
 // Keep this tolerant to whitespace-only formatting changes.
 const compiledPageRenderPattern = /\$\$renderComponent\(\s*\$\$result\s*,\s*"Page"\s*,\s*Page\s*,/g;
+const transformedSourceMarker = "// data-slida-source-transformed";
 const utf8Encoder = new TextEncoder();
+
+type ShikiHighlighter = Awaited<ReturnType<typeof createHighlighter>>;
 
 type AstroSourceEdit = { start: number; end: number; value: string };
 type AstroPageLayout = { layout: string };
+type StaticAstroCodeBlock = {
+  code: string;
+  language: string;
+  span: { start: number; end: number };
+};
 type SlidaVitePluginOptions = {
   generatedPageFilePath?: string;
+  codeHighlight?: RawAstroCodeHighlightOptions;
 };
 type DiscoverThemeLayouts = ReturnType<typeof createThemeLayoutDiscoveryCache>;
 type GeneratedPageMemo = { lastSource: string | undefined };
+
+const shikiHighlighters = new Map<string, Promise<ShikiHighlighter>>();
+
+function getShikiHighlighter(theme: string) {
+  let highlighter = shikiHighlighters.get(theme);
+  if (!highlighter) {
+    highlighter = createHighlighter({ themes: [theme], langs: ["text"] });
+    shikiHighlighters.set(theme, highlighter);
+  }
+  return highlighter;
+}
+
+function isBundledShikiLanguage(language: string) {
+  return language in bundledLanguages;
+}
+
+function escapeAttribute(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function appendClassName(classValue: string, className: string) {
+  const classes = classValue.split(/\s+/).filter(Boolean);
+  return classes.includes(className) ? classValue : [className, ...classes].join(" ");
+}
+
+function normalizeHighlightedCodeHtml(html: string, language: string) {
+  return html.replace(/^<pre\b([^>]*)>/, (_match, attributes: string) => {
+    let nextAttributes = attributes;
+    if (/\sclass="([^"]*)"/.test(nextAttributes)) {
+      nextAttributes = nextAttributes.replace(
+        /\sclass="([^"]*)"/,
+        (_classMatch, classValue: string) =>
+          ` class="${appendClassName(classValue, "astro-code")}"`,
+      );
+    } else {
+      nextAttributes = ` class="astro-code"${nextAttributes}`;
+    }
+    if (!/\sdata-language=/.test(nextAttributes)) {
+      nextAttributes += ` data-language="${escapeAttribute(language)}"`;
+    }
+    return `<pre${nextAttributes}>`;
+  });
+}
+
+async function highlightStaticAstroCodeBlock(
+  highlighter: ShikiHighlighter,
+  block: StaticAstroCodeBlock,
+  theme: string,
+) {
+  const language = isBundledShikiLanguage(block.language) ? block.language : "text";
+  if (language !== "text") {
+    await highlighter.loadLanguage(language as never);
+  }
+  return normalizeHighlightedCodeHtml(
+    highlighter.codeToHtml(block.code, { lang: language as never, theme }),
+    block.language,
+  );
+}
+
+async function createAstroCodeHighlightEdits(
+  source: string,
+  pages: AstroNode[],
+  filePath: string,
+  codeHighlight: RawAstroCodeHighlightOptions | undefined,
+): Promise<AstroSourceEdit[]> {
+  if (!codeHighlight?.enabled) return [];
+  const blocks = collectStaticAstroCodeBlocks(source, pages, filePath);
+  if (blocks.length === 0) return [];
+
+  const highlighter = await getShikiHighlighter(codeHighlight.theme);
+  return Promise.all(
+    blocks.map(async (block) => ({
+      ...block.span,
+      value: await highlightStaticAstroCodeBlock(highlighter, block, codeHighlight.theme),
+    })),
+  );
+}
 
 function stripQuery(id: string) {
   return id.split("?", 1)[0];
@@ -68,6 +160,69 @@ function isLayoutDeclaration(node: AstroNode) {
   return isJsxElementNamed(node, "layout");
 }
 
+function getLiteralStringAttribute(node: AstroNode, name: string) {
+  const attribute = getAttribute(node, name);
+  if (attribute?.value?.type !== "Literal" || typeof attribute.value.value !== "string") {
+    return undefined;
+  }
+  return attribute.value.value;
+}
+
+function getCodeLanguage(className: string) {
+  return /(?:^|\s)language-([^\s]+)/.exec(className)?.[1];
+}
+
+function getMeaningfulChildren(node: AstroNode) {
+  return (node.children ?? []).filter((child) => !isWhitespace(child));
+}
+
+function hasAttributes(node: AstroNode) {
+  return (node.openingElement?.attributes?.length ?? 0) > 0;
+}
+
+function decodeHtmlEntities(value: string) {
+  return value.replace(/&(#x[0-9a-f]+|#\d+|amp|apos|gt|lt|quot);/gi, (entity, body: string) => {
+    if (body[0] === "#") {
+      const codePoint =
+        body[1]?.toLowerCase() === "x"
+          ? Number.parseInt(body.slice(2), 16)
+          : Number.parseInt(body.slice(1), 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : entity;
+    }
+    return (
+      (
+        {
+          amp: "&",
+          apos: "'",
+          gt: ">",
+          lt: "<",
+          quot: '"',
+        } as const
+      )[body.toLowerCase() as "amp" | "apos" | "gt" | "lt" | "quot"] ?? entity
+    );
+  });
+}
+
+function getTextOnlyContent(
+  source: string,
+  toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
+  node: AstroNode,
+  context: string,
+) {
+  const children = node.children ?? [];
+  if (children.some((child) => child.type !== "JSXText")) return undefined;
+  const openingEnd = node.openingElement?.end;
+  if (typeof openingEnd !== "number" || typeof node.end !== "number") {
+    return decodeHtmlEntities(children.map((child) => child.value ?? "").join(""));
+  }
+  const start = toSourceIndex(openingEnd, `${context} code opening tag end`);
+  const end = toSourceIndex(node.end, `${context} code end`);
+  const rawCodeWithClosingTag = source.slice(start, end);
+  const closingTagIndex = rawCodeWithClosingTag.toLowerCase().lastIndexOf("</code>");
+  if (closingTagIndex < 0) return undefined;
+  return decodeHtmlEntities(rawCodeWithClosingTag.slice(0, closingTagIndex));
+}
+
 function hasAttribute(node: AstroNode, name: string) {
   return getAttribute(node, name) !== undefined;
 }
@@ -86,8 +241,30 @@ function hasDefaultPageImport(ast: AstroRoot) {
   );
 }
 
+function sanitizeStaticCodeTextForAstroParse(source: string) {
+  return source.replace(
+    /(<pre\b[^>]*>\s*<code\b[^>]*>)([\s\S]*?)(<\/code>\s*<\/pre>)/gi,
+    (_match, opening: string, code: string, closing: string) =>
+      `${opening}${code.replace(/[{}]/g, " ")}${closing}`,
+  );
+}
+
+function escapeRawCodeTextBraces(source: string) {
+  return source.replace(
+    /(<pre\b[^>]*>\s*<code\b[^>]*>)([\s\S]*?)(<\/code>\s*<\/pre>)/gi,
+    (_match, opening: string, code: string, closing: string) =>
+      `${opening}${code.replaceAll("{", "&#123;").replaceAll("}", "&#125;")}${closing}`,
+  );
+}
+
+function markTransformedAstroSource(source: string) {
+  return source.includes(transformedSourceMarker)
+    ? source
+    : source.replace(/^---\n/, `---\n${transformedSourceMarker}\n`);
+}
+
 function parseAstroDeck(source: string, filePath: string) {
-  const result = parse(source);
+  const result = parse(sanitizeStaticCodeTextForAstroParse(source));
   if (result.diagnostics.length > 0) {
     throw new Error(
       `Failed to parse Astro deck ${filePath}: ${result.diagnostics[0]?.text ?? "unknown parse error"}`,
@@ -139,6 +316,83 @@ function getRequiredSpan(
     start: toSourceIndex(node.start, `${context} start`),
     end: toSourceIndex(node.end, `${context} end`),
   };
+}
+
+function getOptionalSpan(
+  toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
+  node: AstroNode,
+  context: string,
+) {
+  if (typeof node.start !== "number" || typeof node.end !== "number") return undefined;
+  try {
+    return {
+      start: toSourceIndex(node.start, `${context} start`),
+      end: toSourceIndex(node.end, `${context} end`),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveStaticAstroCodeBlock(
+  source: string,
+  toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
+  node: AstroNode,
+  context: string,
+): StaticAstroCodeBlock | undefined {
+  if (!isJsxElementNamed(node, "pre")) return undefined;
+  if (hasAttributes(node)) return undefined;
+
+  const children = getMeaningfulChildren(node);
+  if (children.length !== 1) return undefined;
+
+  const codeNode = children[0];
+  if (!isJsxElementNamed(codeNode, "code")) return undefined;
+
+  const className = getLiteralStringAttribute(codeNode, "class");
+  if (!className) return undefined;
+
+  const language = getCodeLanguage(className);
+  if (!language) return undefined;
+
+  const code = getTextOnlyContent(source, toSourceIndex, codeNode, context);
+  if (code === undefined) return undefined;
+
+  const span = getOptionalSpan(toSourceIndex, node, context);
+  if (!span) return undefined;
+  if (source.slice(span.start, span.end).trim().length === 0) return undefined;
+
+  return { code, language, span };
+}
+
+function collectStaticAstroCodeBlocksFromNode(
+  source: string,
+  toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
+  node: AstroNode,
+  context: string,
+): StaticAstroCodeBlock[] {
+  const block = resolveStaticAstroCodeBlock(source, toSourceIndex, node, context);
+  if (block) return [block];
+  return (node.children ?? []).flatMap((child, index) =>
+    collectStaticAstroCodeBlocksFromNode(
+      source,
+      toSourceIndex,
+      child,
+      `${context} child ${index + 1}`,
+    ),
+  );
+}
+
+function collectStaticAstroCodeBlocks(source: string, pages: AstroNode[], filePath: string) {
+  const toSourceIndex = createSourceIndexConverter(source);
+  return pages.flatMap((page, pageIndex) =>
+    collectStaticAstroCodeBlocksFromNode(
+      source,
+      toSourceIndex,
+      page,
+      `${filePath} page ${pageIndex + 1}`,
+    ),
+  );
 }
 
 function getPageAttributeInsertionOffset(
@@ -227,12 +481,19 @@ function analyzeAstroDeckSource(source: string, filePath: string) {
     throw new Error(`Astro deck must contain at least one top-level <Page>: ${filePath}`);
   }
   const { edits, layouts } = analyzeAstroLayouts(source, pages, filePath);
-  return { pageCount: pages.length, edits, layouts };
+  return { pageCount: pages.length, edits, layouts, pages };
 }
 
 export function countAstroDeckPages(source: string, filePath = "<deck>") {
   const ast = parseAstroDeck(source, filePath);
   return (ast.body ?? []).filter(isTopLevelPage).length;
+}
+
+// Exported for tests only; not part of the public package surface (index.ts).
+export function collectStaticAstroCodeBlocksForTests(source: string, filePath = "<deck>") {
+  const ast = parseAstroDeck(source, filePath);
+  const pages = (ast.body ?? []).filter(isTopLevelPage);
+  return collectStaticAstroCodeBlocks(source, pages, filePath);
 }
 
 export function validateAstroDeckSource(source: string, filePath = "<deck>") {
@@ -241,6 +502,42 @@ export function validateAstroDeckSource(source: string, filePath = "<deck>") {
 
 export function transformAstroDeckSource(source: string, filePath = "<deck>") {
   return applySourceEdits(source, analyzeAstroDeckSource(source, filePath).edits);
+}
+
+// Exported for tests only; not part of the public package surface (index.ts).
+export async function transformAstroDeckSourceWithCodeHighlighting(
+  source: string,
+  filePath = "<deck>",
+  codeHighlight: RawAstroCodeHighlightOptions = { enabled: true, theme: "github-dark" },
+) {
+  const analysis = analyzeAstroDeckSource(source, filePath);
+  const codeEdits = await createAstroCodeHighlightEdits(
+    source,
+    analysis.pages,
+    filePath,
+    codeHighlight,
+  );
+  return escapeRawCodeTextBraces(applySourceEdits(source, [...analysis.edits, ...codeEdits]));
+}
+
+async function transformAstroDeckSourceForBuild(
+  source: string,
+  filePath: string,
+  codeHighlight: RawAstroCodeHighlightOptions | undefined,
+) {
+  const analysis = analyzeAstroDeckSource(source, filePath);
+  const codeEdits = await createAstroCodeHighlightEdits(
+    source,
+    analysis.pages,
+    filePath,
+    codeHighlight,
+  );
+  return {
+    code: markTransformedAstroSource(
+      escapeRawCodeTextBraces(applySourceEdits(source, [...analysis.edits, ...codeEdits])),
+    ),
+    layouts: analysis.layouts,
+  };
 }
 
 function findMatchingBrace(source: string, openIndex: number) {
@@ -532,17 +829,36 @@ function createAstroDeckValidationPlugin(
   deck: SlidaResolvedDeck,
   theme?: SlidaResolvedTheme,
   discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
+  options: SlidaVitePluginOptions = {},
 ): Plugin {
   return {
     name: "slida:astro-deck-validation",
     enforce: "pre",
+    async load(id) {
+      if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) return undefined;
+      const source = readFileSync(deck.filePath, "utf8");
+      if (!source.includes("<Page")) return undefined;
+      const runtimeTheme = await refreshThemeLayouts(theme, discoverCached);
+      const result = await transformAstroDeckSourceForBuild(
+        source,
+        deck.filePath,
+        options.codeHighlight,
+      );
+      validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
+      return result.code;
+    },
     async transform(source, id) {
       if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) return undefined;
+      if (source.includes(transformedSourceMarker)) return undefined;
       const runtimeTheme = await refreshThemeLayouts(theme, discoverCached);
       if (source.includes("<Page")) {
-        const analysis = analyzeAstroDeckSource(source, deck.filePath);
-        validateThemeLayoutIds(deck, runtimeTheme, analysis.layouts);
-        return applySourceEdits(source, analysis.edits);
+        const result = await transformAstroDeckSourceForBuild(
+          source,
+          deck.filePath,
+          options.codeHighlight,
+        );
+        validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
+        return result.code;
       }
       if (findCompiledPageRenderMatches(source).length === 0) return undefined;
       const originalSource = readFileSync(deck.filePath, "utf8");
@@ -564,6 +880,6 @@ export function createSlidaVitePlugins(
   return [
     createVirtualThemeLayoutsPlugin(theme, options, discoverCached, generatedPageMemo),
     createVirtualDeckPlugin(deck, theme, options, discoverCached, generatedPageMemo),
-    createAstroDeckValidationPlugin(deck, theme, discoverCached),
+    createAstroDeckValidationPlugin(deck, theme, discoverCached, options),
   ];
 }

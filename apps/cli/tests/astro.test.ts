@@ -223,6 +223,151 @@ import Page from "@slida/cli/page";
   });
 });
 
+test("buildDeck highlights MDX fenced code blocks by default", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.mdx"),
+      `---
+title: Highlighted MDX
+---
+
+# Code
+
+\`\`\`ts
+const slide = { title: "MDX" };
+\`\`\`
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.mdx",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideCount(html)).toBe(1);
+    expect(html).toContain('class="astro-code');
+    expect(html).toContain('data-language="ts"');
+    expect(html).toContain('style="');
+    expect(html).toContain("MDX");
+  });
+});
+
+test("buildDeck highlights static Astro pre code blocks", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Astro Code">
+  <pre><code class="language-ts">const slide = { title: "Astro" };</code></pre>
+  <pre><code class="language-html">&lt;section data-title="Astro"&gt;safe&lt;/section&gt;</code></pre>
+</Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideCount(html)).toBe(1);
+    expect(layoutCount(html, "cover")).toBe(1);
+    expect(html).toContain('class="astro-code');
+    expect(html).toContain('data-language="ts"');
+    expect(html).toContain('data-language="html"');
+    expect(html).toContain('style="');
+    expect(html).toContain("<span");
+    expect(html).toContain("Astro");
+    // Shiki tokenizes the escaped HTML source; this is the rendered-safe form of &lt;section.
+    expect(html).toContain("&#x3C;");
+    expect(html).not.toContain('<pre><code class="language-ts">');
+  });
+});
+
+test("buildDeck uses astro markdown theme for static Astro code blocks", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeFile(
+      join(projectRoot, "slida.config.ts"),
+      `export default {
+  astro: {
+    markdown: {
+      shikiConfig: {
+        theme: 'github-light',
+      },
+    },
+  },
+};
+`,
+    );
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Theme"><pre><code class="language-ts">const theme = "light";</code></pre></Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(html).toContain('class="astro-code');
+    expect(html).toContain("github-light");
+    expect(html).toContain('data-language="ts"');
+  });
+});
+
+test("buildDeck leaves dynamic Astro code blocks unchanged", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@slida/cli/page";
+const language = "language-ts";
+---
+
+<Page title="Dynamic">
+  <pre><code class={language}>const slide = { title: "Dynamic" };</code></pre>
+</Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(html).toContain('<pre><code class="language-ts">');
+    expect(html).toContain("Dynamic");
+    expect(html).not.toContain('class="astro-code');
+  });
+});
+
 test("buildDeck renders Astro pages through theme layouts and named slots", async () => {
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);

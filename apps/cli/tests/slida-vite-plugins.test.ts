@@ -1,9 +1,11 @@
 import { expect, test } from "vite-plus/test";
 
 import {
+  collectStaticAstroCodeBlocksForTests,
   countAstroDeckPages,
   createSourceIndexConverter,
   transformAstroDeckSource,
+  transformAstroDeckSourceWithCodeHighlighting,
   transformCompiledAstroDeckSource,
   validateAstroDeckSource,
 } from "../src/slida-vite-plugins.ts";
@@ -26,6 +28,17 @@ const compiledTwoPages = [
   '${$$renderComponent($$result, "Page", Page, {}, { "default": () => $$render`<layout id="two-column"></layout><p>Body</p>` })}`;',
 ].join("\n");
 
+const codeBlockDeck = `---
+import Page from "@slida/cli/page";
+---
+
+<Page title="Code">
+  <div>
+    <pre><code class="language-ts">const slide = "日本語🎉";</code></pre>
+  </div>
+</Page>
+`;
+
 test("countAstroDeckPages counts top-level Astro Pages", () => {
   expect(countAstroDeckPages(twoPageDeck)).toBe(2);
 });
@@ -42,6 +55,55 @@ test("transformAstroDeckSource injects explicit and default layouts", () => {
   expect(result).not.toContain("<layout");
 });
 
+test("transformAstroDeckSourceWithCodeHighlighting highlights static Astro code blocks", async () => {
+  const result = await transformAstroDeckSourceWithCodeHighlighting(codeBlockDeck);
+
+  expect(result).toContain('<Page title="Code" layout="cover">');
+  expect(result).toContain('class="astro-code');
+  expect(result).toContain('data-language="ts"');
+  expect(result).toContain('style="');
+  expect(result).toContain("日本語🎉");
+  expect(result).toContain("<span");
+  expect(result).not.toContain('<pre><code class="language-ts">');
+});
+
+test("transformAstroDeckSourceWithCodeHighlighting falls back for unknown languages", async () => {
+  const result = await transformAstroDeckSourceWithCodeHighlighting(`---
+import Page from "@slida/cli/page";
+---
+
+<Page><pre><code class="language-slida-unknown">const slide = 1;</code></pre></Page>
+`);
+
+  expect(result).toContain('class="astro-code');
+  expect(result).toContain('data-language="slida-unknown"');
+  expect(result).toContain("const slide = 1;");
+});
+
+test("transformAstroDeckSourceWithCodeHighlighting leaves raw blocks unchanged when disabled", async () => {
+  const result = await transformAstroDeckSourceWithCodeHighlighting(codeBlockDeck, "<deck>", {
+    enabled: false,
+  });
+
+  expect(result).toBe(transformAstroDeckSource(codeBlockDeck));
+  expect(result).toContain('<pre><code class="language-ts">const slide = "日本語🎉";</code></pre>');
+});
+
+test("transformAstroDeckSourceWithCodeHighlighting leaves unsupported dynamic code blocks unchanged", async () => {
+  const source = `---
+import Page from "@slida/cli/page";
+const language = "language-ts";
+---
+
+<Page><pre><code class={language}>const slide = 1;</code></pre></Page>
+`;
+  const result = await transformAstroDeckSourceWithCodeHighlighting(source);
+
+  expect(result).toContain("class={language}");
+  expect(result).toContain("const slide = 1;");
+  expect(result).not.toContain('data-language="ts"');
+});
+
 test("transformAstroDeckSource uses default cover and content layouts", () => {
   const result = transformAstroDeckSource(`---
 import Page from "@slida/cli/page";
@@ -53,6 +115,91 @@ import Page from "@slida/cli/page";
 
   expect(result).toContain('<Page title="Intro" layout="cover">');
   expect(result).toContain('<Page title="Details" layout="default">');
+});
+
+test("collectStaticAstroCodeBlocksForTests finds static language code blocks", () => {
+  const blocks = collectStaticAstroCodeBlocksForTests(codeBlockDeck);
+
+  expect(blocks).toEqual([
+    {
+      code: 'const slide = "日本語🎉";',
+      language: "ts",
+      span: expect.objectContaining({
+        start: expect.any(Number),
+        end: expect.any(Number),
+      }),
+    },
+  ]);
+  expect(codeBlockDeck.slice(blocks[0].span.start, blocks[0].span.end)).toContain(
+    '<pre><code class="language-ts">',
+  );
+});
+
+test("collectStaticAstroCodeBlocksForTests preserves multibyte source spans", () => {
+  const [block] = collectStaticAstroCodeBlocksForTests(codeBlockDeck);
+
+  expect(codeBlockDeck.slice(block.span.start, block.span.end)).toBe(
+    '<pre><code class="language-ts">const slide = "日本語🎉";</code></pre>',
+  );
+});
+
+test("collectStaticAstroCodeBlocksForTests decodes escaped code text as static input", () => {
+  const [block] = collectStaticAstroCodeBlocksForTests(`---
+import Page from "@slida/cli/page";
+---
+
+<Page><pre><code class="language-html">&lt;div&gt;safe&lt;/div&gt;</code></pre></Page>
+`);
+
+  expect(block).toMatchObject({
+    code: "<div>safe</div>",
+    language: "html",
+  });
+});
+
+test("collectStaticAstroCodeBlocksForTests ignores pre blocks with author attributes", () => {
+  expect(
+    collectStaticAstroCodeBlocksForTests(`---
+import Page from "@slida/cli/page";
+---
+
+<Page><pre id="keep-me"><code class="language-ts">const slide = 1;</code></pre></Page>
+`),
+  ).toEqual([]);
+});
+
+test("collectStaticAstroCodeBlocksForTests ignores dynamic code classes", () => {
+  expect(
+    collectStaticAstroCodeBlocksForTests(`---
+import Page from "@slida/cli/page";
+const language = "language-ts";
+---
+
+<Page><pre><code class={language}>const slide = 1;</code></pre></Page>
+`),
+  ).toEqual([]);
+});
+
+test("collectStaticAstroCodeBlocksForTests ignores non-text code children", () => {
+  expect(
+    collectStaticAstroCodeBlocksForTests(`---
+import Page from "@slida/cli/page";
+---
+
+<Page><pre><code class="language-ts"><span>const slide = 1;</span></code></pre></Page>
+`),
+  ).toEqual([]);
+});
+
+test("collectStaticAstroCodeBlocksForTests ignores code blocks without language classes", () => {
+  expect(
+    collectStaticAstroCodeBlocksForTests(`---
+import Page from "@slida/cli/page";
+---
+
+<Page><pre><code class="not-language-ts">const slide = 1;</code></pre></Page>
+`),
+  ).toEqual([]);
 });
 
 test("transformAstroDeckSource inserts layouts into self-closing Pages", () => {

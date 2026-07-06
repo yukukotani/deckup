@@ -235,6 +235,9 @@ catalogs:
     playwright-core:
       specifier: latest
       version: 1.61.1
+    shiki:
+      specifier: ^4.3.0
+      version: 4.3.0
     tailwindcss:
       specifier: latest
       version: 4.3.2
@@ -313,6 +316,9 @@ importers:
       remark-parse:
         specifier: ^11.0.0
         version: 11.0.0
+      shiki:
+        specifier: 'catalog:'
+        version: 4.3.0
       unified:
         specifier: ^11.0.5
         version: 11.0.5

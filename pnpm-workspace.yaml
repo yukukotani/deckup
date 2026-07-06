@@ -17,6 +17,7 @@ catalog:
   gunshi: latest
   jiti: ^2.7.0
   playwright-core: latest
+  shiki: ^4.3.0
   tailwindcss: latest
   typescript: ^5
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2
