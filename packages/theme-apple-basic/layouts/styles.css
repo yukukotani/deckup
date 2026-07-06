@@ -93,6 +93,34 @@ body {
   margin-top: 0.75em;
 }
 
+.slida-slide code {
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  color: #000;
+  background: #f5f5f7;
+  border-radius: 0.25rem;
+  padding: 0.1em 0.3em;
+}
+
+.slida-slide pre {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: clamp(0.75rem, calc(2 * var(--slida-cqw)), 1.5rem);
+  background: #f5f5f7;
+  border-radius: clamp(0.35rem, calc(0.8 * var(--slida-cqw)), 0.75rem);
+  overflow-x: auto;
+  font-size: clamp(0.8rem, calc(1.6 * var(--slida-cqw)), 1rem);
+  line-height: 1.5;
+}
+
+.slida-slide pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
 .slida-apple-body,
 .slida-apple-column {
   display: grid;
