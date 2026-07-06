@@ -417,8 +417,26 @@ test("resolveSlidaThemeLayouts maps built-in short names to first-party theme pa
 test("resolveSlidaThemeLayouts resolves every built-in theme from layout components", async () => {
   await withProjectRoot(async (projectRoot) => {
     const expectedLayouts = {
-      default: ["cover", "default"],
-      minimal: ["cover", "default"],
+      default: [
+        "cover",
+        "default",
+        "number",
+        "page",
+        "quote",
+        "section",
+        "statement",
+        "two-column",
+      ],
+      minimal: [
+        "cover",
+        "default",
+        "number",
+        "page",
+        "quote",
+        "section",
+        "statement",
+        "two-column",
+      ],
       bold: ["cover", "default"],
       "google-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],
       "apple-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],

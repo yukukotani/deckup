@@ -1,122 +1,344 @@
+/* ============================================================
+   @slida/theme-default — Polished presentation theme
+   ============================================================ */
+
 :root {
-  --slida-text: #6b6375;
-  --slida-text-strong: #08060d;
-  --slida-bg: #fff;
-  --slida-border: #e5e4e7;
-  --slida-code-bg: #f4f3ec;
-  --slida-accent: #aa3bff;
-  --slida-accent-bg: rgba(170, 59, 255, 0.1);
-  --slida-shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-  --slida-sans: system-ui, "Segoe UI", Roboto, sans-serif;
-  --slida-heading: system-ui, "Segoe UI", Roboto, sans-serif;
-  --slida-mono: ui-monospace, Consolas, monospace;
+  color-scheme: light;
+  --slida-bg: #fafaf9;
+  --slida-text: #57534e;
+  --slida-text-strong: #1c1917;
+  --slida-border: #e7e5e4;
+  --slida-code-bg: #f5f5f4;
+  --slida-accent: #6366f1;
+  --slida-accent-bg: rgba(99, 102, 241, 0.08);
+  --slida-accent-subtle: #818cf8;
+  --slida-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --slida-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --slida-heading: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --slida-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --slida-text: #9ca3af;
-    --slida-text-strong: #f3f4f6;
-    --slida-bg: #16171d;
-    --slida-border: #2e303a;
-    --slida-code-bg: #1f2028;
-    --slida-accent: #c084fc;
-    --slida-accent-bg: rgba(192, 132, 252, 0.15);
-    --slida-shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    --slida-bg: #18181b;
+    --slida-text: #a1a1aa;
+    --slida-text-strong: #fafafa;
+    --slida-border: #3f3f46;
+    --slida-code-bg: #27272a;
+    --slida-accent: #818cf8;
+    --slida-accent-bg: rgba(129, 140, 248, 0.1);
+    --slida-accent-subtle: #a5b4fc;
+    --slida-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 }
 
+/* ---- Global reset ---- */
 body {
-  font: 18px/145% var(--slida-sans);
-  letter-spacing: 0.18px;
+  font-family: var(--slida-sans);
   color: var(--slida-text);
 }
 
+.slida-shell {
+  border: 0;
+  background: var(--slida-bg);
+  box-shadow: none;
+}
+
+/* ---- Slide base ---- */
 .slida-slide {
   --slida-cqw: 1cqw;
 
   display: grid;
   align-content: center;
   justify-items: start;
-  gap: 1rem;
-  padding: clamp(2rem, calc(6 * var(--slida-cqw)), 5rem);
-  text-align: left;
+  gap: clamp(0.875rem, calc(2.4 * var(--slida-cqw)), 1.75rem);
+  padding: clamp(2.5rem, calc(6 * var(--slida-cqw)), 5rem);
+  color: var(--slida-text);
   background: var(--slida-bg);
+  font-family: var(--slida-sans);
+  text-align: left;
 }
 
 .slida-slide > * {
-  max-width: 920px;
-  margin-inline: 0;
+  max-width: min(100%, calc(88 * var(--slida-cqw)));
+  margin: 0;
 }
 
+/* ---- Typography ---- */
+.slida-slide :is(h1, h2, h3) {
+  color: var(--slida-text-strong);
+  font-family: var(--slida-heading);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.slida-slide h1 {
+  font-size: clamp(2.25rem, calc(4.8 * var(--slida-cqw)), 3.75rem);
+}
+
+.slida-slide h2 {
+  font-size: clamp(1.5rem, calc(3.2 * var(--slida-cqw)), 2.5rem);
+}
+
+.slida-slide h3 {
+  font-size: clamp(1.25rem, calc(2.4 * var(--slida-cqw)), 1.75rem);
+}
+
+.slida-slide :is(p, ul, ol) {
+  color: var(--slida-text);
+  font-size: clamp(1.05rem, calc(2.2 * var(--slida-cqw)), 1.45rem);
+  line-height: 1.55;
+}
+
+.slida-slide :is(ul, ol) {
+  padding-left: 1.5em;
+}
+
+.slida-slide li {
+  padding-left: 0.3em;
+}
+
+.slida-slide li + li {
+  margin-top: 0.35em;
+}
+
+.slida-slide :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-top: 0.5em;
+}
+
+.slida-slide code {
+  font-family: var(--slida-mono);
+  font-size: 0.88em;
+  color: var(--slida-accent);
+  background: var(--slida-code-bg);
+  border-radius: 0.25rem;
+  padding: 0.12em 0.35em;
+}
+
+.slida-slide pre {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: clamp(0.75rem, calc(2 * var(--slida-cqw)), 1.5rem);
+  background: var(--slida-code-bg);
+  border-radius: clamp(0.35rem, calc(0.7 * var(--slida-cqw)), 0.625rem);
+  overflow-x: auto;
+  font-size: clamp(0.8rem, calc(1.5 * var(--slida-cqw)), 0.95rem);
+  line-height: 1.6;
+}
+
+.slida-slide pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: var(--slida-text-strong);
+  font-size: inherit;
+}
+
+/* ---- Layout: cover ---- */
 [data-slida-layout="cover"] {
-  place-items: center;
+  align-content: center;
+  justify-items: center;
   text-align: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 120%, var(--slida-accent-bg), transparent),
+    var(--slida-bg);
 }
 
 [data-slida-layout="cover"] > * {
-  max-width: 920px;
+  max-width: min(100%, calc(82 * var(--slida-cqw)));
 }
 
+[data-slida-layout="cover"] h1 {
+  font-size: clamp(3rem, calc(6.5 * var(--slida-cqw)), 5rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+[data-slida-layout="cover"] p {
+  color: var(--slida-text);
+  font-size: clamp(1.1rem, calc(2.4 * var(--slida-cqw)), 1.6rem);
+  line-height: 1.45;
+}
+
+/* ---- Layout: default ---- */
 [data-slida-layout="default"] {
   align-content: center;
   justify-items: start;
   text-align: left;
 }
 
-h1,
-h2,
-h3 {
-  font-family: var(--slida-heading);
+/* ---- Layout: page ---- */
+[data-slida-layout="page"] {
+  align-content: start;
+  gap: clamp(1rem, calc(2.4 * var(--slida-cqw)), 2rem);
+  padding-top: clamp(3rem, calc(6 * var(--slida-cqw)), 5.5rem);
+}
+
+[data-slida-layout="page"] > h1 {
+  font-size: clamp(1.75rem, calc(3.8 * var(--slida-cqw)), 2.75rem);
+  color: var(--slida-accent);
+  font-weight: 700;
+}
+
+/* ---- Layout: section ---- */
+[data-slida-layout="section"] {
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  background: linear-gradient(135deg, var(--slida-accent-bg) 0%, transparent 60%), var(--slida-bg);
+}
+
+[data-slida-layout="section"] > * {
+  max-width: min(100%, calc(85 * var(--slida-cqw)));
+}
+
+[data-slida-layout="section"] h1 {
+  font-size: clamp(2.75rem, calc(5.5 * var(--slida-cqw)), 4.25rem);
+  color: var(--slida-accent);
+}
+
+/* ---- Layout: statement ---- */
+[data-slida-layout="statement"] {
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+[data-slida-layout="statement"] > * {
+  max-width: min(100%, calc(85 * var(--slida-cqw)));
+}
+
+[data-slida-layout="statement"] > p {
   color: var(--slida-text-strong);
-  letter-spacing: -0.04em;
+  font-size: clamp(2.25rem, calc(5.2 * var(--slida-cqw)), 4rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
-h1 {
-  font-size: clamp(2.25rem, calc(6 * var(--slida-cqw)), 4.25rem);
-  line-height: 0.98;
-  margin: 0 0 1rem;
+/* ---- Layout: number ---- */
+[data-slida-layout="number"] {
+  align-content: center;
+  justify-items: center;
+  text-align: center;
 }
 
-[data-slida-layout="cover"] h1 {
-  font-size: clamp(3rem, calc(9 * var(--slida-cqw)), 5.75rem);
-  line-height: 0.92;
-  margin-bottom: 1.5rem;
-}
-
-p {
-  max-width: 720px;
-  margin: 0.75rem 0;
-  font-size: clamp(1.125rem, calc(2 * var(--slida-cqw)), 1.5rem);
-}
-
-[data-slida-layout="cover"] p {
+[data-slida-layout="number"] > * {
   margin-inline: auto;
 }
 
-code {
-  font-family: var(--slida-mono);
-  color: var(--slida-text-strong);
-  background: var(--slida-code-bg);
-  border-radius: 0.25rem;
-  padding: 0.15em 0.35em;
-}
-
-.slida-kicker {
+[data-slida-layout="number"] > p:first-of-type {
   color: var(--slida-accent);
-  font-family: var(--slida-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.85rem !important;
+  font-size: clamp(5rem, calc(15 * var(--slida-cqw)), 10.5rem);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 768px) {
-  :root {
-    font-size: 16px;
-  }
+[data-slida-layout="number"] > p:nth-of-type(2) {
+  color: var(--slida-text);
+  font-size: clamp(1.05rem, calc(2.2 * var(--slida-cqw)), 1.5rem);
+  line-height: 1.4;
 }
 
+/* ---- Layout: quote ---- */
+[data-slida-layout="quote"] {
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+[data-slida-layout="quote"] > * {
+  margin-inline: auto;
+}
+
+[data-slida-layout="quote"] > p:first-of-type {
+  max-width: min(100%, calc(78 * var(--slida-cqw)));
+  color: var(--slida-text-strong);
+  font-size: clamp(1.75rem, calc(3.8 * var(--slida-cqw)), 2.75rem);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.3;
+}
+
+[data-slida-layout="quote"] > p:first-of-type::before {
+  content: "";
+  display: block;
+  width: clamp(2rem, calc(4 * var(--slida-cqw)), 3rem);
+  height: 3px;
+  margin: 0 auto clamp(0.75rem, calc(1.5 * var(--slida-cqw)), 1.25rem);
+  background: var(--slida-accent);
+  border-radius: 2px;
+}
+
+[data-slida-layout="quote"] > p:nth-of-type(2) {
+  color: var(--slida-accent);
+  font-size: clamp(0.875rem, calc(1.8 * var(--slida-cqw)), 1.15rem);
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: clamp(1rem, calc(2.5 * var(--slida-cqw)), 2rem);
+}
+
+/* ---- Layout: two-column ---- */
+[data-slida-layout="two-column"] {
+  align-content: start;
+  gap: clamp(1rem, calc(2.4 * var(--slida-cqw)), 2rem);
+  padding-top: clamp(3rem, calc(6 * var(--slida-cqw)), 5.5rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: clamp(2rem, calc(5 * var(--slida-cqw)), 4rem);
+}
+
+[data-slida-layout="two-column"] > h1,
+[data-slida-layout="two-column"] > :not(.slida-default-column) {
+  grid-column: 1 / -1;
+}
+
+[data-slida-layout="two-column"] > h1 {
+  font-size: clamp(1.75rem, calc(3.8 * var(--slida-cqw)), 2.75rem);
+  color: var(--slida-accent);
+  font-weight: 700;
+}
+
+.slida-default-column {
+  display: grid;
+  gap: clamp(0.5rem, calc(1.2 * var(--slida-cqw)), 1rem);
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+  align-self: start;
+  font-family: var(--slida-sans);
+  color: var(--slida-text);
+  font-size: clamp(0.95rem, calc(1.9 * var(--slida-cqw)), 1.2rem);
+  line-height: 1.5;
+}
+
+.slida-default-column :is(p, ul, ol) {
+  margin: 0;
+  max-width: none;
+  font: inherit;
+  color: inherit;
+}
+
+.slida-default-column :is(ul, ol) {
+  padding-left: 1.5em;
+}
+
+.slida-default-column--left,
+.slida-default-column:first-of-type {
+  grid-column: 1;
+}
+
+.slida-default-column--right,
+.slida-default-column:last-of-type {
+  grid-column: 2;
+}
+
+/* ---- Responsive ---- */
 @container (max-width: 768px) {
   .slida-slide {
-    padding: 2rem 1.25rem;
+    padding: 2rem 1.5rem;
   }
 }
