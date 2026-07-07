@@ -775,6 +775,7 @@ test("setupDeckNavigation drags the menu from the handle within viewport bounds"
   expect(navigationMenu.style.top).toBe("520px");
   expect(navigationMenu.style.right).toBe("auto");
   expect(navigationMenu.style.bottom).toBe("auto");
+  expect(navigationMenu.style.transform).toBe("none");
 
   windowEvents.dispatch("pointercancel", { pointerId: 7 } as PointerEvent);
   expect(dragHandle.pointerReleases).toEqual([7]);

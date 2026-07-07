@@ -259,6 +259,7 @@ export function setupDeckNavigation(
     navigationMenu.style.top = `${position.top}px`;
     navigationMenu.style.right = "auto";
     navigationMenu.style.bottom = "auto";
+    navigationMenu.style.transform = "none";
   };
 
   const onDragPointerDown = (event: PointerEvent) => {

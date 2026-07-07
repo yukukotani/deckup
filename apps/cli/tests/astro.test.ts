@@ -684,6 +684,9 @@ import Page from "@slida/cli/page";
       expect(css).toMatch(
         /\.slida-status\{(?=[^}]*position:fixed)(?=[^}]*display:inline-flex)[^}]*\}/,
       );
+      expect(css).toMatch(
+        /\.slida-status\{(?=[^}]*left:50%)(?=[^}]*bottom:1rem)(?=[^}]*transform:translate(?:X)?\(-50%\))[^}]*\}/,
+      );
       expect(css).toContain(".slida-navigation__button");
       expect(css).toContain(".slida-navigation__handle");
       expect(css).toMatch(/\.slida-navigation__handle\{[^}]*touch-action:none/);

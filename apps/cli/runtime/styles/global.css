@@ -70,8 +70,9 @@ body {
 
 .slida-status {
   position: fixed;
-  right: 1rem;
+  left: 50%;
   bottom: 1rem;
+  transform: translateX(-50%);
   z-index: 2;
   display: inline-flex;
   gap: 0.2rem;
