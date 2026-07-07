@@ -23,5 +23,5 @@ Use the reference section when you need exact command options or configuration d
 - Configuration reference — `slida.config.*`, `defineConfig()`, and the supported Slida config fields.
 - Theme reference — built-in themes, layout IDs, named slots, and npm theme package requirements.
 
-Slida's first documentation site intentionally focuses on local usage and static builds.
-Deployment targets, custom branding, and scaffolding commands are not part of this first version.
+Slida's documentation focuses on local usage, static builds, and the hosted reference site.
+The production docs site is deployed with Cloudflare Workers Static Assets at <https://slida.yuku.dev/>; deployment guides for user decks, custom branding, and scaffolding commands remain outside this first version.

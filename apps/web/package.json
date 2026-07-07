@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "check": "vp check"
+    "check": "vp check",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@astrojs/starlight": "catalog:",
@@ -15,6 +16,7 @@
   "devDependencies": {
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "wrangler": "catalog:"
   }
 }
