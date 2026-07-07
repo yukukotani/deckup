@@ -1,38 +1,41 @@
 /* ============================================================
-   @slida/theme-default — Polished presentation theme
+   @slida/theme-default
+   Serif headings, italic accents, geometric ornaments
+   Cool blue palette
    ============================================================ */
 
 :root {
   color-scheme: light;
-  --slida-bg: #fafaf9;
-  --slida-text: #57534e;
-  --slida-text-strong: #1c1917;
-  --slida-border: #e7e5e4;
-  --slida-code-bg: #f5f5f4;
-  --slida-accent: #6366f1;
-  --slida-accent-bg: rgba(99, 102, 241, 0.08);
-  --slida-accent-subtle: #818cf8;
-  --slida-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --slida-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --slida-heading: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --slida-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --slida-bg: #f7f8fc;
+  --slida-text: #5b5e6e;
+  --slida-text-strong: #1a1c28;
+  --slida-border: #dfe1ec;
+  --slida-code-bg: #eceef5;
+  --slida-accent: #3b5ccc;
+  --slida-accent-soft: #7b94e0;
+  --slida-accent-bg: rgba(59, 92, 204, 0.07);
+  --slida-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  --slida-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --slida-heading: Georgia, "Times New Roman", "Noto Serif", serif;
+  --slida-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --slida-bg: #18181b;
-    --slida-text: #a1a1aa;
-    --slida-text-strong: #fafafa;
-    --slida-border: #3f3f46;
-    --slida-code-bg: #27272a;
-    --slida-accent: #818cf8;
-    --slida-accent-bg: rgba(129, 140, 248, 0.1);
-    --slida-accent-subtle: #a5b4fc;
-    --slida-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
+    --slida-bg: #14151f;
+    --slida-text: #9698ae;
+    --slida-text-strong: #e8e9f0;
+    --slida-border: #2c2e3e;
+    --slida-code-bg: #1c1e2c;
+    --slida-accent: #6b8af4;
+    --slida-accent-soft: #98b0f8;
+    --slida-accent-bg: rgba(107, 138, 244, 0.1);
+    --slida-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 }
 
-/* ---- Global reset ---- */
+/* ---- Global ---- */
 body {
   font-family: var(--slida-sans);
   color: var(--slida-text);
@@ -46,13 +49,13 @@ body {
 
 /* ---- Slide base ---- */
 .slida-slide {
-  --slida-cqw: 1cqw;
+  --cqw: 1cqw;
 
   display: grid;
   align-content: center;
   justify-items: start;
-  gap: clamp(0.875rem, calc(2.4 * var(--slida-cqw)), 1.75rem);
-  padding: clamp(2.5rem, calc(6 * var(--slida-cqw)), 5rem);
+  gap: clamp(0.75rem, calc(2.2 * var(--cqw)), 1.6rem);
+  padding: clamp(2.5rem, calc(6 * var(--cqw)), 5rem) clamp(3.5rem, calc(8 * var(--cqw)), 7rem);
   color: var(--slida-text);
   background: var(--slida-bg);
   font-family: var(--slida-sans);
@@ -60,7 +63,7 @@ body {
 }
 
 .slida-slide > * {
-  max-width: min(100%, calc(88 * var(--slida-cqw)));
+  max-width: min(100%, calc(84 * var(--cqw)));
   margin: 0;
 }
 
@@ -68,27 +71,28 @@ body {
 .slida-slide :is(h1, h2, h3) {
   color: var(--slida-text-strong);
   font-family: var(--slida-heading);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  font-style: normal;
 }
 
 .slida-slide h1 {
-  font-size: clamp(2.25rem, calc(4.8 * var(--slida-cqw)), 3.75rem);
+  font-size: clamp(2.25rem, calc(4.6 * var(--cqw)), 3.5rem);
 }
 
 .slida-slide h2 {
-  font-size: clamp(1.5rem, calc(3.2 * var(--slida-cqw)), 2.5rem);
+  font-size: clamp(1.5rem, calc(3 * var(--cqw)), 2.25rem);
 }
 
 .slida-slide h3 {
-  font-size: clamp(1.25rem, calc(2.4 * var(--slida-cqw)), 1.75rem);
+  font-size: clamp(1.25rem, calc(2.4 * var(--cqw)), 1.75rem);
 }
 
 .slida-slide :is(p, ul, ol) {
   color: var(--slida-text);
-  font-size: clamp(1.05rem, calc(2.2 * var(--slida-cqw)), 1.45rem);
-  line-height: 1.55;
+  font-size: clamp(1rem, calc(2 * var(--cqw)), 1.35rem);
+  line-height: 1.7;
 }
 
 .slida-slide :is(ul, ol) {
@@ -96,36 +100,43 @@ body {
 }
 
 .slida-slide li {
-  padding-left: 0.3em;
+  padding-left: 0.25em;
 }
 
 .slida-slide li + li {
-  margin-top: 0.35em;
+  margin-top: 0.4em;
+}
+
+.slida-slide li::marker {
+  color: var(--slida-accent);
 }
 
 .slida-slide :is(p, ul, ol) + :is(p, ul, ol) {
   margin-top: 0.5em;
 }
 
+/* Inline code */
 .slida-slide code {
   font-family: var(--slida-mono);
   font-size: 0.88em;
   color: var(--slida-accent);
   background: var(--slida-code-bg);
-  border-radius: 0.25rem;
-  padding: 0.12em 0.35em;
+  border-radius: 0.2rem;
+  padding: 0.1em 0.3em;
 }
 
+/* Code block */
 .slida-slide pre {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: clamp(0.75rem, calc(2 * var(--slida-cqw)), 1.5rem);
+  padding: clamp(0.75rem, calc(2 * var(--cqw)), 1.5rem);
   background: var(--slida-code-bg);
-  border-radius: clamp(0.35rem, calc(0.7 * var(--slida-cqw)), 0.625rem);
+  border: 1px solid var(--slida-border);
+  border-radius: 0.2rem;
   overflow-x: auto;
-  font-size: clamp(0.8rem, calc(1.5 * var(--slida-cqw)), 0.95rem);
-  line-height: 1.6;
+  font-size: clamp(0.78rem, calc(1.4 * var(--cqw)), 0.92rem);
+  line-height: 1.65;
 }
 
 .slida-slide pre code {
@@ -136,71 +147,107 @@ body {
   font-size: inherit;
 }
 
-/* ---- Layout: cover ---- */
+/* ================ LAYOUTS ================ */
+
+/* ---- cover ---- */
 [data-slida-layout="cover"] {
   align-content: center;
   justify-items: center;
   text-align: center;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 120%, var(--slida-accent-bg), transparent),
-    var(--slida-bg);
+  position: relative;
+}
+
+[data-slida-layout="cover"]::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(16rem, calc(44 * var(--cqw)), 36rem);
+  height: clamp(16rem, calc(44 * var(--cqw)), 36rem);
+  border: 1px solid var(--slida-border);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 [data-slida-layout="cover"] > * {
-  max-width: min(100%, calc(82 * var(--slida-cqw)));
+  position: relative;
+  z-index: 1;
+  max-width: min(100%, calc(72 * var(--cqw)));
 }
 
 [data-slida-layout="cover"] h1 {
-  font-size: clamp(3rem, calc(6.5 * var(--slida-cqw)), 5rem);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1;
+  font-size: clamp(3rem, calc(6.5 * var(--cqw)), 5rem);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
 }
 
 [data-slida-layout="cover"] p {
-  color: var(--slida-text);
-  font-size: clamp(1.1rem, calc(2.4 * var(--slida-cqw)), 1.6rem);
-  line-height: 1.45;
+  color: var(--slida-accent);
+  font-size: clamp(1rem, calc(2 * var(--cqw)), 1.35rem);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-/* ---- Layout: default ---- */
+/* ---- default ---- */
 [data-slida-layout="default"] {
   align-content: center;
   justify-items: start;
   text-align: left;
 }
 
-/* ---- Layout: page ---- */
+/* ---- page ---- */
 [data-slida-layout="page"] {
   align-content: start;
-  gap: clamp(1rem, calc(2.4 * var(--slida-cqw)), 2rem);
-  padding-top: clamp(3rem, calc(6 * var(--slida-cqw)), 5.5rem);
+  gap: clamp(1rem, calc(2.4 * var(--cqw)), 2rem);
+  padding-top: clamp(3rem, calc(7 * var(--cqw)), 6rem);
 }
 
 [data-slida-layout="page"] > h1 {
-  font-size: clamp(1.75rem, calc(3.8 * var(--slida-cqw)), 2.75rem);
-  color: var(--slida-accent);
-  font-weight: 700;
+  font-size: clamp(1.75rem, calc(3.6 * var(--cqw)), 2.75rem);
+  color: var(--slida-text-strong);
 }
 
-/* ---- Layout: section ---- */
+[data-slida-layout="page"] > h1::after {
+  content: "";
+  display: block;
+  width: clamp(2rem, calc(4 * var(--cqw)), 3.5rem);
+  height: 1px;
+  background: var(--slida-accent);
+  margin-top: clamp(0.5rem, calc(1 * var(--cqw)), 0.75rem);
+}
+
+/* ---- section ---- */
 [data-slida-layout="section"] {
   align-content: center;
   justify-items: center;
   text-align: center;
-  background: linear-gradient(135deg, var(--slida-accent-bg) 0%, transparent 60%), var(--slida-bg);
 }
 
 [data-slida-layout="section"] > * {
-  max-width: min(100%, calc(85 * var(--slida-cqw)));
+  max-width: min(100%, calc(78 * var(--cqw)));
 }
 
 [data-slida-layout="section"] h1 {
-  font-size: clamp(2.75rem, calc(5.5 * var(--slida-cqw)), 4.25rem);
-  color: var(--slida-accent);
+  font-size: clamp(2.75rem, calc(5.5 * var(--cqw)), 4.25rem);
+  font-style: italic;
+  color: var(--slida-text-strong);
 }
 
-/* ---- Layout: statement ---- */
+[data-slida-layout="section"] h1::after {
+  content: "";
+  display: block;
+  width: clamp(2.5rem, calc(5 * var(--cqw)), 4rem);
+  height: 1px;
+  background: var(--slida-accent);
+  margin: clamp(0.75rem, calc(1.5 * var(--cqw)), 1.25rem) auto 0;
+}
+
+/* ---- statement ---- */
 [data-slida-layout="statement"] {
   align-content: center;
   justify-items: center;
@@ -208,18 +255,20 @@ body {
 }
 
 [data-slida-layout="statement"] > * {
-  max-width: min(100%, calc(85 * var(--slida-cqw)));
+  max-width: min(100%, calc(78 * var(--cqw)));
 }
 
 [data-slida-layout="statement"] > p {
   color: var(--slida-text-strong);
-  font-size: clamp(2.25rem, calc(5.2 * var(--slida-cqw)), 4rem);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  font-family: var(--slida-heading);
+  font-size: clamp(2.25rem, calc(5 * var(--cqw)), 3.75rem);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
-/* ---- Layout: number ---- */
+/* ---- number ---- */
 [data-slida-layout="number"] {
   align-content: center;
   justify-items: center;
@@ -232,19 +281,21 @@ body {
 
 [data-slida-layout="number"] > p:first-of-type {
   color: var(--slida-accent);
-  font-size: clamp(5rem, calc(15 * var(--slida-cqw)), 10.5rem);
-  font-weight: 800;
+  font-family: var(--slida-heading);
+  font-size: clamp(5rem, calc(15 * var(--cqw)), 11rem);
+  font-weight: 400;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 [data-slida-layout="number"] > p:nth-of-type(2) {
   color: var(--slida-text);
-  font-size: clamp(1.05rem, calc(2.2 * var(--slida-cqw)), 1.5rem);
+  font-size: clamp(1rem, calc(2 * var(--cqw)), 1.35rem);
   line-height: 1.4;
+  margin-top: clamp(0.5rem, calc(1 * var(--cqw)), 0.75rem);
 }
 
-/* ---- Layout: quote ---- */
+/* ---- quote ---- */
 [data-slida-layout="quote"] {
   align-content: center;
   justify-items: center;
@@ -256,39 +307,43 @@ body {
 }
 
 [data-slida-layout="quote"] > p:first-of-type {
-  max-width: min(100%, calc(78 * var(--slida-cqw)));
+  max-width: min(100%, calc(72 * var(--cqw)));
   color: var(--slida-text-strong);
-  font-size: clamp(1.75rem, calc(3.8 * var(--slida-cqw)), 2.75rem);
+  font-family: var(--slida-heading);
+  font-size: clamp(1.75rem, calc(3.6 * var(--cqw)), 2.75rem);
   font-weight: 400;
   font-style: italic;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 [data-slida-layout="quote"] > p:first-of-type::before {
-  content: "";
+  content: "\201C";
   display: block;
-  width: clamp(2rem, calc(4 * var(--slida-cqw)), 3rem);
-  height: 3px;
-  margin: 0 auto clamp(0.75rem, calc(1.5 * var(--slida-cqw)), 1.25rem);
-  background: var(--slida-accent);
-  border-radius: 2px;
+  font-family: var(--slida-heading);
+  font-size: clamp(3rem, calc(6 * var(--cqw)), 5rem);
+  font-style: normal;
+  line-height: 0.8;
+  color: var(--slida-accent);
+  margin-bottom: clamp(0.25rem, calc(0.5 * var(--cqw)), 0.5rem);
 }
 
 [data-slida-layout="quote"] > p:nth-of-type(2) {
   color: var(--slida-accent);
-  font-size: clamp(0.875rem, calc(1.8 * var(--slida-cqw)), 1.15rem);
-  font-weight: 500;
+  font-size: clamp(0.875rem, calc(1.8 * var(--cqw)), 1.1rem);
+  font-weight: 400;
   line-height: 1.4;
-  margin-top: clamp(1rem, calc(2.5 * var(--slida-cqw)), 2rem);
+  margin-top: clamp(1rem, calc(2 * var(--cqw)), 1.5rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-/* ---- Layout: two-column ---- */
+/* ---- two-column ---- */
 [data-slida-layout="two-column"] {
   align-content: start;
-  gap: clamp(1rem, calc(2.4 * var(--slida-cqw)), 2rem);
-  padding-top: clamp(3rem, calc(6 * var(--slida-cqw)), 5.5rem);
+  gap: clamp(1rem, calc(2.4 * var(--cqw)), 2rem);
+  padding-top: clamp(3rem, calc(7 * var(--cqw)), 6rem);
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: clamp(2rem, calc(5 * var(--slida-cqw)), 4rem);
+  column-gap: clamp(2rem, calc(5 * var(--cqw)), 4rem);
 }
 
 [data-slida-layout="two-column"] > h1,
@@ -297,22 +352,30 @@ body {
 }
 
 [data-slida-layout="two-column"] > h1 {
-  font-size: clamp(1.75rem, calc(3.8 * var(--slida-cqw)), 2.75rem);
-  color: var(--slida-accent);
-  font-weight: 700;
+  font-size: clamp(1.75rem, calc(3.6 * var(--cqw)), 2.75rem);
+  color: var(--slida-text-strong);
+}
+
+[data-slida-layout="two-column"] > h1::after {
+  content: "";
+  display: block;
+  width: clamp(2rem, calc(4 * var(--cqw)), 3.5rem);
+  height: 1px;
+  background: var(--slida-accent);
+  margin-top: clamp(0.5rem, calc(1 * var(--cqw)), 0.75rem);
 }
 
 .slida-default-column {
   display: grid;
-  gap: clamp(0.5rem, calc(1.2 * var(--slida-cqw)), 1rem);
+  gap: clamp(0.5rem, calc(1.2 * var(--cqw)), 1rem);
   max-width: 100%;
   padding: 0;
   margin: 0;
   align-self: start;
   font-family: var(--slida-sans);
   color: var(--slida-text);
-  font-size: clamp(0.95rem, calc(1.9 * var(--slida-cqw)), 1.2rem);
-  line-height: 1.5;
+  font-size: clamp(0.9rem, calc(1.8 * var(--cqw)), 1.15rem);
+  line-height: 1.6;
 }
 
 .slida-default-column :is(p, ul, ol) {
@@ -329,16 +392,11 @@ body {
 .slida-default-column--left,
 .slida-default-column:first-of-type {
   grid-column: 1;
+  border-right: 1px solid var(--slida-border);
+  padding-right: clamp(1rem, calc(2.5 * var(--cqw)), 2rem);
 }
 
 .slida-default-column--right,
 .slida-default-column:last-of-type {
   grid-column: 2;
-}
-
-/* ---- Responsive ---- */
-@container (max-width: 768px) {
-  .slida-slide {
-    padding: 2rem 1.5rem;
-  }
 }
