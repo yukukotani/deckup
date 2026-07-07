@@ -52,6 +52,16 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
       >
         ›
       </button>
+      <button
+        type="button"
+        class="slida-navigation__button"
+        data-slida-nav-fullscreen
+        aria-label="Enter fullscreen"
+        aria-pressed="false"
+        title="Enter fullscreen"
+      >
+        ⛶
+      </button>
     </nav>
     <script>
       import "../scripts/navigation.ts";

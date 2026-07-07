@@ -2,11 +2,14 @@ const slideSelector = "[data-slida-slide]";
 const currentSelector = "[data-slida-current]";
 const previousButtonSelector = "[data-slida-nav-prev]";
 const nextButtonSelector = "[data-slida-nav-next]";
+const fullscreenButtonSelector = "[data-slida-nav-fullscreen]";
 const navigationMenuSelector = "[data-slida-navigation]";
 const dragHandleSelector = "[data-slida-nav-drag-handle]";
 const editableSelector =
   "input, textarea, select, button, [contenteditable=''], [contenteditable='true']";
 const printModeAttribute = "data-slida-print";
+const enterFullscreenLabel = "Enter fullscreen";
+const exitFullscreenLabel = "Exit fullscreen";
 
 type PrintSlideSnapshot = {
   slide: HTMLElement;
@@ -128,6 +131,7 @@ export function setupDeckNavigation(
 
   const previousButton = document.querySelector<HTMLButtonElement>(previousButtonSelector);
   const nextButton = document.querySelector<HTMLButtonElement>(nextButtonSelector);
+  const fullscreenButton = document.querySelector<HTMLButtonElement>(fullscreenButtonSelector);
   const navigationMenu = document.querySelector<HTMLElement>(navigationMenuSelector);
   const dragHandle = document.querySelector<HTMLElement>(dragHandleSelector);
 
@@ -136,6 +140,25 @@ export function setupDeckNavigation(
     | { pointerId: number; offsetX: number; offsetY: number; width: number; height: number }
     | undefined;
   let restorePrintMode: (() => void) | undefined;
+  let fullscreenTransitionPending = false;
+
+  const fullscreenSupported = () =>
+    document.fullscreenEnabled !== false &&
+    typeof document.documentElement.requestFullscreen === "function" &&
+    typeof document.exitFullscreen === "function";
+
+  const syncFullscreenButton = () => {
+    if (!fullscreenButton) return;
+
+    const supported = fullscreenSupported();
+    const active = document.fullscreenElement !== null;
+    const label = active ? exitFullscreenLabel : enterFullscreenLabel;
+
+    fullscreenButton.disabled = !supported || fullscreenTransitionPending;
+    fullscreenButton.setAttribute("aria-label", label);
+    fullscreenButton.setAttribute("aria-pressed", String(active));
+    fullscreenButton.title = label;
+  };
 
   const onBeforePrint = () => {
     restorePrintMode?.();
@@ -169,6 +192,27 @@ export function setupDeckNavigation(
   const onNextClick = (event: MouseEvent) => {
     event.preventDefault();
     goTo(getNextSlideIndex(current, 1, slides.length));
+  };
+
+  const onFullscreenClick = async (event: MouseEvent) => {
+    event.preventDefault();
+    if (!fullscreenSupported() || fullscreenTransitionPending) return;
+
+    fullscreenTransitionPending = true;
+    syncFullscreenButton();
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      fullscreenButton?.focus();
+    } finally {
+      fullscreenTransitionPending = false;
+      syncFullscreenButton();
+    }
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -251,8 +295,11 @@ export function setupDeckNavigation(
   };
 
   syncNavigationButtons();
+  syncFullscreenButton();
   previousButton?.addEventListener("click", onPreviousClick);
   nextButton?.addEventListener("click", onNextClick);
+  fullscreenButton?.addEventListener("click", onFullscreenClick);
+  document.addEventListener("fullscreenchange", syncFullscreenButton);
   dragHandle?.addEventListener("pointerdown", onDragPointerDown);
   window.addEventListener("pointermove", onDragPointerMove);
   window.addEventListener("pointerup", endDrag);
@@ -268,6 +315,8 @@ export function setupDeckNavigation(
       releaseActiveDrag();
       previousButton?.removeEventListener("click", onPreviousClick);
       nextButton?.removeEventListener("click", onNextClick);
+      fullscreenButton?.removeEventListener("click", onFullscreenClick);
+      document.removeEventListener("fullscreenchange", syncFullscreenButton);
       dragHandle?.removeEventListener("pointerdown", onDragPointerDown);
       window.removeEventListener("pointermove", onDragPointerMove);
       window.removeEventListener("pointerup", endDrag);

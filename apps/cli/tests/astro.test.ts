@@ -662,12 +662,16 @@ import Page from "@slida/cli/page";
       expect(html).toContain("data-slida-nav-drag-handle");
       expect(html).toContain("data-slida-nav-prev");
       expect(html).toContain("data-slida-nav-next");
+      expect(html).toContain("data-slida-nav-fullscreen");
       expect(html).toContain("data-slida-current");
       expect(html).toContain("data-slida-total");
       expect(html).toContain('aria-label="Slide navigation"');
       expect(html).toContain('aria-label="Move navigation menu"');
       expect(html).toContain('aria-label="Previous slide"');
       expect(html).toContain('aria-label="Next slide"');
+      expect(html).toContain('aria-label="Enter fullscreen"');
+      expect(html).toContain('aria-pressed="false"');
+      expect(html).toContain('title="Enter fullscreen"');
       expect(css).toMatch(
         /body\{(?=[^}]*display:grid)(?=[^}]*place-items:center)(?=[^}]*background:#111)[^}]*\}/,
       );
