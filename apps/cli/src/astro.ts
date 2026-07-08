@@ -1,5 +1,17 @@
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
+import {
+  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  createGeneratedPageComponentSource,
+  createSlidaVitePlugins,
+  remarkSlidaMdxPages,
+  resolveDeckFile,
+  uniqueStrings,
+  type RawAstroCodeHighlightOptions,
+  type SlidaResolvedDeck,
+  type SlidaResolvedTheme,
+  type SlidaRuntimePaths,
+} from "@slida/core";
 import { build, dev, type AstroInlineConfig } from "astro";
 import { createReadStream } from "node:fs";
 import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
@@ -9,14 +21,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 
 
 import { resolveChromiumExecutablePath } from "./browser.ts";
 import { loadSlidaConfig, resolveSlidaConfig } from "./config.ts";
-import { resolveDeckFile } from "./deck.ts";
 import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
-import { remarkSlidaMdxPages } from "./slida-mdx-pages.ts";
-import { createSlidaVitePlugins } from "./slida-vite-plugins.ts";
-import {
-  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
-  createGeneratedPageComponentSource,
-} from "./theme-layouts.ts";
 import { resolveSlidaThemeLayouts } from "./theme.ts";
 import type {
   SlidaBuildOptions,
@@ -26,11 +31,9 @@ import type {
   SlidaExportOptions,
   SlidaExportResult,
   SlidaResolvedConfig,
-  SlidaResolvedDeck,
-  SlidaResolvedTheme,
-  SlidaRuntimePaths,
 } from "./types.ts";
-import { uniqueStrings } from "./utils.ts";
+
+export type { RawAstroCodeHighlightOptions } from "@slida/core";
 
 export const DEFAULT_DEV_HOST = "127.0.0.1";
 export const DEFAULT_DEV_PORT = 4321;
@@ -42,8 +45,6 @@ export const PDF_SLIDE_HEIGHT = "9in";
 const DEFAULT_CODE_HIGHLIGHT_THEME = "github-dark";
 
 type SlidaMarkdownConfig = NonNullable<AstroInlineConfig["markdown"]>;
-
-export type RawAstroCodeHighlightOptions = { enabled: true; theme: string } | { enabled: false };
 
 const require = createRequire(import.meta.url);
 const astroPackageRoot = dirname(require.resolve("astro/package.json"));
@@ -129,7 +130,9 @@ function createMdxIntegration(deck?: SlidaResolvedDeck) {
   });
 }
 
-export function createMarkdownConfig(markdown: AstroInlineConfig["markdown"] | undefined) {
+export function createMarkdownConfig(
+  markdown: AstroInlineConfig["markdown"] | undefined,
+): SlidaMarkdownConfig {
   return {
     syntaxHighlight: "shiki",
     ...markdown,
@@ -266,7 +269,7 @@ export function createAstroInlineConfig(
     : [];
   const slidaPageAlias =
     slidaTheme?.layouts?.length && paths.generatedPageFilePath
-      ? [{ find: /^@slida\/cli\/page$/, replacement: paths.generatedPageFilePath }]
+      ? [{ find: /^@slida\/astro\/page$/, replacement: paths.generatedPageFilePath }]
       : [];
   const requiredAliases = [
     ...slidaPageAlias,

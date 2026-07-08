@@ -1,12 +1,24 @@
 import type { AddressInfo } from "node:net";
+import type { SlidaResolvedDeck, SlidaResolvedTheme, SlidaRuntimePaths } from "@slida/core";
 import type { AstroInlineConfig, dev } from "astro";
+
+export type {
+  RawAstroCodeHighlightOptions,
+  SlidaDeckFormat,
+  SlidaDeckRegistry,
+  SlidaResolvedDeck,
+  SlidaResolvedDeckRoute,
+  SlidaResolvedTheme,
+  SlidaResolvedThemeLayout,
+  SlidaRouteId,
+  SlidaRuntimePaths,
+} from "@slida/core";
 
 export type SlidaLogLevel = NonNullable<AstroInlineConfig["logLevel"]>;
 export type SlidaAstroConfig = Omit<
   AstroInlineConfig,
   "root" | "srcDir" | "configFile" | "output" | "server" | "outDir" | "logLevel" | "devToolbar"
 >;
-export type SlidaDeckFormat = "astro" | "mdx";
 export type SlidaOutputFormat = "html" | "pdf";
 
 export interface SlidaConfig {
@@ -65,38 +77,6 @@ export interface SlidaExportResult {
   htmlFile: string;
   pdfFile: string;
   url: string;
-}
-
-export interface SlidaRuntimePaths {
-  projectRoot: string;
-  runtimeSourceDir: string;
-  runtimeOutDir: string;
-  generatedPageFilePath?: string;
-}
-
-export interface SlidaResolvedThemeLayout {
-  id: string;
-  filePath: string;
-  importPath: string;
-  slotNames: string[];
-}
-
-export interface SlidaResolvedTheme {
-  name: string;
-  importPath?: string;
-  filePath?: string;
-  packageName?: string;
-  packageRoot?: string;
-  layoutsDir?: string;
-  layouts?: SlidaResolvedThemeLayout[];
-  slotNames?: string[];
-  source: "builtin" | "package";
-}
-
-export interface SlidaResolvedDeck {
-  filePath: string;
-  projectRelativePath: string;
-  format: SlidaDeckFormat;
 }
 
 export interface SlidaDevResult {

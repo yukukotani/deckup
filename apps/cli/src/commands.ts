@@ -1,7 +1,8 @@
+import { resolveDeckFile } from "@slida/core";
 import { readFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
-import { stdin as input, stdout as output } from "node:process";
 import { basename, extname } from "node:path";
+import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
@@ -15,7 +16,6 @@ import {
   normalizeExportOutFile,
   startDevServer,
 } from "./astro.ts";
-import { resolveDeckFile } from "./deck.ts";
 import { pathExists, resolveProjectRoot } from "./runtime.ts";
 import type {
   SlidaBuildCommandOptions,

@@ -13,6 +13,7 @@
     "build:pdf:mdx": "vp run @slida/cli#build && slida build slides/deck.mdx --format pdf"
   },
   "devDependencies": {
+    "@slida/astro": "workspace:*",
     "@slida/cli": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "tailwindcss": "catalog:",

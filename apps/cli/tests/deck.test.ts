@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 
-import { inferDeckFormat, resolveDeckFile, SUPPORTED_DECK_EXTENSIONS } from "../src/deck.ts";
+import { inferDeckFormat, resolveDeckFile, SUPPORTED_DECK_EXTENSIONS } from "@slida/core";
 
 async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
   const projectRoot = await mkdtemp(join(tmpdir(), "slida-deck-"));

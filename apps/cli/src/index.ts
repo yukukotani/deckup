@@ -1,10 +1,44 @@
 export {
+  SUPPORTED_DECK_EXTENSIONS,
+  VIRTUAL_SLIDA_DECK_ID,
+  VIRTUAL_SLIDA_DECK_PREFIX,
+  VIRTUAL_SLIDA_ROUTE_PREFIX,
+  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  collectStaticAstroCodeBlocksForTests,
+  countAstroDeckPages,
+  countMdxDeckPages,
+  createDeckRegistry,
+  createGeneratedPageComponentSource,
+  createRuntimePageSource,
+  createSlidaVitePlugins,
+  createSlidaVitePluginsForRegistry,
+  createSourceIndexConverter,
+  createThemeLayoutDiscoveryCache,
+  discoverThemeLayouts,
+  extractAstroSlotNames,
+  inferDeckFormat,
+  normalizeIdPath,
+  normalizePath,
+  normalizeSlidaBasePath,
+  remarkSlidaMdxPages,
+  resolveDeckFile,
+  resolveDeckFilesFromGlob,
+  resolveDeckRegistry,
+  splitMdxChildrenIntoPages,
+  stripMdxFrontmatter,
+  toViteFsImportPath,
+  transformAstroDeckSource,
+  transformAstroDeckSourceWithCodeHighlighting,
+  transformCompiledAstroDeckSource,
+  uniqueStrings,
+  validateAstroDeckSource,
+} from "@slida/core";
+export {
   defineConfig,
   findSlidaConfigFiles,
   loadSlidaConfig,
   SLIDA_CONFIG_FILES,
 } from "./config.ts";
-export { inferDeckFormat, resolveDeckFile, SUPPORTED_DECK_EXTENSIONS } from "./deck.ts";
 export {
   buildDeck,
   createAstroInlineConfig,
@@ -14,21 +48,14 @@ export {
   exportDeck,
   normalizeBuildOutDir,
   normalizeExportOutFile,
+  startDevServer,
 } from "./astro.ts";
-export { startDevServer } from "./astro.ts";
 export {
   BUILTIN_SLIDA_THEME_PACKAGES,
   BUILTIN_SLIDA_THEMES,
   DEFAULT_SLIDA_THEME,
   resolveSlidaThemeLayouts,
 } from "./theme.ts";
-export {
-  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
-  createGeneratedPageComponentSource,
-  discoverThemeLayouts,
-  extractAstroSlotNames,
-  toViteFsImportPath,
-} from "./theme-layouts.ts";
 export {
   normalizeBuildFormat,
   normalizeBuildValues,
@@ -43,12 +70,30 @@ export {
   resolveRuntimeSourceDir,
 } from "./runtime.ts";
 export type {
+  AstroAttribute,
+  AstroIdentifier,
+  AstroImportDeclaration,
+  AstroNode,
+  AstroRoot,
+  RawAstroCodeHighlightOptions,
+  RuntimePageSourceOptions,
+  SlidaDeckFormat,
+  SlidaDeckRegistry,
+  SlidaMdxPagesOptions,
+  SlidaResolvedDeck,
+  SlidaResolvedDeckRoute,
+  SlidaResolvedTheme,
+  SlidaResolvedThemeLayout,
+  SlidaRouteId,
+  SlidaRuntimePaths,
+  SlidaVitePluginOptions,
+} from "@slida/core";
+export type {
   SlidaAstroConfig,
   SlidaBaseOptions,
   SlidaBuildCommandOptions,
   SlidaBuildOptions,
   SlidaConfig,
-  SlidaDeckFormat,
   SlidaDevOptions,
   SlidaDevResult,
   SlidaExportOptions,
@@ -57,8 +102,4 @@ export type {
   SlidaLogLevel,
   SlidaOutputFormat,
   SlidaResolvedConfig,
-  SlidaResolvedDeck,
-  SlidaResolvedTheme,
-  SlidaResolvedThemeLayout,
-  SlidaRuntimePaths,
 } from "./types.ts";

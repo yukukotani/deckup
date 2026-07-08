@@ -199,7 +199,7 @@ test("buildDeck builds one selected Astro deck file", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Intro"><layout id="cover" /><h1>Intro</h1></Page>
@@ -264,7 +264,7 @@ test("buildDeck highlights static Astro pre code blocks", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Astro Code">
@@ -316,7 +316,7 @@ test("buildDeck uses astro markdown theme for static Astro code blocks", async (
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Theme"><pre><code class="language-ts">const theme = "light";</code></pre></Page>
@@ -344,7 +344,7 @@ test("buildDeck leaves dynamic Astro code blocks unchanged", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 const language = "language-ts";
 ---
 
@@ -376,7 +376,7 @@ test("buildDeck renders Astro pages through theme layouts and named slots", asyn
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Columns"><layout id="two-column" /><h1>Column title</h1><div slot="left">Left content</div><div slot="right">Right content</div></Page>
@@ -439,7 +439,7 @@ test("buildDeck rejects Astro deck top-level content outside Page", async () => 
     await writeFile(
       join(projectRoot, "slides", "bad.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <h1>Loose content</h1>
@@ -474,7 +474,7 @@ test("buildDeck rejects Astro decks without the package Page import", async () =
 test("buildDeck rejects duplicate Astro layout declarations", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page><layout id="cover" /><layout id="default" /><h1>Intro</h1></Page>
@@ -486,7 +486,7 @@ import Page from "@slida/cli/page";
 test("buildDeck rejects Astro layout declarations without id", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page><layout /><h1>Intro</h1></Page>
@@ -498,7 +498,7 @@ import Page from "@slida/cli/page";
 test("buildDeck rejects empty Astro layout ids", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page><layout id="" /><h1>Intro</h1></Page>
@@ -510,7 +510,7 @@ import Page from "@slida/cli/page";
 test("buildDeck rejects invalid Astro layout ids", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page><layout id="Cover Slide" /><h1>Intro</h1></Page>
@@ -527,7 +527,7 @@ test("buildDeck rejects Astro decks that select a missing theme layout", async (
     await writeFile(
       join(projectRoot, "slides", "bad.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page><layout id="missing" /><h1>Missing</h1></Page>
@@ -551,7 +551,7 @@ test("buildDeck renders Astro pages through the Google Basic flow layouts", asyn
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Google Page"><layout id="page" /><h1>Google page title</h1><p>Google page body</p><ul><li>Google bullet</li></ul><p>Google follow-up</p></Page>
@@ -594,7 +594,7 @@ test("buildDeck renders Astro pages through the Apple Basic flow layouts", async
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Apple Page"><layout id="page" /><h1>Apple page title</h1><p>Apple page subtitle</p><p>Apple page body</p><ul><li>Apple bullet</li></ul></Page>
@@ -638,7 +638,7 @@ for (const theme of builtInViewerThemes) {
       await writeFile(
         join(projectRoot, "slides", "deck.astro"),
         `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Intro"><layout id="cover" /><h1>Intro</h1><p>Body</p></Page>
@@ -731,7 +731,7 @@ for (const theme of ["google-basic", "apple-basic"] as const) {
       await writeFile(
         join(projectRoot, "slides", "deck.astro"),
         `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Cover"><layout id="cover" /><h1>Cover title</h1><p>Cover subtitle</p></Page>
@@ -773,7 +773,7 @@ test("buildDeck emits print CSS that reveals slides and hides navigation for PDF
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Intro"><h1>Intro</h1></Page>
@@ -810,7 +810,7 @@ test("exportDeck builds a deck and writes a PDF", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Intro"><h1>Intro</h1></Page>

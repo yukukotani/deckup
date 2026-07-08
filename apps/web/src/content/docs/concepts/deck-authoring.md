@@ -28,7 +28,7 @@ Astro decks import `Page` and place only top-level `<Page>` components in the fi
 
 ```astro
 ---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page title="Presentation title">

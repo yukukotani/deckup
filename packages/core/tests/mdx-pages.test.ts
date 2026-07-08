@@ -6,7 +6,8 @@ import {
   remarkSlidaMdxPages,
   splitMdxChildrenIntoPages,
   stripMdxFrontmatter,
-} from "@slida/core";
+} from "../src/slida-mdx-pages.ts";
+import { createDeckRegistry } from "../src/deck.ts";
 
 const twoPageMdx = `---
 title: Talk
@@ -238,4 +239,44 @@ test("countMdxDeckPages rejects invalid layout ids", () => {
 # One
 `),
   ).toThrow(/Invalid Slida layout id/);
+});
+
+test("remarkSlidaMdxPages selects decks through a multi-deck registry", () => {
+  const talkDeck = {
+    filePath: "/project/src/slides/talk.mdx",
+    projectRelativePath: "src/slides/talk.mdx",
+    format: "mdx" as const,
+    sourceGlob: "src/slides/*.mdx",
+    globBase: "src/slides",
+    slug: "talk",
+    routePath: "/slides/talk",
+    routeId: "slides_talk",
+    virtualDeckModuleId: "virtual:slida/decks/slides_talk",
+    virtualRouteModuleId: "virtual:slida/routes/slides_talk.astro",
+  };
+  const guideDeck = {
+    ...talkDeck,
+    filePath: "/project/src/slides/guide.mdx",
+    projectRelativePath: "src/slides/guide.mdx",
+    slug: "guide",
+    routePath: "/slides/guide",
+    routeId: "slides_guide",
+    virtualDeckModuleId: "virtual:slida/decks/slides_guide",
+    virtualRouteModuleId: "virtual:slida/routes/slides_guide.astro",
+  };
+  const registry = createDeckRegistry("/project", "/slides", [talkDeck, guideDeck]);
+  const tree = {
+    children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
+  };
+
+  remarkSlidaMdxPages({ registry })(tree, {
+    path: "/project/src/slides/guide.mdx",
+  });
+
+  expect(tree.children[0]).toMatchObject({
+    type: "mdxjsEsm",
+    value: 'import Page from "@slida/astro/page";',
+  });
+  expect(tree.children[1]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
+  expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
 });

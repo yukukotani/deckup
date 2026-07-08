@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 
-import { createThemeLayoutDiscoveryCache, discoverThemeLayouts } from "@slida/core";
+import { createThemeLayoutDiscoveryCache, discoverThemeLayouts } from "../src/theme-layouts.ts";
 
 async function withLayoutsDir(run: (layoutsDir: string) => Promise<void>) {
   const projectRoot = await mkdtemp(join(tmpdir(), "slida-layouts-"));

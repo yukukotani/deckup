@@ -1,14 +1,19 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 
 import {
   collectStaticAstroCodeBlocksForTests,
   countAstroDeckPages,
+  createSlidaVitePluginsForRegistry,
   createSourceIndexConverter,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
   transformCompiledAstroDeckSource,
   validateAstroDeckSource,
-} from "@slida/core";
+} from "../src/slida-vite-plugins.ts";
+import { createDeckRegistry } from "../src/deck.ts";
 
 const twoPageDeck = `---
 import Page from "@slida/astro/page";
@@ -393,4 +398,86 @@ test("createSourceIndexConverter maps the end-of-string boundary", () => {
   const toSourceIndex = createSourceIndexConverter("ab");
 
   expect(toSourceIndex(2, "test")).toBe(2);
+});
+
+test("registry Astro validation leaves non-deck Astro modules untouched", async () => {
+  const registry = createDeckRegistry("/project", "/slides", [
+    {
+      filePath: "/project/src/slides/deck.astro",
+      projectRelativePath: "src/slides/deck.astro",
+      format: "astro",
+      sourceGlob: "src/slides/*.astro",
+      globBase: "src/slides",
+      slug: "deck",
+      routePath: "/slides/deck",
+      routeId: "slides_deck",
+      virtualDeckModuleId: "virtual:slida/decks/slides_deck",
+      virtualRouteModuleId: "virtual:slida/routes/slides_deck.astro",
+    },
+  ]);
+  const plugins = createSlidaVitePluginsForRegistry(registry);
+  const validation = plugins.find((plugin) => plugin.name === "slida:astro-deck-validation");
+  const transform = validation?.transform as
+    | ((this: unknown, source: string, id: string) => unknown)
+    | undefined;
+
+  await expect(
+    transform?.call({} as never, "<h1>Docs</h1>", "/project/src/pages/docs.astro"),
+  ).resolves.toBeUndefined();
+});
+
+test("createSlidaVitePluginsForRegistry resolves and loads per-deck virtual ids", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "slida-registry-vite-"));
+  try {
+    await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
+    const deckFile = join(projectRoot, "src", "slides", "intro.astro");
+    await writeFile(
+      deckFile,
+      `---
+import Page from "@slida/astro/page";
+---
+
+<Page title="Intro"><h1>Intro</h1></Page>
+`,
+    );
+    const deck = {
+      filePath: deckFile,
+      projectRelativePath: "src/slides/intro.astro",
+      format: "astro" as const,
+      sourceGlob: "src/slides/*.astro",
+      globBase: "src/slides",
+      slug: "intro",
+      routePath: "/slides/intro",
+      routeId: "slides_intro",
+      virtualDeckModuleId: "virtual:slida/decks/slides_intro",
+      virtualRouteModuleId: "virtual:slida/routes/slides_intro.astro",
+    };
+    const registry = createDeckRegistry(projectRoot, "/slides", [deck]);
+    const plugins = createSlidaVitePluginsForRegistry(registry);
+    const virtualDeckPlugin = plugins.find((plugin) => plugin.name === "slida:virtual-decks");
+    const resolveId = virtualDeckPlugin?.resolveId as
+      | ((this: unknown, id: string) => string | undefined | Promise<string | undefined>)
+      | undefined;
+    const load = virtualDeckPlugin?.load as
+      | ((
+          this: { addWatchFile(filePath: string): void },
+          id: string,
+        ) => string | undefined | Promise<string | undefined>)
+      | undefined;
+
+    expect(await resolveId?.call({}, deck.virtualDeckModuleId)).toBe(
+      `\0${deck.virtualDeckModuleId}`,
+    );
+    const watched: string[] = [];
+    const source = await load?.call(
+      { addWatchFile: (filePath) => watched.push(filePath) },
+      `\0${deck.virtualDeckModuleId}`,
+    );
+
+    expect(watched).toContain(deckFile);
+    expect(source).toContain('import Deck from "/src/slides/intro.astro";');
+    expect(source).toContain('pageCount":1');
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
 });

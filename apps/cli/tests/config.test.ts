@@ -30,7 +30,7 @@ import {
   type NpmThemeInstallOperations,
   type SlidaNpmThemeSource,
 } from "../src/npm-theme.ts";
-import { VIRTUAL_SLIDA_THEME_LAYOUTS_ID } from "../src/theme-layouts.ts";
+import { VIRTUAL_SLIDA_THEME_LAYOUTS_ID } from "@slida/core";
 import { resolveSlidaThemeLayouts } from "../src/theme.ts";
 import type { SlidaRuntimePaths } from "../src/types.ts";
 
@@ -102,7 +102,7 @@ async function writeAstroDeck(projectRoot: string) {
   await writeFile(
     join(projectRoot, "slides", "deck.astro"),
     `---
-import Page from "@slida/cli/page";
+import Page from "@slida/astro/page";
 ---
 
 <Page><h1>Deck</h1></Page>
@@ -1006,7 +1006,7 @@ test("layout theme module is imported before the Astro deck and watches layout f
   await mkdir(dirname(deck.filePath), { recursive: true });
   await writeFile(
     deck.filePath,
-    `---\nimport Page from "@slida/cli/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
+    `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
   );
 
   const config = createAstroInlineConfig(paths, {}, {}, deck, {
@@ -1144,7 +1144,7 @@ test("layout themes add generated Page alias and layout fs allow entry", () => {
   expect(config.vite?.resolve?.alias).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        find: /^@slida\/cli\/page$/,
+        find: /^@slida\/astro\/page$/,
         replacement: paths.generatedPageFilePath,
       }),
     ]),
@@ -1154,7 +1154,7 @@ test("layout themes add generated Page alias and layout fs allow entry", () => {
   );
 });
 
-test("generated Page paths do not alias @slida/cli/page without layout themes", () => {
+test("generated Page paths do not alias @slida/astro/page without layout themes", () => {
   const paths = {
     ...testPaths(),
     generatedPageFilePath: "/tmp/slida-project/.slida/runtime/generated/Page.astro",
@@ -1258,7 +1258,7 @@ test("virtual layout registry re-discovers layouts added after config creation",
     await mkdir(dirname(deck.filePath), { recursive: true });
     await writeFile(
       deck.filePath,
-      `---\nimport Page from "@slida/cli/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
+      `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
     );
     await writeFile(join(theme.layoutsDir!, "speaker.astro"), "<slot />\n");
 
@@ -1297,7 +1297,7 @@ test("virtual layout registry rejects layouts removed after config creation", as
     await mkdir(dirname(deck.filePath), { recursive: true });
     await writeFile(
       deck.filePath,
-      `---\nimport Page from "@slida/cli/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
+      `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
     );
     await unlink(speakerLayout);
 
@@ -1325,7 +1325,7 @@ test("virtual layout registry refreshes generated Page slot forwarding", async (
     await mkdir(dirname(deck.filePath), { recursive: true });
     await writeFile(
       deck.filePath,
-      `---\nimport Page from "@slida/cli/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
+      `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
     );
     const config = createAstroInlineConfig(paths, {}, {}, deck, theme);
 

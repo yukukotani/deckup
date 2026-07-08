@@ -1,9 +1,11 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import slida from "@slida/astro";
 
 export default defineConfig({
   site: "https://slida.yuku.dev",
   integrations: [
+    slida({ decks: "src/slides/*.{astro,mdx}", base: "/slides" }),
     starlight({
       title: "Slida",
       sidebar: [
@@ -12,6 +14,13 @@ export default defineConfig({
           items: [
             { label: "Quickstart", slug: "quickstart" },
             { label: "Deck authoring", slug: "concepts/deck-authoring" },
+          ],
+        },
+        {
+          label: "Slides",
+          items: [
+            { label: "Intro deck", link: "/slides/intro" },
+            { label: "Guide deck", link: "/slides/guide" },
           ],
         },
         {
