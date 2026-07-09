@@ -1,5 +1,5 @@
 import { build, type AstroIntegration } from "astro";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createRequire } from "node:module";
@@ -79,6 +79,29 @@ This MDX page is not a Slida deck.
   );
 }
 
+async function readBuiltCss(projectRoot: string, html: string) {
+  const cssParts = Array.from(
+    html.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g),
+    (match) => match[1],
+  );
+  const assetsDir = join(projectRoot, "dist", "_astro");
+
+  try {
+    const entries = await readdir(assetsDir, { withFileTypes: true });
+    cssParts.push(
+      ...(await Promise.all(
+        entries
+          .filter((entry) => entry.isFile() && entry.name.endsWith(".css"))
+          .map((entry) => readFile(join(assetsDir, entry.name), "utf8")),
+      )),
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  return cssParts.join("\n");
+}
+
 function countSlides(html: string) {
   return html.match(/data-slida-slide(?=[\s=>])/g)?.length ?? 0;
 }
@@ -129,9 +152,11 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(intro).toContain('data-slide-count="2"');
     expect(intro).toContain('data-slida-theme="bold"');
     expect(intro).not.toContain('data-slida-theme="minimal"');
+    const introCss = await readBuiltCss(projectRoot, intro);
     expect(intro).toContain("data-slida-shell");
     expect(intro).toContain("data-slida-navigation");
-    expect(intro).toContain(".slida-navigation");
+    expect(introCss).toContain(".slida-navigation");
+    expect(introCss).toContain("astro-dev-toolbar");
     expect(intro).toContain("Intro Astro Deck");
     expect(intro).toContain("Astro Details");
 
