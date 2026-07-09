@@ -43,6 +43,7 @@ async function writeHostFixture(projectRoot: string) {
     join(projectRoot, "source", "slides", "intro.astro"),
     `---
 import Page from "@slida/astro/page";
+const theme = "bold";
 ---
 
 <Page title="Intro"><h1>Intro Astro Deck</h1></Page>
@@ -53,6 +54,7 @@ import Page from "@slida/astro/page";
     join(projectRoot, "source", "slides", "guide.mdx"),
     `---
 title: Guide MDX Deck
+theme: minimal
 ---
 
 <layout id="cover" />
@@ -125,6 +127,8 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(countLayouts(intro, "cover")).toBe(1);
     expect(countLayouts(intro, "default")).toBe(1);
     expect(intro).toContain('data-slide-count="2"');
+    expect(intro).toContain('data-slida-theme="bold"');
+    expect(intro).not.toContain('data-slida-theme="minimal"');
     expect(intro).toContain("data-slida-shell");
     expect(intro).toContain("data-slida-navigation");
     expect(intro).toContain(".slida-navigation");
@@ -139,6 +143,8 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(countLayouts(guide, "cover")).toBe(1);
     expect(countLayouts(guide, "default")).toBe(1);
     expect(guide).toContain('data-slide-count="2"');
+    expect(guide).toContain('data-slida-theme="minimal"');
+    expect(guide).not.toContain('data-slida-theme="bold"');
     expect(guide).toContain("Guide MDX Deck");
     expect(guide).toContain("Guide Details");
 

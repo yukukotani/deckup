@@ -280,21 +280,6 @@ importers:
       '@slida/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@slida/theme-apple-basic':
-        specifier: workspace:*
-        version: link:../../packages/theme-apple-basic
-      '@slida/theme-bold':
-        specifier: workspace:*
-        version: link:../../packages/theme-bold
-      '@slida/theme-default':
-        specifier: workspace:*
-        version: link:../../packages/theme-default
-      '@slida/theme-google-basic':
-        specifier: workspace:*
-        version: link:../../packages/theme-google-basic
-      '@slida/theme-minimal':
-        specifier: workspace:*
-        version: link:../../packages/theme-minimal
       astro:
         specifier: 'catalog:'
         version: 7.0.4(@astrojs/markdown-remark@7.2.0)(@types/node@24.13.2)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0)
@@ -304,12 +289,6 @@ importers:
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
-      npm-package-arg:
-        specifier: ^14.0.0
-        version: 14.0.0
-      pacote:
-        specifier: ^22.0.0
-        version: 22.0.0
       playwright-core:
         specifier: 'catalog:'
         version: 1.61.1
@@ -406,9 +385,30 @@ importers:
       '@astrojs/compiler-rs':
         specifier: ^0.2.3
         version: 0.2.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
+      '@slida/theme-apple-basic':
+        specifier: workspace:*
+        version: link:../theme-apple-basic
+      '@slida/theme-bold':
+        specifier: workspace:*
+        version: link:../theme-bold
+      '@slida/theme-default':
+        specifier: workspace:*
+        version: link:../theme-default
+      '@slida/theme-google-basic':
+        specifier: workspace:*
+        version: link:../theme-google-basic
+      '@slida/theme-minimal':
+        specifier: workspace:*
+        version: link:../theme-minimal
       acorn:
         specifier: ^8.16.0
         version: 8.17.0
+      npm-package-arg:
+        specifier: ^14.0.0
+        version: 14.0.0
+      pacote:
+        specifier: ^22.0.0
+        version: 22.0.0
       remark-mdx:
         specifier: ^3.1.1
         version: 3.1.1

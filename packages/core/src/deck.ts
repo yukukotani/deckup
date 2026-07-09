@@ -1,11 +1,14 @@
 import { constants } from "node:fs";
-import { access, realpath } from "node:fs/promises";
+import { access, readFile, realpath } from "node:fs/promises";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 
 import { glob } from "tinyglobby";
 
+import { analyzeMdxDeckMetadata } from "./slida-mdx-pages.ts";
+import { analyzeAstroDeckMetadata } from "./slida-vite-plugins.ts";
 import type {
   SlidaDeckFormat,
+  SlidaDeckMetadata,
   SlidaDeckRegistry,
   SlidaResolvedDeck,
   SlidaResolvedDeckRoute,
@@ -18,6 +21,17 @@ export const VIRTUAL_SLIDA_ROUTE_PREFIX = "virtual:slida/routes/";
 
 function toProjectPath(path: string) {
   return normalizePath(path);
+}
+
+async function readDeckMetadata(
+  filePath: string,
+  projectRelativePath: string,
+  format: SlidaDeckFormat,
+): Promise<SlidaDeckMetadata> {
+  const source = await readFile(filePath, "utf8");
+  return format === "mdx"
+    ? analyzeMdxDeckMetadata(source, projectRelativePath)
+    : analyzeAstroDeckMetadata(source, projectRelativePath);
 }
 
 function isInsideProject(projectRoot: string, filePath: string) {
@@ -135,10 +149,14 @@ export async function resolveDeckFile(
     throw new Error(`Slida deck file must be inside the project root: ${deckFile}`);
   }
 
+  const normalizedProjectRelativePath = toProjectPath(projectRelativePath);
+  const metadata = await readDeckMetadata(resolvedDeckFile, normalizedProjectRelativePath, format);
+
   return {
     filePath: resolvedDeckFile,
-    projectRelativePath: toProjectPath(projectRelativePath),
+    projectRelativePath: normalizedProjectRelativePath,
     format,
+    metadata,
   };
 }
 

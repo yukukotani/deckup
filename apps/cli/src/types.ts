@@ -5,7 +5,10 @@ import type { AstroInlineConfig, dev } from "astro";
 export type {
   RawAstroCodeHighlightOptions,
   SlidaDeckFormat,
+  SlidaDeckMetadata,
   SlidaDeckRegistry,
+  SlidaNpmThemeDownloadRequest,
+  SlidaNpmThemeOptions,
   SlidaResolvedDeck,
   SlidaResolvedDeckRoute,
   SlidaResolvedTheme,
@@ -30,19 +33,6 @@ export interface SlidaConfig {
 export interface SlidaLoadedConfig {
   config: SlidaConfig;
   filePath?: string;
-}
-
-export interface SlidaNpmThemeDownloadRequest {
-  spec: string;
-  packageName: string;
-  cacheDir: string;
-}
-
-export interface SlidaNpmThemeOptions {
-  /** @internal Slida-managed npm theme cache override for tests and controlled runtimes. */
-  cacheDir?: string;
-  /** @internal Confirmation hook used before Slida downloads an uncached npm theme. */
-  confirmDownload?: (request: SlidaNpmThemeDownloadRequest) => boolean | Promise<boolean>;
 }
 
 export interface SlidaBaseOptions {

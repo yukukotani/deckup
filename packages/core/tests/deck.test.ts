@@ -49,6 +49,50 @@ test("resolveDeckFile resolves a project-relative deck file", async () => {
       filePath: join(projectRoot, "slides", "talk.astro"),
       projectRelativePath: "slides/talk.astro",
       format: "astro",
+      metadata: {},
+    });
+  });
+});
+
+test("resolveDeckFile includes static MDX deck metadata", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeDeck(
+      projectRoot,
+      "slides/talk.mdx",
+      `---
+theme: minimal
+---
+
+# Talk
+`,
+    );
+
+    await expect(resolveDeckFile(projectRoot, "slides/talk.mdx")).resolves.toMatchObject({
+      projectRelativePath: "slides/talk.mdx",
+      format: "mdx",
+      metadata: { theme: "minimal" },
+    });
+  });
+});
+
+test("resolveDeckFile includes static Astro deck metadata", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeDeck(
+      projectRoot,
+      "slides/talk.astro",
+      `---
+import Page from "@slida/astro/page";
+const theme = "google-basic";
+---
+
+<Page />
+`,
+    );
+
+    await expect(resolveDeckFile(projectRoot, "slides/talk.astro")).resolves.toMatchObject({
+      projectRelativePath: "slides/talk.astro",
+      format: "astro",
+      metadata: { theme: "google-basic" },
     });
   });
 });

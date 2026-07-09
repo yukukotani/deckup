@@ -26,16 +26,9 @@
     "@puppeteer/browsers": "catalog:",
     "@slida/astro": "workspace:*",
     "@slida/core": "workspace:*",
-    "@slida/theme-apple-basic": "workspace:*",
-    "@slida/theme-bold": "workspace:*",
-    "@slida/theme-default": "workspace:*",
-    "@slida/theme-google-basic": "workspace:*",
-    "@slida/theme-minimal": "workspace:*",
     "astro": "catalog:",
     "gunshi": "catalog:",
     "jiti": "catalog:",
-    "npm-package-arg": "^14.0.0",
-    "pacote": "^22.0.0",
     "playwright-core": "catalog:"
   },
   "devDependencies": {

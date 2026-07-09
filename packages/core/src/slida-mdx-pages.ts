@@ -4,7 +4,7 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 import { resolveSlidaLayout } from "./layout.ts";
-import type { SlidaDeckRegistry, SlidaResolvedDeck } from "./types.ts";
+import type { SlidaDeckMetadata, SlidaDeckRegistry, SlidaResolvedDeck } from "./types.ts";
 import { normalizeIdPath } from "./utils.ts";
 
 const pageComponentExport = "@slida/astro/page";
@@ -36,6 +36,7 @@ type SlidaMdxPage = {
 type SlidaMdxDeckAnalysis = {
   pageCount: number;
   layouts: Array<{ layout: string }>;
+  metadata: SlidaDeckMetadata;
 };
 
 type VFileLike = {
@@ -46,6 +47,7 @@ type VFileLike = {
 export interface SlidaMdxPagesOptions {
   deckFile?: string;
   registry?: SlidaDeckRegistry;
+  themeForDeck?: (deck: SlidaResolvedDeck) => string | undefined;
 }
 
 function isSelectedFile(file: VFileLike, deckFile: string) {
@@ -126,11 +128,18 @@ function getRenderableMdxNodes(children: MdastRoot["children"]) {
   return children.filter((child) => child.type !== "mdxjsEsm");
 }
 
-function createPageNode(page: SlidaMdxPage): MdastNode {
+function createPageNode(page: SlidaMdxPage, themeName?: string): MdastNode {
+  const attributes: MdxJsxAttribute[] = [
+    { type: "mdxJsxAttribute", name: "layout", value: page.layout },
+  ];
+  if (themeName) {
+    attributes.push({ type: "mdxJsxAttribute", name: "theme", value: themeName });
+  }
+
   return {
     type: "mdxJsxFlowElement",
     name: "Page",
-    attributes: [{ type: "mdxJsxAttribute", name: "layout", value: page.layout }],
+    attributes,
     children: page.children,
   };
 }
@@ -161,11 +170,84 @@ export function remarkSlidaMdxPages(options: SlidaMdxPagesOptions = {}) {
     const deck = resolveSelectedMdxDeck(file, options);
     if (!deck) return;
 
+    const themeName = options.themeForDeck?.(deck);
     const esmNodes = tree.children.filter((child) => child.type === "mdxjsEsm");
     const renderableNodes = getRenderableMdxNodes(tree.children);
     const pages = resolveMdxPages(renderableNodes, deck.filePath);
-    tree.children = [createPageImportNode(), ...esmNodes, ...pages.map(createPageNode)];
+    tree.children = [
+      createPageImportNode(),
+      ...esmNodes,
+      ...pages.map((page) => createPageNode(page, themeName)),
+    ];
   };
+}
+
+function emptyDeckMetadata(): SlidaDeckMetadata {
+  return {};
+}
+
+function extractMdxFrontmatterBlock(source: string) {
+  if (!source.startsWith("---")) return undefined;
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(source);
+  return match?.[1];
+}
+
+function parseYamlStringScalar(value: string, context: string) {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new TypeError(`${context} must be a non-empty string.`);
+  }
+
+  if (trimmed.startsWith('"')) {
+    if (!trimmed.endsWith('"')) throw new TypeError(`${context} must be a static string.`);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed) as unknown;
+    } catch (error) {
+      throw new TypeError(`${context} must be a static string.`, { cause: error });
+    }
+    if (typeof parsed !== "string" || parsed.trim().length === 0) {
+      throw new TypeError(`${context} must be a non-empty string.`);
+    }
+    return parsed.trim();
+  }
+
+  if (trimmed.startsWith("'")) {
+    if (!trimmed.endsWith("'")) throw new TypeError(`${context} must be a static string.`);
+    const parsed = trimmed.slice(1, -1).replaceAll("''", "'");
+    if (parsed.trim().length === 0) throw new TypeError(`${context} must be a non-empty string.`);
+    return parsed.trim();
+  }
+
+  if (
+    /^(?:true|false|null|~)$/i.test(trimmed) ||
+    /^[-+]?\d+(?:\.\d+)?$/.test(trimmed) ||
+    /^[{[>|]/.test(trimmed)
+  ) {
+    throw new TypeError(`${context} must be a static string.`);
+  }
+
+  return trimmed;
+}
+
+export function analyzeMdxDeckMetadata(source: string, filePath = "MDX deck"): SlidaDeckMetadata {
+  const frontmatter = extractMdxFrontmatterBlock(source);
+  if (frontmatter === undefined) return emptyDeckMetadata();
+
+  let theme: string | undefined;
+  for (const [lineIndex, line] of frontmatter.split(/\r?\n/).entries()) {
+    const match = /^theme\s*:\s*(.*)$/.exec(line.trim());
+    if (!match) continue;
+    if (theme !== undefined) {
+      throw new Error(`Duplicate Slida theme metadata in ${filePath}.`);
+    }
+    theme = parseYamlStringScalar(
+      match[1],
+      `MDX deck theme metadata in ${filePath} line ${lineIndex + 1}`,
+    );
+  }
+
+  return theme === undefined ? emptyDeckMetadata() : { theme };
 }
 
 export function stripMdxFrontmatter(source: string) {
@@ -187,6 +269,7 @@ export function analyzeMdxDeckSource(source: string, filePath = "MDX deck"): Sli
   return {
     pageCount: pages.length,
     layouts: pages.map((page) => ({ layout: page.layout })),
+    metadata: analyzeMdxDeckMetadata(source, filePath),
   };
 }
 

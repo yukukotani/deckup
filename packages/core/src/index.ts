@@ -26,6 +26,7 @@ export {
   isJsxElementNamed,
 } from "./astro-ast.ts";
 export {
+  analyzeMdxDeckMetadata,
   analyzeMdxDeckSource,
   countMdxDeckPages,
   remarkSlidaMdxPages,
@@ -42,6 +43,8 @@ export {
 } from "./theme-layouts.ts";
 export {
   VIRTUAL_SLIDA_DECK_ID,
+  analyzeAstroDeckMetadata,
+  analyzeAstroDeckSourceForTests,
   collectStaticAstroCodeBlocksForTests,
   countAstroDeckPages,
   createSlidaVitePlugins,
@@ -53,6 +56,20 @@ export {
   validateAstroDeckSource,
 } from "./slida-vite-plugins.ts";
 export { DEFAULT_DECK_LAYOUT_MODULE_ID, createRuntimePageSource } from "./runtime-page.ts";
+export {
+  BUILTIN_SLIDA_THEME_PACKAGES,
+  BUILTIN_SLIDA_THEMES,
+  DEFAULT_SLIDA_THEME,
+  resolveSlidaThemeLayouts,
+} from "./theme.ts";
+export {
+  NPM_SLIDA_THEME_PREFIX,
+  SLIDA_THEME_CACHE_ENV,
+  getNpmThemeCacheEntryDir,
+  parseNpmThemeSource,
+  resolveCachedNpmThemePackage,
+  resolveNpmThemeCacheDir,
+} from "./npm-theme.ts";
 export { normalizeIdPath, normalizePath, uniqueStrings } from "./utils.ts";
 export type {
   AstroAttribute,
@@ -63,11 +80,22 @@ export type {
 } from "./astro-ast.ts";
 export type { SlidaMdxPagesOptions } from "./slida-mdx-pages.ts";
 export type { RuntimePageSourceOptions } from "./runtime-page.ts";
-export type { SlidaVitePluginOptions } from "./slida-vite-plugins.ts";
+export type {
+  NpmThemeInstallOperations,
+  NpmThemeInstallOptions,
+  NpmThemePackageManifest,
+  SlidaCachedNpmThemePackage,
+  SlidaNpmThemeResolveOptions,
+  SlidaNpmThemeSource,
+} from "./npm-theme.ts";
+export type { SlidaThemeForDeck, SlidaVitePluginOptions } from "./slida-vite-plugins.ts";
 export type {
   RawAstroCodeHighlightOptions,
   SlidaDeckFormat,
+  SlidaDeckMetadata,
   SlidaDeckRegistry,
+  SlidaNpmThemeDownloadRequest,
+  SlidaNpmThemeOptions,
   SlidaResolvedDeck,
   SlidaResolvedDeckRoute,
   SlidaResolvedTheme,

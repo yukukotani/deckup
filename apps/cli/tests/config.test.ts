@@ -97,17 +97,17 @@ async function loadVirtualModule(
   return { code: loaded as string, watched };
 }
 
-async function writeAstroDeck(projectRoot: string) {
-  await mkdir(join(projectRoot, "slides"));
-  await writeFile(
-    join(projectRoot, "slides", "deck.astro"),
-    `---
+async function writeAstroDeck(
+  projectRoot: string,
+  source = `---
 import Page from "@slida/astro/page";
 ---
 
 <Page><h1>Deck</h1></Page>
 `,
-  );
+) {
+  await mkdir(join(projectRoot, "slides"));
+  await writeFile(join(projectRoot, "slides", "deck.astro"), source);
 }
 
 async function writeThemePackage(projectRoot: string, packageName: string) {
@@ -828,6 +828,50 @@ test("createSlidaAstroConfig resolves config theme before Astro starts", async (
     });
 
     expect(slidaTheme).toMatchObject({ name: "bold", source: "builtin" });
+  });
+});
+
+test("createSlidaAstroConfig lets deck theme override config theme before Astro starts", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(
+      projectRoot,
+      `---
+import Page from "@slida/astro/page";
+const theme = "minimal";
+---
+
+<Page><h1>Deck</h1></Page>
+`,
+    );
+    await writeFile(join(projectRoot, "slida.config.ts"), "export default { theme: 'bold' };\n");
+
+    const { deck, slidaTheme } = await createSlidaAstroConfig({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+    });
+
+    expect(deck?.metadata).toEqual({ theme: "minimal" });
+    expect(slidaTheme).toMatchObject({ name: "minimal", source: "builtin" });
+  });
+});
+
+test("createSlidaAstroConfig reports unresolved deck themes with deck path context", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(
+      projectRoot,
+      `---
+import Page from "@slida/astro/page";
+const theme = "missing-theme";
+---
+
+<Page><h1>Deck</h1></Page>
+`,
+    );
+    await writeFile(join(projectRoot, "slida.config.ts"), "export default { theme: 'bold' };\n");
+
+    await expect(
+      createSlidaAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
+    ).rejects.toThrow(/Invalid Slida theme metadata in slides\/deck\.astro/);
   });
 });
 

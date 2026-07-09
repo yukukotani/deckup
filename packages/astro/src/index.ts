@@ -7,10 +7,13 @@ import {
   normalizePath,
   remarkSlidaMdxPages,
   resolveDeckRegistry,
+  resolveSlidaThemeLayouts,
   uniqueStrings,
   type SlidaDeckRegistry,
+  type SlidaResolvedDeck,
   type SlidaResolvedDeckRoute,
   type SlidaResolvedTheme,
+  type SlidaThemeForDeck,
 } from "@slida/core";
 import type { AstroIntegration } from "astro";
 import { mkdir, realpath, writeFile } from "node:fs/promises";
@@ -23,8 +26,8 @@ export interface SlidaAstroOptions {
   decks: string | string[];
   base?: string;
   /**
-   * Optional pre-resolved Slida theme object.
-   * String/npm theme resolution remains owned by the CLI until a shared resolver exists.
+   * Optional fallback theme for registered decks.
+   * Deck frontmatter `theme` takes precedence over this value.
    */
   theme?: unknown;
 }
@@ -95,21 +98,63 @@ function isCoreCompatibleTheme(value: unknown): value is SlidaResolvedTheme {
   );
 }
 
-function resolveCoreCompatibleTheme(theme: unknown): SlidaResolvedTheme | undefined {
-  return isCoreCompatibleTheme(theme) && hasThemeLayouts(theme) ? theme : undefined;
+function uniqueThemes(themes: Array<SlidaResolvedTheme | undefined>) {
+  const byName = new Map<string, SlidaResolvedTheme>();
+  for (const theme of themes) {
+    if (theme && hasThemeLayouts(theme)) byName.set(theme.name, theme);
+  }
+  return [...byName.values()];
 }
 
-async function writeGeneratedPageComponent(
+async function resolveFallbackTheme(projectRoot: string, theme: unknown) {
+  if (isCoreCompatibleTheme(theme) && hasThemeLayouts(theme)) return theme;
+  return resolveSlidaThemeLayouts(projectRoot, theme);
+}
+
+async function resolveEffectiveThemes(
   projectRoot: string,
-  theme: SlidaResolvedTheme | undefined,
+  registry: SlidaDeckRegistry,
+  fallbackTheme: SlidaResolvedTheme,
 ) {
-  if (!hasThemeLayouts(theme)) return undefined;
+  const byRouteId = new Map<string, SlidaResolvedTheme>();
+  const byThemeName = new Map<string, Promise<SlidaResolvedTheme>>();
+  await Promise.all(
+    registry.decks.map(async (deck) => {
+      const deckTheme = deck.metadata?.theme;
+      if (deckTheme === undefined) {
+        byRouteId.set(deck.routeId, fallbackTheme);
+        return;
+      }
+      try {
+        const resolved =
+          byThemeName.get(deckTheme) ?? resolveSlidaThemeLayouts(projectRoot, deckTheme);
+        byThemeName.set(deckTheme, resolved);
+        byRouteId.set(deck.routeId, await resolved);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid Slida theme metadata in ${deck.projectRelativePath}: ${message}`, {
+          cause: error,
+        });
+      }
+    }),
+  );
+  return byRouteId;
+}
+
+async function writeGeneratedPageComponent(projectRoot: string, themes: SlidaResolvedTheme[]) {
+  const resolvedThemes = uniqueThemes(themes);
+  if (resolvedThemes.length === 0) return undefined;
 
   const generatedPageFilePath = join(projectRoot, ".slida", "astro", "generated", "Page.astro");
+  const slotNames = uniqueStrings(resolvedThemes.flatMap((theme) => theme.slotNames ?? [])).sort();
   await mkdir(dirname(generatedPageFilePath), { recursive: true });
   await writeFile(
     generatedPageFilePath,
-    createGeneratedPageComponentSource(theme?.slotNames ?? [], VIRTUAL_SLIDA_THEME_LAYOUTS_ID),
+    createGeneratedPageComponentSource(
+      slotNames,
+      VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+      resolvedThemes[0]?.name,
+    ),
   );
   return generatedPageFilePath;
 }
@@ -145,20 +190,28 @@ function routeDeckDirectories(registry: SlidaDeckRegistry) {
   return registry.decks.map((deck) => dirname(deck.filePath));
 }
 
-function themeFileSystemAllowEntries(theme: SlidaResolvedTheme | undefined) {
-  if (!theme) return [];
-  return [
-    theme.filePath ? dirname(theme.filePath) : undefined,
-    theme.packageRoot,
-    theme.layoutsDir,
-    ...(theme.layouts?.map((layout) => dirname(layout.filePath)) ?? []),
-  ].filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
+function themeFileSystemAllowEntries(themes: SlidaResolvedTheme[]) {
+  return uniqueStrings(
+    themes
+      .flatMap((theme) => [
+        theme.filePath ? dirname(theme.filePath) : undefined,
+        theme.packageRoot,
+        theme.layoutsDir,
+        ...(theme.layouts?.map((layout) => dirname(layout.filePath)) ?? []),
+      ])
+      .filter((entry): entry is string => typeof entry === "string" && entry.length > 0),
+  );
 }
 
-function createMdxIntegration(registry: SlidaDeckRegistry) {
+function createMdxIntegration(registry: SlidaDeckRegistry, themeForDeck: SlidaThemeForDeck) {
   return mdx({
     processor: unified({
-      remarkPlugins: [[remarkSlidaMdxPages, { registry }] as never],
+      remarkPlugins: [
+        [
+          remarkSlidaMdxPages,
+          { registry, themeForDeck: (deck: SlidaResolvedDeck) => themeForDeck(deck)?.name },
+        ] as never,
+      ],
     }),
   });
 }
@@ -610,8 +663,15 @@ export default function slida(options: SlidaAstroOptions): AstroIntegration {
           options.decks,
           options.base ?? DEFAULT_SLIDA_BASE,
         );
-        const theme = resolveCoreCompatibleTheme(options.theme);
-        const generatedPageFilePath = await writeGeneratedPageComponent(projectRoot, theme);
+        const fallbackTheme = await resolveFallbackTheme(projectRoot, options.theme);
+        const themeByRouteId = await resolveEffectiveThemes(projectRoot, registry, fallbackTheme);
+        const themeForDeck: SlidaThemeForDeck = (deck) =>
+          themeByRouteId.get((deck as SlidaResolvedDeckRoute).routeId);
+        const effectiveThemes = uniqueThemes([...themeByRouteId.values()]);
+        const generatedPageFilePath = await writeGeneratedPageComponent(
+          projectRoot,
+          effectiveThemes,
+        );
         const routeEntries = await writeRouteEntryFiles(projectRoot, registry);
 
         for (const { deck, entrypoint } of routeEntries) {
@@ -636,18 +696,18 @@ export default function slida(options: SlidaAstroOptions): AstroIntegration {
           projectRoot,
           dirname(staticPageFilePath),
           ...routeDeckDirectories(registry),
-          ...themeFileSystemAllowEntries(theme),
+          ...themeFileSystemAllowEntries(effectiveThemes),
           ...(generatedPageFilePath ? [dirname(generatedPageFilePath)] : []),
           ...routeEntries.map(({ entrypoint }) => dirname(entrypoint)),
           ...existingFsAllow,
         ]).map(normalizePath);
 
         updateConfig({
-          integrations: [createMdxIntegration(registry)],
+          integrations: [createMdxIntegration(registry, themeForDeck)],
           vite: {
             plugins: [
               createSlidaAstroDeckLayoutPlugin(),
-              ...createSlidaVitePluginsForRegistry(registry, theme, {
+              ...createSlidaVitePluginsForRegistry(registry, themeForDeck, {
                 generatedPageFilePath,
                 deckLayoutModuleId: SLIDA_ASTRO_DECK_LAYOUT_MODULE_ID,
               }),

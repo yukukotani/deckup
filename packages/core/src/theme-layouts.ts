@@ -167,6 +167,7 @@ export function createThemeLayoutDiscoveryCache() {
 export function createGeneratedPageComponentSource(
   slotNames: string[],
   themeLayoutsModuleId: string,
+  defaultThemeName?: string,
 ) {
   const slotForwards = slotNames
     .map(
@@ -175,27 +176,39 @@ export function createGeneratedPageComponentSource(
     )
     .join("\n");
   const forwardedSlots = slotForwards.length > 0 ? `\n${slotForwards}` : "";
+  const defaultThemeInitializer =
+    defaultThemeName === undefined ? "undefined" : JSON.stringify(defaultThemeName);
 
   return `---
-import themeLayouts from ${JSON.stringify(themeLayoutsModuleId)};
+import themeLayoutsByName from ${JSON.stringify(themeLayoutsModuleId)};
 
 interface Props {
   title?: string;
   class?: string;
   layout?: string;
+  theme?: string;
 }
 
-const { title, class: className, layout = "default" } = Astro.props;
-const Layout = themeLayouts[layout as keyof typeof themeLayouts];
+const {
+  title,
+  class: className,
+  layout = "default",
+  theme = ${defaultThemeInitializer},
+} = Astro.props;
+const themeLayouts = theme
+  ? themeLayoutsByName[theme as keyof typeof themeLayoutsByName]
+  : themeLayoutsByName;
+const Layout = themeLayouts?.[layout as keyof typeof themeLayouts];
 
 if (!Layout) {
-  throw new Error(\`Slida theme layout \${JSON.stringify(layout)} is not available.\`);
+  throw new Error(\`Slida theme \${theme ? JSON.stringify(theme) : "<default>"} layout \${JSON.stringify(layout)} is not available.\`);
 }
 ---
 
 <section
   class:list={["slida-slide", className]}
   data-slida-slide
+  data-slida-theme={theme}
   data-slida-layout={layout}
   aria-label={title ?? "Slide"}
 >

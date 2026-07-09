@@ -45,11 +45,11 @@ export default defineConfig({
 
 ## Public fields
 
-| Field   | Type                       | Description                                                                                       |
-| ------- | -------------------------- | ------------------------------------------------------------------------------------------------- |
-| `port`  | `number`                   | Default dev-server port. A CLI `--port` value overrides this.                                     |
-| `theme` | `string`                   | Built-in theme name, installed npm package specifier, or auto-downloaded `npm:package[@version]`. |
-| `astro` | `AstroInlineConfig` subset | Extra Astro config Slida allows users to provide.                                                 |
+| Field   | Type                       | Description                                                                                                                                                          |
+| ------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port`  | `number`                   | Default dev-server port. A CLI `--port` value overrides this.                                                                                                        |
+| `theme` | `string`                   | Fallback theme for decks that do not declare their own theme. Supports built-in names, installed npm package specifiers, or auto-downloaded `npm:package[@version]`. |
+| `astro` | `AstroInlineConfig` subset | Extra Astro config Slida allows users to provide.                                                                                                                    |
 
 ## Astro boundary
 
@@ -75,3 +75,27 @@ For `slida open`, the dev-server port is resolved in this order:
 1. `--port` or `-p` from the command line.
 2. `port` from `slida.config.*`.
 3. Slida's default port, `4321`.
+
+For deck themes, Slida resolves the effective theme in this order:
+
+1. The deck file's top-level theme metadata.
+2. `theme` from `slida.config.*`.
+3. Slida's default theme, `default`.
+
+In MDX decks, use YAML frontmatter:
+
+```mdx
+---
+theme: minimal
+---
+```
+
+In Astro decks, use a static top-level constant in the frontmatter script:
+
+```astro
+---
+const theme = "bold";
+---
+```
+
+Deck theme metadata must be a static string.

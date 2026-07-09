@@ -21,13 +21,25 @@ export type AstroNode = {
   children?: AstroNode[];
 };
 export type AstroImportDeclaration = {
-  type?: string;
+  type?: "ImportDeclaration";
   source?: { value?: unknown };
   specifiers?: Array<{ type?: string; local?: { name?: string } }>;
 };
+export type AstroLiteral = { type?: string; value?: unknown; raw?: string };
+export type AstroVariableDeclarator = {
+  type?: string;
+  id?: AstroIdentifier;
+  init?: AstroLiteral | { type?: string; value?: unknown } | null;
+};
+export type AstroVariableDeclaration = {
+  type?: "VariableDeclaration";
+  kind?: string;
+  declarations?: AstroVariableDeclarator[];
+};
+export type AstroFrontmatterStatement = AstroImportDeclaration | AstroVariableDeclaration;
 export type AstroRoot = {
   type?: "AstroRoot";
-  frontmatter?: { program?: { body?: AstroImportDeclaration[] } };
+  frontmatter?: { program?: { body?: AstroFrontmatterStatement[] } };
   body?: AstroNode[];
 };
 

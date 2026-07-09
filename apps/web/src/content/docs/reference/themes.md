@@ -6,7 +6,7 @@ description: Built-in theme names, npm theme package requirements, layout IDs, a
 # Theme reference
 
 Themes provide Astro layout components for Slida pages.
-A deck selects a theme with the top-level `theme` field in `slida.config.*`.
+The top-level `theme` field in `slida.config.*` sets the fallback theme for decks that do not declare their own theme.
 
 ```ts
 import { defineConfig } from "@slida/cli";
@@ -28,6 +28,43 @@ Slida includes these built-in theme names:
 
 If you omit `theme`, Slida uses `default`.
 Built-in names resolve to first-party packages such as `@slida/theme-default` and `@slida/theme-google-basic`.
+
+## Deck-level theme overrides
+
+A deck can override the configured fallback theme with static top-level metadata.
+Slida resolves theme precedence as:
+
+1. Deck metadata theme.
+2. `slida.config.*` theme.
+3. `default`.
+
+In MDX decks, add YAML frontmatter:
+
+```mdx
+---
+title: Product update
+theme: minimal
+---
+
+# Product update
+```
+
+In Astro decks, declare a static top-level constant in the frontmatter script:
+
+```astro
+---
+import Page from "@slida/astro/page";
+const theme = "bold";
+---
+
+<Page title="Launch">
+  <h1>Launch</h1>
+</Page>
+```
+
+The deck-level theme must be a static string.
+Dynamic expressions and non-string values are not supported.
+If a deck selects an invalid theme, Slida reports the error with the deck path that declared it.
 
 ## Npm theme packages
 

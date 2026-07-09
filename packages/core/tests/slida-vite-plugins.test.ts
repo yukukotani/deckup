@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 
 import {
+  analyzeAstroDeckSourceForTests,
   collectStaticAstroCodeBlocksForTests,
   countAstroDeckPages,
   createSlidaVitePluginsForRegistry,
@@ -58,6 +59,20 @@ test("transformAstroDeckSource injects explicit and default layouts", () => {
   expect(result).toContain('<Page title="Intro" layout="cover">');
   expect(result).toContain('<Page title="Details" layout="two-column">');
   expect(result).not.toContain("<layout");
+});
+
+test("transformAstroDeckSource injects theme props when provided", () => {
+  const result = transformAstroDeckSource(twoPageDeck, "<deck>", "minimal");
+
+  expect(result).toContain('<Page title="Intro" layout="cover" theme="minimal">');
+  expect(result).toContain('<Page title="Details" layout="two-column" theme="minimal">');
+});
+
+test("transformAstroDeckSource omits theme props when no theme is provided", () => {
+  const result = transformAstroDeckSource(twoPageDeck);
+
+  expect(result).toContain('layout="cover"');
+  expect(result).not.toContain('theme="');
 });
 
 test("transformAstroDeckSourceWithCodeHighlighting highlights static Astro code blocks", async () => {
@@ -251,6 +266,71 @@ import Page from "@slida/astro/page";
   ).toThrow(/at least one top-level <Page>/);
 });
 
+test("analyzeAstroDeckSourceForTests reads static theme metadata", () => {
+  const analysis = analyzeAstroDeckSourceForTests(
+    `---
+import Page from "@slida/astro/page";
+const theme = "google-basic";
+---
+
+<Page title="Intro"><h1>Intro</h1></Page>
+`,
+    "/project/slides/intro.astro",
+  );
+
+  expect(analysis).toMatchObject({
+    pageCount: 1,
+    metadata: { theme: "google-basic" },
+  });
+});
+
+test("analyzeAstroDeckSourceForTests rejects dynamic theme metadata with deck path", () => {
+  expect(() =>
+    analyzeAstroDeckSourceForTests(
+      `---
+import Page from "@slida/astro/page";
+const theme = process.env.SLIDA_THEME;
+---
+
+<Page />
+`,
+      "/project/slides/intro.astro",
+    ),
+  ).toThrow(
+    /Astro deck theme metadata in \/project\/slides\/intro\.astro must be a static string literal/,
+  );
+});
+
+test("analyzeAstroDeckSourceForTests rejects non-const theme metadata", () => {
+  expect(() =>
+    analyzeAstroDeckSourceForTests(
+      `---
+import Page from "@slida/astro/page";
+let theme = "minimal";
+---
+
+<Page />
+`,
+      "/project/slides/intro.astro",
+    ),
+  ).toThrow(/must use const theme =/);
+});
+
+test("analyzeAstroDeckSourceForTests rejects empty theme metadata", () => {
+  expect(() =>
+    analyzeAstroDeckSourceForTests(
+      `---
+import Page from "@slida/astro/page";
+const theme = "";
+---
+
+<Page />
+`,
+      "/project/slides/intro.astro",
+    ),
+  ).toThrow(/must be a non-empty string/);
+});
+
 test("Astro Pages reject multiple layout declarations", () => {
   expect(() =>
     transformAstroDeckSource(`---
@@ -323,6 +403,18 @@ test("compiled Astro transforms inject layout props first and strip layout remna
   expect(result).toContain('{ "layout": "cover", "title": "Intro" }');
   expect(result).toContain('{ "layout": "two-column" }');
   expect(result).not.toContain("<layout");
+});
+
+test("transformCompiledAstroDeckSource injects theme props when provided", () => {
+  const result = transformCompiledAstroDeckSource(
+    compiledTwoPages,
+    [{ layout: "cover" }, { layout: "two-column" }],
+    "<deck>",
+    "minimal",
+  );
+
+  expect(result).toContain('{ "theme": "minimal", "layout": "cover", "title": "Intro" }');
+  expect(result).toContain('{ "theme": "minimal", "layout": "two-column" }');
 });
 
 test("compiled Astro transforms tolerate braces in string props", () => {
@@ -477,6 +569,196 @@ import Page from "@slida/astro/page";
     expect(watched).toContain(deckFile);
     expect(source).toContain('import Deck from "/src/slides/intro.astro";');
     expect(source).toContain('pageCount":1');
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "slida-registry-themes-"));
+  try {
+    await mkdir(join(projectRoot, "themes", "minimal", "layouts"), { recursive: true });
+    await mkdir(join(projectRoot, "themes", "bold", "layouts"), { recursive: true });
+    await writeFile(join(projectRoot, "themes", "minimal", "layouts", "cover.astro"), "<slot />\n");
+    await writeFile(join(projectRoot, "themes", "bold", "layouts", "default.astro"), "<slot />\n");
+    const introDeck = {
+      filePath: join(projectRoot, "src/slides/intro.astro"),
+      projectRelativePath: "src/slides/intro.astro",
+      format: "astro" as const,
+      metadata: { theme: "minimal" },
+      sourceGlob: "src/slides/*.astro",
+      globBase: "src/slides",
+      slug: "intro",
+      routePath: "/slides/intro",
+      routeId: "slides_intro",
+      virtualDeckModuleId: "virtual:slida/decks/slides_intro",
+      virtualRouteModuleId: "virtual:slida/routes/slides_intro.astro",
+    };
+    const guideDeck = {
+      ...introDeck,
+      filePath: join(projectRoot, "src/slides/guide.astro"),
+      projectRelativePath: "src/slides/guide.astro",
+      metadata: { theme: "bold" },
+      slug: "guide",
+      routePath: "/slides/guide",
+      routeId: "slides_guide",
+      virtualDeckModuleId: "virtual:slida/decks/slides_guide",
+      virtualRouteModuleId: "virtual:slida/routes/slides_guide.astro",
+    };
+    const registry = createDeckRegistry(projectRoot, "/slides", [introDeck, guideDeck]);
+    const minimalTheme = {
+      name: "minimal",
+      filePath: join(projectRoot, "themes/minimal/package.json"),
+      packageName: "@slida/theme-minimal",
+      packageRoot: join(projectRoot, "themes/minimal"),
+      layoutsDir: join(projectRoot, "themes/minimal/layouts"),
+      layouts: [
+        {
+          id: "cover",
+          filePath: join(projectRoot, "themes/minimal/layouts/cover.astro"),
+          importPath: "/@fs/themes/minimal/layouts/cover.astro",
+          slotNames: [],
+        },
+      ],
+      slotNames: [],
+      source: "builtin" as const,
+    };
+    const boldTheme = {
+      name: "bold",
+      filePath: join(projectRoot, "themes/bold/package.json"),
+      packageName: "@slida/theme-bold",
+      packageRoot: join(projectRoot, "themes/bold"),
+      layoutsDir: join(projectRoot, "themes/bold/layouts"),
+      layouts: [
+        {
+          id: "default",
+          filePath: join(projectRoot, "themes/bold/layouts/default.astro"),
+          importPath: "/@fs/themes/bold/layouts/default.astro",
+          slotNames: [],
+        },
+      ],
+      slotNames: [],
+      source: "builtin" as const,
+    };
+    const plugins = createSlidaVitePluginsForRegistry(
+      registry,
+      (deck) => (deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : boldTheme),
+      { generatedPageFilePath: join(projectRoot, ".slida", "Page.astro") },
+    );
+    const layoutsPlugin = plugins.find((plugin) => plugin.name === "slida:virtual-theme-layouts");
+    const resolveId = layoutsPlugin?.resolveId as
+      | ((this: unknown, id: string) => string | undefined | Promise<string | undefined>)
+      | undefined;
+    const load = layoutsPlugin?.load as
+      | ((
+          this: { addWatchFile(filePath: string): void },
+          id: string,
+        ) => string | undefined | Promise<string | undefined>)
+      | undefined;
+    const resolved = await resolveId?.call({}, "virtual:slida/theme-layouts");
+    const source = await load?.call({ addWatchFile() {} }, resolved as string);
+
+    expect(source).toContain('"minimal"');
+    expect(source).toContain('"bold"');
+    expect(source).toContain('"cover"');
+    expect(source).toContain('"default"');
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+test("registry Astro validation uses the matched deck effective theme", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "slida-registry-theme-validation-"));
+  try {
+    await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
+    await mkdir(join(projectRoot, "themes", "minimal", "layouts"), { recursive: true });
+    await mkdir(join(projectRoot, "themes", "bold", "layouts"), { recursive: true });
+    await writeFile(join(projectRoot, "themes", "minimal", "layouts", "cover.astro"), "<slot />\n");
+    await writeFile(join(projectRoot, "themes", "bold", "layouts", "default.astro"), "<slot />\n");
+    await writeFile(
+      join(projectRoot, "src", "slides", "intro.astro"),
+      `---
+import Page from "@slida/astro/page";
+---
+
+<Page><layout id="cover" /><h1>Intro</h1></Page>
+`,
+    );
+    await writeFile(
+      join(projectRoot, "src", "slides", "guide.astro"),
+      `---
+import Page from "@slida/astro/page";
+---
+
+<Page><layout id="cover" /><h1>Guide</h1></Page>
+`,
+    );
+    const introDeck = {
+      filePath: join(projectRoot, "src/slides/intro.astro"),
+      projectRelativePath: "src/slides/intro.astro",
+      format: "astro" as const,
+      sourceGlob: "src/slides/*.astro",
+      globBase: "src/slides",
+      slug: "intro",
+      routePath: "/slides/intro",
+      routeId: "slides_intro",
+      virtualDeckModuleId: "virtual:slida/decks/slides_intro",
+      virtualRouteModuleId: "virtual:slida/routes/slides_intro.astro",
+    };
+    const guideDeck = {
+      ...introDeck,
+      filePath: join(projectRoot, "src/slides/guide.astro"),
+      projectRelativePath: "src/slides/guide.astro",
+      slug: "guide",
+      routePath: "/slides/guide",
+      routeId: "slides_guide",
+      virtualDeckModuleId: "virtual:slida/decks/slides_guide",
+      virtualRouteModuleId: "virtual:slida/routes/slides_guide.astro",
+    };
+    const registry = createDeckRegistry(projectRoot, "/slides", [introDeck, guideDeck]);
+    const minimalTheme = {
+      name: "minimal",
+      filePath: join(projectRoot, "themes/minimal/package.json"),
+      packageRoot: join(projectRoot, "themes/minimal"),
+      layoutsDir: join(projectRoot, "themes/minimal/layouts"),
+      layouts: [
+        {
+          id: "cover",
+          filePath: join(projectRoot, "themes/minimal/layouts/cover.astro"),
+          importPath: "/@fs/themes/minimal/layouts/cover.astro",
+          slotNames: [],
+        },
+      ],
+      slotNames: [],
+      source: "builtin" as const,
+    };
+    const boldTheme = {
+      name: "bold",
+      filePath: join(projectRoot, "themes/bold/package.json"),
+      packageRoot: join(projectRoot, "themes/bold"),
+      layoutsDir: join(projectRoot, "themes/bold/layouts"),
+      layouts: [
+        {
+          id: "default",
+          filePath: join(projectRoot, "themes/bold/layouts/default.astro"),
+          importPath: "/@fs/themes/bold/layouts/default.astro",
+          slotNames: [],
+        },
+      ],
+      slotNames: [],
+      source: "builtin" as const,
+    };
+    const validation = createSlidaVitePluginsForRegistry(registry, (deck) =>
+      deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : boldTheme,
+    ).find((plugin) => plugin.name === "slida:astro-deck-validation");
+    const load = validation?.load as
+      | ((this: unknown, id: string) => Promise<string | undefined>)
+      | undefined;
+
+    await expect(load?.call({}, introDeck.filePath)).resolves.toContain('theme="minimal"');
+    await expect(load?.call({}, guideDeck.filePath)).rejects.toThrow(
+      /Slida theme "bold" does not provide layout "cover" required by src\/slides\/guide\.astro/,
+    );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

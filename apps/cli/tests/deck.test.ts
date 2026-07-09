@@ -36,6 +36,7 @@ test("resolveDeckFile resolves a project-relative deck file", async () => {
       filePath: join(projectRoot, "slides", "talk.astro"),
       projectRelativePath: "slides/talk.astro",
       format: "astro",
+      metadata: {},
     });
   });
 });

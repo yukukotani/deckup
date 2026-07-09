@@ -22,6 +22,38 @@ Use an explicit layout when the selected theme provides a layout you want to use
 <layout id="default" />
 ```
 
+## Deck themes
+
+Decks inherit the `theme` from `slida.config.*`.
+Individual decks can override that fallback with static theme metadata.
+
+In Astro decks, declare a top-level `theme` constant in the frontmatter script:
+
+```astro
+---
+import Page from "@slida/astro/page";
+const theme = "bold";
+---
+
+<Page title="Bold deck">
+  <h1>Bold deck</h1>
+</Page>
+```
+
+In MDX decks, use YAML frontmatter:
+
+```mdx
+---
+title: Minimal deck
+theme: minimal
+---
+
+# Minimal deck
+```
+
+Slida resolves deck themes as deck metadata first, then `slida.config.*`, then `default`.
+The deck theme value must be a static string.
+
 ## Astro decks
 
 Astro decks import `Page` and place only top-level `<Page>` components in the file:

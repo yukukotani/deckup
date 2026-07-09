@@ -2,10 +2,15 @@ export type SlidaDeckFormat = "astro" | "mdx";
 
 export type SlidaRouteId = string;
 
+export interface SlidaDeckMetadata {
+  theme?: string;
+}
+
 export interface SlidaResolvedDeck {
   filePath: string;
   projectRelativePath: string;
   format: SlidaDeckFormat;
+  metadata?: SlidaDeckMetadata;
 }
 
 export interface SlidaResolvedDeckRoute extends SlidaResolvedDeck {
@@ -59,3 +64,16 @@ export interface SlidaResolvedTheme {
 }
 
 export type RawAstroCodeHighlightOptions = { enabled: true; theme: string } | { enabled: false };
+
+export interface SlidaNpmThemeDownloadRequest {
+  spec: string;
+  packageName: string;
+  cacheDir: string;
+}
+
+export interface SlidaNpmThemeOptions {
+  /** @internal Slida-managed npm theme cache override for tests and controlled runtimes. */
+  cacheDir?: string;
+  /** @internal Confirmation hook used before Slida downloads an uncached npm theme. */
+  confirmDownload?: (request: SlidaNpmThemeDownloadRequest) => boolean | Promise<boolean>;
+}

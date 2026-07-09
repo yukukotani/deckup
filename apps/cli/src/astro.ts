@@ -6,6 +6,7 @@ import {
   createSlidaVitePlugins,
   remarkSlidaMdxPages,
   resolveDeckFile,
+  resolveSlidaThemeLayouts,
   uniqueStrings,
   type RawAstroCodeHighlightOptions,
   type SlidaResolvedDeck,
@@ -22,7 +23,6 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 
 import { resolveChromiumExecutablePath } from "./browser.ts";
 import { loadSlidaConfig, resolveSlidaConfig } from "./config.ts";
 import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
-import { resolveSlidaThemeLayouts } from "./theme.ts";
 import type {
   SlidaBuildOptions,
   SlidaConfig,
@@ -86,8 +86,29 @@ export function normalizeExportOutFile(
   return resolve(projectRoot, out);
 }
 
-async function resolveRuntimeSlidaTheme(projectRoot: string, theme: unknown) {
-  return resolveSlidaThemeLayouts(projectRoot, theme);
+async function resolveRuntimeSlidaTheme(
+  projectRoot: string,
+  theme: unknown,
+  sourceDeck?: SlidaResolvedDeck,
+) {
+  try {
+    return await resolveSlidaThemeLayouts(projectRoot, theme);
+  } catch (error) {
+    if (sourceDeck?.metadata?.theme !== undefined) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Invalid Slida theme metadata in ${sourceDeck.projectRelativePath}: ${message}`,
+        {
+          cause: error,
+        },
+      );
+    }
+    throw error;
+  }
+}
+
+function effectiveThemeInput(deck: SlidaResolvedDeck, slidaConfig: SlidaConfig) {
+  return deck.metadata?.theme ?? slidaConfig.theme;
 }
 
 async function writeGeneratedPageComponent(
@@ -354,7 +375,12 @@ export async function createSlidaAstroConfig(
   const preparedPaths = await prepareRuntime(projectRoot);
   const loadedConfig = await loadSlidaConfig(preparedPaths.projectRoot);
   const slidaConfig = resolveSlidaConfig(loadedConfig.config, options);
-  const slidaTheme = await resolveRuntimeSlidaTheme(preparedPaths.projectRoot, slidaConfig.theme);
+  const deckThemeSelected = deck.metadata?.theme !== undefined;
+  const slidaTheme = await resolveRuntimeSlidaTheme(
+    preparedPaths.projectRoot,
+    effectiveThemeInput(deck, slidaConfig),
+    deckThemeSelected ? deck : undefined,
+  );
   const paths = await writeGeneratedPageComponent(preparedPaths, slidaTheme);
   return {
     paths,

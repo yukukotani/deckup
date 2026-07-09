@@ -1,6 +1,7 @@
 import { expect, test } from "vite-plus/test";
 
 import {
+  analyzeMdxDeckMetadata,
   analyzeMdxDeckSource,
   countMdxDeckPages,
   remarkSlidaMdxPages,
@@ -90,6 +91,18 @@ test("remarkSlidaMdxPages adds default layout attributes", () => {
 
   expect(getPageLayout(tree.children[1])).toBe("cover");
   expect(getPageLayout(tree.children[2])).toBe("default");
+});
+
+test("remarkSlidaMdxPages adds theme attributes when themeForDeck returns an effective theme", () => {
+  const tree = { children: [{ type: "heading" }] };
+  remarkSlidaMdxPages({
+    deckFile: "/project/slides/talk.mdx",
+    themeForDeck: () => "minimal",
+  })(tree, { path: "/project/slides/talk.mdx" });
+
+  expect((tree.children[1] as { attributes?: unknown[] }).attributes).toEqual(
+    expect.arrayContaining([expect.objectContaining({ name: "theme", value: "minimal" })]),
+  );
 });
 
 test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
@@ -194,6 +207,89 @@ import Aside from "./Aside.astro";
 
   expect(analysis.pageCount).toBe(2);
   expect(analysis.layouts).toEqual([{ layout: "cover" }, { layout: "two-column" }]);
+});
+
+test("analyzeMdxDeckMetadata reads static theme frontmatter", () => {
+  expect(
+    analyzeMdxDeckMetadata(
+      `---
+title: Talk
+theme: google-basic
+---
+
+# One
+`,
+      "/project/slides/talk.mdx",
+    ),
+  ).toEqual({ theme: "google-basic" });
+});
+
+test("analyzeMdxDeckSource includes static metadata", () => {
+  const analysis = analyzeMdxDeckSource(
+    `---
+title: Talk
+theme: "minimal"
+---
+
+# One
+`,
+    "/project/slides/talk.mdx",
+  );
+
+  expect(analysis.metadata).toEqual({ theme: "minimal" });
+  expect(analysis.pageCount).toBe(1);
+});
+
+test("analyzeMdxDeckMetadata ignores files without frontmatter theme", () => {
+  expect(analyzeMdxDeckMetadata("# One\n", "/project/slides/talk.mdx")).toEqual({});
+});
+
+test("analyzeMdxDeckMetadata rejects non-string theme metadata with deck path", () => {
+  expect(() =>
+    analyzeMdxDeckMetadata(
+      `---
+theme: false
+---
+
+# One
+`,
+      "/project/slides/talk.mdx",
+    ),
+  ).toThrow(
+    /MDX deck theme metadata in \/project\/slides\/talk\.mdx line 1 must be a static string/,
+  );
+});
+
+test("analyzeMdxDeckMetadata rejects empty theme metadata with deck path", () => {
+  expect(() =>
+    analyzeMdxDeckMetadata(
+      `---
+theme: ""
+---
+
+# One
+`,
+      "/project/slides/talk.mdx",
+    ),
+  ).toThrow(
+    /MDX deck theme metadata in \/project\/slides\/talk\.mdx line 1 must be a non-empty string/,
+  );
+});
+
+test("analyzeMdxDeckMetadata rejects malformed quoted theme metadata with deck path", () => {
+  expect(() =>
+    analyzeMdxDeckMetadata(
+      String.raw`---
+theme: "bad\q"
+---
+
+# One
+`,
+      "/project/slides/talk.mdx",
+    ),
+  ).toThrow(
+    /MDX deck theme metadata in \/project\/slides\/talk\.mdx line 1 must be a static string/,
+  );
 });
 
 test("remarkSlidaMdxPages leaves non-selected files untouched", () => {
