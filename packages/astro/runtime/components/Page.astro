@@ -1,18 +1,9 @@
 ---
-interface Props {
-  title?: string;
-  class?: string;
-  layout?: string;
-}
+import CorePage from "@deckup/core/page";
 
-const { title, class: className, layout = "default" } = Astro.props;
+const props = Astro.props;
 ---
 
-<section
-  class:list={["deckup-slide", className]}
-  data-deckup-slide
-  data-deckup-layout={layout}
-  aria-label={title ?? "Slide"}
->
+<CorePage {...props}>
   <slot />
-</section>
+</CorePage>

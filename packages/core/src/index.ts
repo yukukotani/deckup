@@ -3,12 +3,14 @@ export {
   VIRTUAL_DECKUP_DECK_PREFIX,
   VIRTUAL_DECKUP_ROUTE_PREFIX,
   createDeckRegistry,
+  createSingleDeckRegistry,
   inferDeckFormat,
   normalizeDeckupBasePath,
   resolveDeckFile,
   resolveDeckFilesFromGlob,
   resolveDeckRegistry,
 } from "./deck.ts";
+export { createDeckLayoutSource } from "./deck-layout.ts";
 export {
   DECKUP_COVER_LAYOUT,
   DECKUP_DEFAULT_LAYOUT,
@@ -47,7 +49,6 @@ export {
   analyzeAstroDeckSourceForTests,
   collectStaticAstroCodeBlocksForTests,
   countAstroDeckPages,
-  createDeckupVitePlugins,
   createDeckupVitePluginsForRegistry,
   createSourceIndexConverter,
   transformAstroDeckSource,
@@ -79,6 +80,7 @@ export type {
   AstroRoot,
 } from "./astro-ast.ts";
 export type { DeckupMdxPagesOptions } from "./deckup-mdx-pages.ts";
+export type { DeckLayoutSourceOptions } from "./deck-layout.ts";
 export type { RuntimePageSourceOptions } from "./runtime-page.ts";
 export type {
   NpmThemeInstallOperations,

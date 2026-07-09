@@ -3,7 +3,7 @@ import mdx from "@astrojs/mdx";
 import {
   VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
   createGeneratedPageComponentSource,
-  createDeckupVitePlugins,
+  createSingleDeckRegistry,
   remarkDeckupMdxPages,
   resolveDeckFile,
   resolveDeckupThemeLayouts,
@@ -15,14 +15,15 @@ import {
 } from "@deckup/core";
 import { build, dev, type AstroInlineConfig } from "astro";
 import { createReadStream } from "node:fs";
-import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { resolveChromiumExecutablePath } from "./browser.ts";
 import { loadDeckupConfig, resolveDeckupConfig } from "./config.ts";
-import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
+import { resolveProjectRoot, resolveRuntimeSourceDir } from "./runtime.ts";
+import { createDeckupCliIntegration } from "./integration.ts";
 import type {
   DeckupBuildOptions,
   DeckupConfig,
@@ -126,20 +127,6 @@ async function writeGeneratedPageComponent(
     ),
   );
   return { ...paths, generatedPageFilePath };
-}
-
-function assertLayoutThemeConfig(paths: DeckupRuntimePaths, deckupTheme?: DeckupResolvedTheme) {
-  if (!deckupTheme) return;
-  if (!deckupTheme.layouts?.length) {
-    throw new Error(
-      `Deckup theme ${JSON.stringify(deckupTheme.name)} must resolve from layouts/*.astro. Use resolveDeckupThemeLayouts() or createDeckupAstroConfig() instead of a CSS-only theme object.`,
-    );
-  }
-  if (!paths.generatedPageFilePath) {
-    throw new Error(
-      `Layout Deckup theme ${JSON.stringify(deckupTheme.name)} requires a generated Page component. Use createDeckupAstroConfig() or pass paths.generatedPageFilePath when calling createAstroInlineConfig().`,
-    );
-  }
 }
 
 function createMdxIntegration(deck?: DeckupResolvedDeck) {
@@ -279,24 +266,11 @@ export function createAstroInlineConfig(
   const userAstroConfig = deckupConfig.astro ?? {};
   const userMarkdownConfig = userAstroConfig.markdown;
   const markdownConfig = createMarkdownConfig(userMarkdownConfig);
-  const rawAstroCodeHighlight = resolveRawAstroCodeHighlightOptions(markdownConfig);
   const userViteConfig = { ...userAstroConfig.vite };
   delete (userViteConfig as { root?: unknown }).root;
   const userViteServer = userViteConfig.server ?? {};
   const userViteFs = userViteServer.fs ?? {};
-  assertLayoutThemeConfig(paths, deckupTheme);
-  const deckupVitePlugins = deck
-    ? createDeckupVitePlugins(deck, deckupTheme, {
-        generatedPageFilePath: paths.generatedPageFilePath,
-        codeHighlight: rawAstroCodeHighlight,
-      })
-    : [];
-  const deckupPageAlias =
-    deckupTheme?.layouts?.length && paths.generatedPageFilePath
-      ? [{ find: /^@deckup\/astro\/page$/, replacement: paths.generatedPageFilePath }]
-      : [];
   const requiredAliases = [
-    ...deckupPageAlias,
     {
       find: /^astro\/app$/,
       replacement: `${astroPackageRoot}/dist/core/app/entrypoints/index.js`,
@@ -320,7 +294,6 @@ export function createAstroInlineConfig(
   const requiredFsAllow = [
     paths.projectRoot,
     paths.runtimeOutDir,
-    paths.runtimeSourceDir,
     ...(deck ? [dirname(deck.filePath)] : []),
     ...(deckupTheme?.filePath ? [dirname(deckupTheme.filePath)] : []),
     ...(deckupTheme?.layoutsDir ? [deckupTheme.layoutsDir] : []),
@@ -329,7 +302,6 @@ export function createAstroInlineConfig(
   const astroConfig = {
     ...userAstroConfig,
     root: paths.projectRoot,
-    srcDir: paths.runtimeOutDir,
     outDir: normalizeBuildOutDir(paths.projectRoot, buildOptions.outDir),
     configFile: false,
     devToolbar: { enabled: false },
@@ -344,7 +316,7 @@ export function createAstroInlineConfig(
     },
     vite: {
       ...userViteConfig,
-      plugins: [...deckupVitePlugins, ...toArray(userViteConfig.plugins as never)],
+      plugins: [...toArray(userViteConfig.plugins as never)],
       optimizeDeps: {
         ...userViteConfig.optimizeDeps,
         exclude: uniqueStrings([
@@ -375,23 +347,69 @@ export async function createDeckupAstroConfig(
 ): Promise<DeckupResolvedConfig> {
   const projectRoot = await realpath(resolveProjectRoot(options.root));
   const deck = await resolveDeckFile(projectRoot, options.deckFile);
-  const preparedPaths = await prepareRuntime(projectRoot);
-  const loadedConfig = await loadDeckupConfig(preparedPaths.projectRoot);
+  const workDir = join(projectRoot, ".deckup");
+  await rm(workDir, { force: true, recursive: true });
+  await mkdir(workDir, { recursive: true });
+
+  const loadedConfig = await loadDeckupConfig(projectRoot);
   const deckupConfig = resolveDeckupConfig(loadedConfig.config, options);
   const deckThemeSelected = deck.metadata?.theme !== undefined;
   const deckupTheme = await resolveRuntimeDeckupTheme(
-    preparedPaths.projectRoot,
+    projectRoot,
     effectiveThemeInput(deck, deckupConfig),
     deckThemeSelected ? deck : undefined,
   );
-  const paths = await writeGeneratedPageComponent(preparedPaths, deckupTheme);
+  const paths: DeckupRuntimePaths = {
+    projectRoot,
+    runtimeSourceDir: resolveRuntimeSourceDir(),
+    runtimeOutDir: workDir,
+  };
+  const updatedPaths = await writeGeneratedPageComponent(paths, deckupTheme);
+  const registry = createSingleDeckRegistry(projectRoot, deck);
+  const rawAstroCodeHighlight = resolveRawAstroCodeHighlightOptions(
+    createMarkdownConfig(deckupConfig.astro?.markdown),
+  );
+  const cliIntegration = createDeckupCliIntegration({
+    registry,
+    theme: deckupTheme,
+    generatedPageFilePath: updatedPaths.generatedPageFilePath,
+    codeHighlight: rawAstroCodeHighlight,
+  });
+  const pageAlias =
+    deckupTheme.layouts?.length && updatedPaths.generatedPageFilePath
+      ? [{ find: /^@deckup\/astro\/page$/, replacement: updatedPaths.generatedPageFilePath }]
+      : [];
+  const astroConfig = createAstroInlineConfig(
+    updatedPaths,
+    options,
+    deckupConfig,
+    deck,
+    deckupTheme,
+  );
+  const existingIntegrations = astroConfig.integrations ?? [];
+  astroConfig.integrations = [
+    ...(Array.isArray(existingIntegrations)
+      ? existingIntegrations
+      : [existingIntegrations as never]),
+    cliIntegration,
+  ];
+  if (pageAlias.length > 0) {
+    const viteConfig = astroConfig.vite ?? {};
+    const resolveConfig = viteConfig.resolve ?? {};
+    const existingAliases = normalizeAliasEntries(resolveConfig.alias);
+    astroConfig.vite = {
+      ...viteConfig,
+      resolve: { ...resolveConfig, alias: [...pageAlias, ...existingAliases] },
+    };
+  }
+
   return {
-    paths,
+    paths: updatedPaths,
     deck,
     deckupConfig,
     deckupConfigFile: loadedConfig.filePath,
     deckupTheme,
-    astroConfig: createAstroInlineConfig(paths, options, deckupConfig, deck, deckupTheme),
+    astroConfig,
   };
 }
 

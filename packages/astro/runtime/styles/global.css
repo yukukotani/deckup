@@ -23,13 +23,6 @@ body {
   background: #111;
 }
 
-/* Astro dev toolbar is disabled by the CLI viewer. Hide it only inside
-   standalone Deckup route documents so @deckup/astro dev routes keep the same
-   navigation hit target and viewport fit behavior. */
-astro-dev-toolbar {
-  display: none !important;
-}
-
 .deckup-shell {
   width: min(100vw, calc(100svh * 16 / 9));
   height: min(100svh, calc(100vw * 9 / 16));

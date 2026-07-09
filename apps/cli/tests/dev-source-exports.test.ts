@@ -8,6 +8,7 @@ type PackageJson = {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   exports: Record<string, unknown>;
+  files?: string[];
   scripts?: Record<string, string>;
 };
 
@@ -75,11 +76,23 @@ test("Deckup package main exports prefer source only for the development conditi
 
 test("Deckup package export maps preserve published runtime subpaths", () => {
   expect(cliPackageJson.bin?.deckup).toBe("./dist/cli.mjs");
+  expect(cliPackageJson.files).toEqual(["dist"]);
   expect(cliPackageJson.exports["./package.json"]).toBe("./package.json");
 
   expect(astroPackageJson.exports["./page"]).toBe("./runtime/components/Page.astro");
+  expect(readText("../../../packages/astro/runtime/components/Page.astro")).toContain(
+    "@deckup/core/page",
+  );
   expect(astroPackageJson.exports["./package.json"]).toBe("./package.json");
 
+  expect(corePackageJson.files).toEqual(["dist", "runtime"]);
+  expect(corePackageJson.exports["./page"]).toBe("./runtime/components/Page.astro");
+  expect(corePackageJson.exports["./runtime/styles/global.css"]).toBe(
+    "./runtime/styles/global.css",
+  );
+  expect(corePackageJson.exports["./runtime/scripts/navigation.ts"]).toBe(
+    "./runtime/scripts/navigation.ts",
+  );
   expect(corePackageJson.exports["./package.json"]).toBe("./package.json");
 });
 

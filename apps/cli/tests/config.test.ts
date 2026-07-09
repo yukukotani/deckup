@@ -1,17 +1,8 @@
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  realpath,
-  rm,
-  stat,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
+import { pathToFileURL } from "node:url";
 import { expect, test } from "vite-plus/test";
 
 import {
@@ -22,6 +13,7 @@ import {
   resolveRawAstroCodeHighlightOptions,
 } from "../src/astro.ts";
 import { loadDeckupConfig } from "../src/config.ts";
+import { createDeckupCliIntegration } from "../src/integration.ts";
 import {
   getNpmThemeCacheEntryDir,
   parseNpmThemeSource,
@@ -30,7 +22,12 @@ import {
   type NpmThemeInstallOperations,
   type DeckupNpmThemeSource,
 } from "../src/npm-theme.ts";
-import { VIRTUAL_DECKUP_THEME_LAYOUTS_ID } from "@deckup/core";
+import {
+  VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
+  createSingleDeckRegistry,
+  normalizePath,
+  resolveDeckFile,
+} from "@deckup/core";
 import { resolveDeckupThemeLayouts } from "../src/theme.ts";
 import type { DeckupRuntimePaths } from "../src/types.ts";
 
@@ -60,41 +57,6 @@ function markdownConfig(config: ReturnType<typeof createAstroInlineConfig>) {
     syntaxHighlight?: unknown;
     shikiConfig?: Record<string, unknown>;
   };
-}
-
-type TestVitePlugin = {
-  name?: string;
-  resolveId?: (this: unknown, id: string) => unknown;
-  load?: (this: { addWatchFile(filePath: string): void }, id: string) => unknown;
-};
-
-function vitePlugins(config: ReturnType<typeof createAstroInlineConfig>) {
-  return (config.vite?.plugins ?? []) as TestVitePlugin[];
-}
-
-async function loadVirtualModule(
-  config: ReturnType<typeof createAstroInlineConfig>,
-  pluginName: string,
-  virtualId: string,
-) {
-  const plugin = vitePlugins(config).find((candidate) => candidate.name === pluginName);
-  expect(plugin).toBeDefined();
-
-  const resolvedId = await plugin?.resolveId?.call({}, virtualId);
-  expect(typeof resolvedId).toBe("string");
-
-  const watched: string[] = [];
-  const loaded = await plugin?.load?.call(
-    {
-      addWatchFile(filePath: string) {
-        watched.push(filePath);
-      },
-    },
-    resolvedId as string,
-  );
-  expect(typeof loaded).toBe("string");
-
-  return { code: loaded as string, watched };
 }
 
 async function writeAstroDeck(
@@ -141,25 +103,6 @@ async function writeThemeLayoutPackage(projectRoot: string, packageName: string)
     join(layoutsDir, "two-column.astro"),
     `<section><slot /><slot name="left" /><slot name="right" /></section>\n`,
   );
-}
-
-async function writeMinimalThemeLayoutPackage(projectRoot: string, packageName: string) {
-  const packageDir = join(projectRoot, "node_modules", ...packageName.split("/"));
-  const layoutsDir = join(packageDir, "layouts");
-  await mkdir(layoutsDir, { recursive: true });
-  await writeFile(
-    join(packageDir, "package.json"),
-    JSON.stringify({
-      name: packageName,
-      type: "module",
-      exports: {
-        "./layouts/*.astro": "./layouts/*.astro",
-        "./package.json": "./package.json",
-      },
-    }),
-  );
-  await writeFile(join(layoutsDir, "cover.astro"), "<slot />\n");
-  await writeFile(join(layoutsDir, "default.astro"), "<slot />\n");
 }
 
 async function withThemeCache(run: (cacheDir: string) => Promise<void>) {
@@ -926,6 +869,42 @@ test("createDeckupAstroConfig wires cached npm themes into generated Page and Vi
   });
 });
 
+test("CLI integration preserves existing Vite fs allow entries", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    const resolvedProjectRoot = await realpath(projectRoot);
+    const deck = await resolveDeckFile(resolvedProjectRoot, "slides/deck.astro");
+    const registry = createSingleDeckRegistry(resolvedProjectRoot, deck);
+    const integration = createDeckupCliIntegration({ registry });
+    const existingAllow = join(resolvedProjectRoot, "content");
+    let updatedConfig: { vite?: { server?: { fs?: { allow?: string[] } } } } | undefined;
+    const setupHook = (integration.hooks as Record<string, (args: unknown) => Promise<void>>)[
+      "astro:config:setup"
+    ];
+
+    await setupHook({
+      config: {
+        root: pathToFileURL(`${resolvedProjectRoot}/`),
+        vite: {
+          server: {
+            fs: {
+              allow: [existingAllow],
+            },
+          },
+        },
+      },
+      injectRoute() {},
+      updateConfig(config: typeof updatedConfig) {
+        updatedConfig = config;
+      },
+    });
+
+    expect(updatedConfig?.vite?.server?.fs?.allow).toEqual(
+      expect.arrayContaining([normalizePath(existingAllow)]),
+    );
+  });
+});
+
 test("createDeckupAstroConfig fails uncached npm themes before Astro starts in non-interactive mode", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
@@ -1045,170 +1024,6 @@ test("no config does not install Tailwind as a built-in Vite plugin", () => {
   expect(config.vite?.plugins).toEqual([]);
 });
 
-test("layout theme module is imported before the Astro deck and watches layout files", async () => {
-  const paths = {
-    ...testPaths(),
-    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
-  };
-  const deck = {
-    filePath: join(paths.projectRoot, "slides", "deck.astro"),
-    projectRelativePath: "slides/deck.astro",
-    format: "astro" as const,
-  };
-  const defaultLayout = "/tmp/deckup-layout-theme/layouts/default.astro";
-  const coverLayout = "/tmp/deckup-layout-theme/layouts/cover.astro";
-  const twoColumnLayout = "/tmp/deckup-layout-theme/layouts/two-column.astro";
-  await mkdir(dirname(deck.filePath), { recursive: true });
-  await writeFile(
-    deck.filePath,
-    `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
-  );
-
-  const config = createAstroInlineConfig(paths, {}, {}, deck, {
-    name: "@acme/deckup-layout-theme",
-    filePath: "/tmp/deckup-layout-theme/package.json",
-    layoutsDir: "/tmp/deckup-layout-theme/layouts",
-    layouts: [
-      {
-        id: "cover",
-        filePath: coverLayout,
-        importPath: "/@fs/tmp/deckup-layout-theme/layouts/cover.astro",
-        slotNames: [],
-      },
-      {
-        id: "default",
-        filePath: defaultLayout,
-        importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
-        slotNames: [],
-      },
-      {
-        id: "two-column",
-        filePath: twoColumnLayout,
-        importPath: "/@fs/tmp/deckup-layout-theme/layouts/two-column.astro",
-        slotNames: ["left", "right"],
-      },
-    ],
-    slotNames: ["left", "right"],
-    source: "package",
-  });
-
-  const deckModule = await loadVirtualModule(config, "deckup:virtual-deck", "virtual:deckup/deck");
-  const layoutsModule = await loadVirtualModule(
-    config,
-    "deckup:virtual-theme-layouts",
-    VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
-  );
-
-  expect(deckModule.code.indexOf(VIRTUAL_DECKUP_THEME_LAYOUTS_ID)).toBeLessThan(
-    deckModule.code.indexOf("/slides/deck.astro"),
-  );
-  expect(deckModule.watched).toEqual(
-    expect.arrayContaining([
-      deck.filePath,
-      "/tmp/deckup-layout-theme/package.json",
-      "/tmp/deckup-layout-theme/layouts",
-      coverLayout,
-    ]),
-  );
-  expect(layoutsModule.code).toContain("Layout0");
-  expect(layoutsModule.code).toContain('"two-column": Layout2');
-  expect(layoutsModule.watched).toEqual(
-    expect.arrayContaining(["/tmp/deckup-layout-theme/layouts", coverLayout, twoColumnLayout]),
-  );
-});
-
-test("layout theme module is imported before the MDX deck and validates layout ids", async () => {
-  const paths = {
-    ...testPaths(),
-    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
-  };
-  const deck = {
-    filePath: join(paths.projectRoot, "slides", "deck.mdx"),
-    projectRelativePath: "slides/deck.mdx",
-    format: "mdx" as const,
-  };
-  const defaultLayout = "/tmp/deckup-layout-theme/layouts/default.astro";
-  const coverLayout = "/tmp/deckup-layout-theme/layouts/cover.astro";
-  await mkdir(dirname(deck.filePath), { recursive: true });
-  await writeFile(deck.filePath, `---\ntitle: MDX Deck\n---\n\n<layout id="cover" />\n\n# Deck\n`);
-
-  const config = createAstroInlineConfig(paths, {}, {}, deck, {
-    name: "@acme/deckup-layout-theme",
-    filePath: "/tmp/deckup-layout-theme/package.json",
-    layoutsDir: "/tmp/deckup-layout-theme/layouts",
-    layouts: [
-      {
-        id: "cover",
-        filePath: coverLayout,
-        importPath: "/@fs/tmp/deckup-layout-theme/layouts/cover.astro",
-        slotNames: [],
-      },
-      {
-        id: "default",
-        filePath: defaultLayout,
-        importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
-        slotNames: [],
-      },
-    ],
-    slotNames: [],
-    source: "package",
-  });
-
-  const deckModule = await loadVirtualModule(config, "deckup:virtual-deck", "virtual:deckup/deck");
-
-  expect(deckModule.code.indexOf(VIRTUAL_DECKUP_THEME_LAYOUTS_ID)).toBeLessThan(
-    deckModule.code.indexOf("/slides/deck.mdx"),
-  );
-  expect(deckModule.code).toContain('import Deck, { frontmatter } from "/slides/deck.mdx"');
-  expect(deckModule.watched).toEqual(
-    expect.arrayContaining([
-      deck.filePath,
-      "/tmp/deckup-layout-theme/package.json",
-      "/tmp/deckup-layout-theme/layouts",
-      coverLayout,
-    ]),
-  );
-});
-
-test("layout themes add generated Page alias and layout fs allow entry", () => {
-  const paths = {
-    ...testPaths(),
-    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
-  };
-  const deck = {
-    filePath: join(paths.projectRoot, "slides", "deck.astro"),
-    projectRelativePath: "slides/deck.astro",
-    format: "astro" as const,
-  };
-  const config = createAstroInlineConfig(paths, {}, {}, deck, {
-    name: "@acme/deckup-layout-theme",
-    filePath: "/tmp/deckup-layout-theme/package.json",
-    layoutsDir: "/tmp/deckup-layout-theme/layouts",
-    layouts: [
-      {
-        id: "default",
-        filePath: "/tmp/deckup-layout-theme/layouts/default.astro",
-        importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
-        slotNames: [],
-      },
-    ],
-    slotNames: [],
-    source: "package",
-  });
-
-  expect(config.vite?.resolve?.alias).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        find: /^@deckup\/astro\/page$/,
-        replacement: paths.generatedPageFilePath,
-      }),
-    ]),
-  );
-  expect(config.vite?.server?.fs?.allow).toEqual(
-    expect.arrayContaining(["/tmp/deckup-layout-theme", "/tmp/deckup-layout-theme/layouts"]),
-  );
-});
-
 test("generated Page paths do not alias @deckup/astro/page without layout themes", () => {
   const paths = {
     ...testPaths(),
@@ -1219,50 +1034,6 @@ test("generated Page paths do not alias @deckup/astro/page without layout themes
   expect(config.vite?.resolve?.alias).not.toEqual(
     expect.arrayContaining([expect.objectContaining({ find: /^@deckup\/cli\/page$/ })]),
   );
-});
-
-test("createAstroInlineConfig rejects non-layout theme objects", () => {
-  const paths = testPaths();
-  const deck = {
-    filePath: join(paths.projectRoot, "slides", "deck.astro"),
-    projectRelativePath: "slides/deck.astro",
-    format: "astro" as const,
-  };
-  expect(() =>
-    createAstroInlineConfig(paths, {}, {}, deck, {
-      name: "legacy-css-theme",
-      importPath: "/@fs/tmp/legacy-css-theme/theme.css",
-      filePath: "/tmp/legacy-css-theme/theme.css",
-      source: "package",
-    }),
-  ).toThrow(/must resolve from layouts\/\*\.astro/);
-});
-
-test("createAstroInlineConfig rejects layout themes without generated Page aliasing", () => {
-  const paths = testPaths();
-  const deck = {
-    filePath: join(paths.projectRoot, "slides", "deck.astro"),
-    projectRelativePath: "slides/deck.astro",
-    format: "astro" as const,
-  };
-
-  expect(() =>
-    createAstroInlineConfig(paths, {}, {}, deck, {
-      name: "@acme/deckup-layout-theme",
-      filePath: "/tmp/deckup-layout-theme/package.json",
-      layoutsDir: "/tmp/deckup-layout-theme/layouts",
-      layouts: [
-        {
-          id: "default",
-          filePath: "/tmp/deckup-layout-theme/layouts/default.astro",
-          importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
-          slotNames: [],
-        },
-      ],
-      slotNames: [],
-      source: "package",
-    }),
-  ).toThrow(/requires a generated Page component/);
 });
 
 test("createDeckupAstroConfig writes generated Page for layout themes", async () => {
@@ -1280,7 +1051,7 @@ test("createDeckupAstroConfig writes generated Page for layout themes", async ()
     });
 
     expect(paths.generatedPageFilePath).toBe(
-      join(await realpath(projectRoot), ".deckup/runtime/generated/Page.astro"),
+      join(await realpath(projectRoot), ".deckup/generated/Page.astro"),
     );
     expect(paths.generatedPageFilePath).toBeDefined();
     expect(await readFile(paths.generatedPageFilePath!, "utf8")).toContain(
@@ -1294,122 +1065,6 @@ test("createDeckupAstroConfig writes generated Page for layout themes", async ()
         expect.objectContaining({ replacement: paths.generatedPageFilePath }),
       ]),
     );
-  });
-});
-
-test("virtual layout registry re-discovers layouts added after config creation", async () => {
-  await withProjectRoot(async (projectRoot) => {
-    await writeMinimalThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
-    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
-    const paths = {
-      ...testPaths(projectRoot),
-      generatedPageFilePath: join(projectRoot, ".deckup/runtime/generated/Page.astro"),
-    };
-    const deck = {
-      filePath: join(projectRoot, "slides", "deck.astro"),
-      projectRelativePath: "slides/deck.astro",
-      format: "astro" as const,
-    };
-    await mkdir(dirname(deck.filePath), { recursive: true });
-    await writeFile(
-      deck.filePath,
-      `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
-    );
-    await writeFile(join(theme.layoutsDir!, "speaker.astro"), "<slot />\n");
-
-    const config = createAstroInlineConfig(paths, {}, {}, deck, theme);
-    const deckModule = await loadVirtualModule(
-      config,
-      "deckup:virtual-deck",
-      "virtual:deckup/deck",
-    );
-
-    expect(deckModule.code).toContain("slides/deck.astro");
-    expect(deckModule.watched).toEqual(
-      expect.arrayContaining([theme.layoutsDir, join(theme.layoutsDir!, "speaker.astro")]),
-    );
-  });
-});
-
-test("virtual layout registry rejects layouts removed after config creation", async () => {
-  await withProjectRoot(async (projectRoot) => {
-    await writeMinimalThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
-    const speakerLayout = join(
-      projectRoot,
-      "node_modules",
-      "@acme",
-      "deckup-layout-theme",
-      "layouts",
-      "speaker.astro",
-    );
-    await writeFile(speakerLayout, "<slot />\n");
-    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
-    const paths = {
-      ...testPaths(projectRoot),
-      generatedPageFilePath: join(projectRoot, ".deckup/runtime/generated/Page.astro"),
-    };
-    const deck = {
-      filePath: join(projectRoot, "slides", "deck.astro"),
-      projectRelativePath: "slides/deck.astro",
-      format: "astro" as const,
-    };
-    await mkdir(dirname(deck.filePath), { recursive: true });
-    await writeFile(
-      deck.filePath,
-      `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
-    );
-    await unlink(speakerLayout);
-
-    const config = createAstroInlineConfig(paths, {}, {}, deck, theme);
-
-    await expect(
-      loadVirtualModule(config, "deckup:virtual-deck", "virtual:deckup/deck"),
-    ).rejects.toThrow(/does not provide layout "speaker"/);
-  });
-});
-
-test("virtual layout registry refreshes generated Page slot forwarding", async () => {
-  await withProjectRoot(async (projectRoot) => {
-    await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
-    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
-    const paths = {
-      ...testPaths(projectRoot),
-      generatedPageFilePath: join(projectRoot, ".deckup/runtime/generated/Page.astro"),
-    };
-    const deck = {
-      filePath: join(projectRoot, "slides", "deck.astro"),
-      projectRelativePath: "slides/deck.astro",
-      format: "astro" as const,
-    };
-    await mkdir(dirname(deck.filePath), { recursive: true });
-    await writeFile(
-      deck.filePath,
-      `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
-    );
-    const config = createAstroInlineConfig(paths, {}, {}, deck, theme);
-
-    await loadVirtualModule(
-      config,
-      "deckup:virtual-theme-layouts",
-      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
-    );
-    expect(await readFile(paths.generatedPageFilePath, "utf8")).toContain(
-      '<slot name="left" slot="left" />',
-    );
-
-    await writeFile(
-      join(theme.layoutsDir!, "two-column.astro"),
-      `<section><slot /><slot name="speaker" /></section>\n`,
-    );
-
-    await loadVirtualModule(
-      config,
-      "deckup:virtual-theme-layouts",
-      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
-    );
-    const generatedPage = await readFile(paths.generatedPageFilePath, "utf8");
-    expect(generatedPage).toContain('<slot name="speaker" slot="speaker" />');
-    expect(generatedPage).not.toContain('<slot name="left" slot="left" />');
   });
 });
 
@@ -1483,14 +1138,10 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
     },
   });
   expect(config.configFile).toBe(false);
-  expect(config.srcDir).toBe(paths.runtimeOutDir);
+  expect(config.srcDir).toBeUndefined();
   expect(config.output).toBe("static");
   expect(config.integrations?.at(-1)).toBe(userIntegration);
-  expect(vitePlugins(config)[0]?.name).toBe("deckup:virtual-theme-layouts");
-  expect(config.vite?.plugins).toEqual(
-    expect.arrayContaining([expect.objectContaining({ name: "deckup:virtual-deck" })]),
-  );
-  expect(config.vite?.plugins?.at(-1)).toBe(userPlugin);
+  expect(config.vite?.plugins).toEqual([userPlugin]);
   expect(config.vite?.resolve?.alias).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ find: /^astro$/ }),
@@ -1501,7 +1152,6 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
     expect.arrayContaining([
       paths.projectRoot,
       paths.runtimeOutDir,
-      paths.runtimeSourceDir,
       dirname(deck.filePath),
       "/tmp/deckup-theme-bold",
       "/tmp/deckup-theme-bold/layouts",

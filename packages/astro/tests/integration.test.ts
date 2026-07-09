@@ -156,7 +156,7 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(intro).toContain("data-deckup-shell");
     expect(intro).toContain("data-deckup-navigation");
     expect(introCss).toContain(".deckup-navigation");
-    expect(introCss).toContain("astro-dev-toolbar");
+    expect(introCss).not.toContain("astro-dev-toolbar");
     expect(intro).toContain("Intro Astro Deck");
     expect(intro).toContain("Astro Details");
 

@@ -1,5 +1,14 @@
----
-import "../styles/global.css";
+export interface DeckLayoutSourceOptions {
+  cssModuleId: string;
+  navigationModuleId: string;
+}
+
+export function createDeckLayoutSource(options: DeckLayoutSourceOptions) {
+  const cssImport = JSON.stringify(options.cssModuleId);
+  const navigationImport = JSON.stringify(options.navigationModuleId);
+
+  return `---
+import ${cssImport};
 
 interface Props {
   slideCount: number;
@@ -64,7 +73,9 @@ const { slideCount, title = "Deckup Deck" } = Astro.props;
       </button>
     </nav>
     <script>
-      import "../scripts/navigation.ts";
+      import ${navigationImport};
     </script>
   </body>
 </html>
+`;
+}

@@ -156,18 +156,6 @@ async function createAstroCodeHighlightEdits(
   );
 }
 
-function stripQuery(id: string) {
-  return id.split("?", 1)[0];
-}
-
-function isSelectedDeckId(id: string, deck: DeckupResolvedDeck) {
-  const normalizedId = normalizeIdPath(stripQuery(id));
-  const normalizedFilePath = normalizeIdPath(deck.filePath);
-  return (
-    normalizedId === normalizedFilePath || normalizedId.endsWith(`/${deck.projectRelativePath}`)
-  );
-}
-
 function isWhitespace(node: AstroNode) {
   return node.type === "JSXText" && (node.value ?? "").trim().length === 0;
 }
@@ -778,17 +766,6 @@ async function writeFreshGeneratedPage(
   generatedPageMemo.lastSource = source;
 }
 
-async function refreshThemeRuntime(
-  theme: DeckupResolvedTheme | undefined,
-  options: DeckupVitePluginOptions,
-  discoverCached: DiscoverThemeLayouts,
-  generatedPageMemo: GeneratedPageMemo,
-) {
-  const refreshedTheme = await refreshThemeLayouts(theme, discoverCached);
-  await writeFreshGeneratedPage([refreshedTheme], options, generatedPageMemo);
-  return refreshedTheme;
-}
-
 async function refreshThemeRuntimes(
   themes: DeckupResolvedTheme[],
   options: DeckupVitePluginOptions,
@@ -1015,80 +992,6 @@ function createRegistryVirtualDeckPlugin(
   };
 }
 
-function createVirtualDeckPlugin(
-  deck: DeckupResolvedDeck,
-  theme: DeckupResolvedTheme | undefined,
-  options: DeckupVitePluginOptions,
-  discoverCached: DiscoverThemeLayouts,
-  generatedPageMemo: GeneratedPageMemo,
-  virtualDeckModuleId = VIRTUAL_DECKUP_DECK_ID,
-): Plugin {
-  const resolvedVirtualDeckId = resolvedVirtualId(virtualDeckModuleId);
-  return {
-    name: "deckup:virtual-deck",
-    resolveId(id) {
-      return id === virtualDeckModuleId ? resolvedVirtualDeckId : undefined;
-    },
-    async load(id) {
-      if (id !== resolvedVirtualDeckId) return undefined;
-      const runtimeTheme = await refreshThemeRuntime(
-        theme,
-        options,
-        discoverCached,
-        generatedPageMemo,
-      );
-      this.addWatchFile(deck.filePath);
-      if (runtimeTheme?.filePath) this.addWatchFile(runtimeTheme.filePath);
-      addThemeLayoutWatchFiles(this, runtimeTheme);
-      return createDeckModule(deck, runtimeTheme);
-    },
-  };
-}
-
-function createAstroDeckValidationPlugin(
-  deck: DeckupResolvedDeck,
-  theme?: DeckupResolvedTheme,
-  discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
-  options: DeckupVitePluginOptions = {},
-): Plugin {
-  return {
-    name: "deckup:astro-deck-validation",
-    enforce: "pre",
-    async load(id) {
-      if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) return undefined;
-      const source = readFileSync(deck.filePath, "utf8");
-      if (!source.includes("<Page")) return undefined;
-      const runtimeTheme = await refreshThemeLayouts(theme, discoverCached);
-      const result = await transformAstroDeckSourceForBuild(
-        source,
-        deck.filePath,
-        options.codeHighlight,
-      );
-      validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
-      return result.code;
-    },
-    async transform(source, id) {
-      if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) return undefined;
-      if (source.includes(transformedSourceMarker)) return undefined;
-      const runtimeTheme = await refreshThemeLayouts(theme, discoverCached);
-      if (source.includes("<Page")) {
-        const result = await transformAstroDeckSourceForBuild(
-          source,
-          deck.filePath,
-          options.codeHighlight,
-        );
-        validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
-        return result.code;
-      }
-      if (findCompiledPageRenderMatches(source).length === 0) return undefined;
-      const originalSource = readFileSync(deck.filePath, "utf8");
-      const { layouts } = analyzeAstroDeckSource(originalSource, deck.filePath);
-      validateThemeLayoutIds(deck, runtimeTheme, layouts);
-      return transformCompiledAstroDeckSource(source, layouts, deck.filePath);
-    },
-  };
-}
-
 function createRegistryAstroDeckValidationPlugin(
   registry: DeckupDeckRegistry,
   theme?: DeckupThemeLookup,
@@ -1153,21 +1056,6 @@ function createRegistryAstroDeckValidationPlugin(
       return transformCompiledAstroDeckSource(source, layouts, deck.filePath, runtimeTheme?.name);
     },
   };
-}
-
-export function createDeckupVitePlugins(
-  deck: DeckupResolvedDeck,
-  theme?: DeckupResolvedTheme,
-  options: DeckupVitePluginOptions = {},
-): Plugin[] {
-  assertPluginTheme(theme);
-  const discoverCached = createThemeLayoutDiscoveryCache();
-  const generatedPageMemo = { lastSource: undefined as string | undefined };
-  return [
-    createVirtualThemeLayoutsPlugin(theme, undefined, options, discoverCached, generatedPageMemo),
-    createVirtualDeckPlugin(deck, theme, options, discoverCached, generatedPageMemo),
-    createAstroDeckValidationPlugin(deck, theme, discoverCached, options),
-  ];
 }
 
 export function createDeckupVitePluginsForRegistry(

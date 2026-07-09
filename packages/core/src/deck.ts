@@ -296,6 +296,25 @@ export function createDeckRegistry(
   return registry;
 }
 
+export function createSingleDeckRegistry(
+  projectRoot: string,
+  deck: DeckupResolvedDeck,
+): DeckupDeckRegistry {
+  const routePath = "/";
+  const routeId = routeIdFromRoutePath(routePath);
+  const deckRoute: DeckupResolvedDeckRoute = {
+    ...deck,
+    sourceGlob: deck.projectRelativePath,
+    globBase: normalizeIdPath(dirname(deck.projectRelativePath)),
+    slug: "",
+    routePath,
+    routeId,
+    virtualDeckModuleId: `${VIRTUAL_DECKUP_DECK_PREFIX}${routeId}`,
+    virtualRouteModuleId: `${VIRTUAL_DECKUP_ROUTE_PREFIX}${routeId}.astro`,
+  };
+  return createDeckRegistry(projectRoot, "/", [deckRoute]);
+}
+
 export async function resolveDeckRegistry(
   projectRoot: string,
   patterns: string | string[],

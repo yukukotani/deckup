@@ -6,6 +6,7 @@ import { expect, test } from "vite-plus/test";
 import {
   SUPPORTED_DECK_EXTENSIONS,
   createDeckRegistry,
+  createSingleDeckRegistry,
   inferDeckFormat,
   normalizeDeckupBasePath,
   resolveDeckFile,
@@ -202,6 +203,31 @@ test("resolveDeckRegistry exposes match helpers for selected files and routes", 
     expect(registry.matchId(deck.filePath)).toBe(deck);
     expect(registry.matchId(`/src/slides/intro.astro?astro&type=script`)).toBe(deck);
     expect(registry.matchId("virtual:deckup/decks/slides_intro")).toBe(deck);
+  });
+});
+
+test("createSingleDeckRegistry exposes a root route for one CLI deck", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeDeck(projectRoot, "slides/talk.astro");
+    const deck = await resolveDeckFile(projectRoot, "slides/talk.astro");
+    const registry = createSingleDeckRegistry(projectRoot, deck);
+    const [routeDeck] = registry.decks;
+
+    expect(registry.base).toBe("/");
+    expect(routeDeck).toMatchObject({
+      ...deck,
+      sourceGlob: "slides/talk.astro",
+      globBase: "slides",
+      slug: "",
+      routePath: "/",
+      routeId: "index",
+      virtualDeckModuleId: "virtual:deckup/decks/index",
+      virtualRouteModuleId: "virtual:deckup/routes/index.astro",
+    });
+    expect(registry.getByRoutePath("/")).toBe(routeDeck);
+    expect(registry.getByRouteId("index")).toBe(routeDeck);
+    expect(registry.matchId(deck.filePath)).toBe(routeDeck);
+    expect(registry.matchId("virtual:deckup/routes/index.astro")).toBe(routeDeck);
   });
 });
 

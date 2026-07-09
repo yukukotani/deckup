@@ -6,12 +6,19 @@
     "url": "git+https://github.com/yukukotani/deckup.git",
     "directory": "packages/core"
   },
+  "files": [
+    "dist",
+    "runtime"
+  ],
   "type": "module",
   "exports": {
     ".": {
       "development": "./src/index.ts",
       "default": "./dist/index.mjs"
     },
+    "./page": "./runtime/components/Page.astro",
+    "./runtime/styles/global.css": "./runtime/styles/global.css",
+    "./runtime/scripts/navigation.ts": "./runtime/scripts/navigation.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {

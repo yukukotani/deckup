@@ -174,19 +174,18 @@ test("createAstroInlineConfig disables external config and wires runtime dirs", 
 
   expect(config.root).toBe(root);
   expect(config.configFile).toBe(false);
-  expect(config.srcDir).toBe(join(root, ".deckup/runtime"));
+  expect(config.srcDir).toBeUndefined();
   expect(config.outDir).toBe(join(root, "public-deck"));
   expect(config.logLevel).toBe("warn");
 });
 
-test("prepareRuntime writes a fallback page when the selected runtime source is absent", async () => {
+test("prepareRuntime creates the runtime work directory", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "deckup-runtime-"));
   try {
     const missingRuntimeSource = join(projectRoot, "missing-runtime");
     const paths = await prepareRuntime(projectRoot, missingRuntimeSource);
-    const fallback = await readFile(join(paths.runtimeOutDir, "pages/index.astro"), "utf8");
     expect(paths.runtimeSourceDir).toBe(missingRuntimeSource);
-    expect(fallback).toContain("Deckup runtime unavailable");
+    await expect(pathExists(paths.runtimeOutDir)).resolves.toBe(true);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

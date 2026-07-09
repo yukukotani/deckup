@@ -9,7 +9,7 @@ import {
   revealSlidesForPrint,
   setupDeckNavigation,
   showSlide,
-} from "../runtime/scripts/navigation.ts";
+} from "@deckup/core/runtime/scripts/navigation.ts";
 
 function fakeSlide() {
   const attributes = new Map<string, string>();

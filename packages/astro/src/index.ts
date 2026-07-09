@@ -38,9 +38,8 @@ const DECKUP_ASTRO_DECK_LAYOUT_MODULE_ID = "virtual:deckup/astro/deck-layout.ast
 const DECKUP_ASTRO_NAVIGATION_MODULE_ID = "virtual:deckup/astro/navigation.ts";
 const resolvedDeckupAstroDeckLayoutModuleId = DECKUP_ASTRO_DECK_LAYOUT_MODULE_ID;
 const resolvedDeckupAstroNavigationModuleId = `\0${DECKUP_ASTRO_NAVIGATION_MODULE_ID}`;
-const staticPageFilePath = fileURLToPath(
-  new URL("../runtime/components/Page.astro", import.meta.url),
-);
+const require = createRequire(import.meta.url);
+const staticPageFilePath = require.resolve("@deckup/core/page");
 const runtimeStylesFilePath = fileURLToPath(
   new URL("../runtime/styles/global.css", import.meta.url),
 );
@@ -48,8 +47,6 @@ const runtimeNavigationFilePath = fileURLToPath(
   new URL("../runtime/scripts/navigation.js", import.meta.url),
 );
 type AliasEntry = { find: string | RegExp; replacement: string };
-
-const require = createRequire(import.meta.url);
 const astroPackageRoot = dirname(require.resolve("astro/package.json"));
 const requiredAstroAliases: AliasEntry[] = [
   {

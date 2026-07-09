@@ -10,8 +10,7 @@
     "deckup": "./dist/cli.mjs"
   },
   "files": [
-    "dist",
-    "runtime"
+    "dist"
   ],
   "type": "module",
   "exports": {
