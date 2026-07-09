@@ -1,5 +1,7 @@
 import { defineConfig } from "vite-plus";
 
+const cliSourceCommand = "node --conditions=development ../apps/cli/src/cli.ts";
+const cliDistCommand = "node ../apps/cli/dist/cli.mjs";
 const cliBuildDependency: Array<{ task: string; from: "devDependencies" }> = [
   { task: "build", from: "devDependencies" },
 ];
@@ -8,37 +10,34 @@ export default defineConfig({
   run: {
     tasks: {
       dev: {
-        command: "node ../apps/cli/dist/cli.mjs open slides/deck.astro",
-        dependsOn: cliBuildDependency,
+        command: `${cliSourceCommand} open slides/deck.astro`,
         cache: false,
       },
       "dev:astro": {
-        command: "node ../apps/cli/dist/cli.mjs open slides/deck.astro",
-        dependsOn: cliBuildDependency,
+        command: `${cliSourceCommand} open slides/deck.astro`,
         cache: false,
       },
       "dev:mdx": {
-        command: "node ../apps/cli/dist/cli.mjs open slides/deck.mdx",
-        dependsOn: cliBuildDependency,
+        command: `${cliSourceCommand} open slides/deck.mdx`,
         cache: false,
       },
       build: {
         command: [
-          "node ../apps/cli/dist/cli.mjs build slides/deck.astro --format html",
-          "node ../apps/cli/dist/cli.mjs build slides/deck.mdx --format html",
+          `${cliDistCommand} build slides/deck.astro --format html`,
+          `${cliDistCommand} build slides/deck.mdx --format html`,
         ],
         dependsOn: cliBuildDependency,
       },
       "build:astro": {
-        command: "node ../apps/cli/dist/cli.mjs build slides/deck.astro --format html",
+        command: `${cliDistCommand} build slides/deck.astro --format html`,
         dependsOn: cliBuildDependency,
       },
       "build:mdx": {
-        command: "node ../apps/cli/dist/cli.mjs build slides/deck.mdx --format html",
+        command: `${cliDistCommand} build slides/deck.mdx --format html`,
         dependsOn: cliBuildDependency,
       },
       "build:pdf:mdx": {
-        command: "node ../apps/cli/dist/cli.mjs build slides/deck.mdx --format pdf",
+        command: `${cliDistCommand} build slides/deck.mdx --format pdf`,
         dependsOn: cliBuildDependency,
       },
     },
