@@ -6,14 +6,14 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
-import slida from "../src/index.ts";
+import deckup from "../src/index.ts";
 
 const astroPackageRoot = fileURLToPath(new URL("../..", import.meta.url));
 const require = createRequire(import.meta.url);
 const mdxPackageRoot = dirname(require.resolve("@astrojs/mdx/package.json"));
 
 async function withHostProject(run: (projectRoot: string) => Promise<void>) {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-astro-integration-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-astro-integration-"));
   try {
     await run(projectRoot);
   } finally {
@@ -22,7 +22,7 @@ async function withHostProject(run: (projectRoot: string) => Promise<void>) {
 }
 
 async function linkAstroPackage(projectRoot: string) {
-  const scopeDir = join(projectRoot, "node_modules", "@slida");
+  const scopeDir = join(projectRoot, "node_modules", "@deckup");
   await mkdir(scopeDir, { recursive: true });
   await symlink(astroPackageRoot, join(scopeDir, "astro"), "dir");
 }
@@ -42,7 +42,7 @@ async function writeHostFixture(projectRoot: string) {
   await writeFile(
     join(projectRoot, "source", "slides", "intro.astro"),
     `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const theme = "bold";
 ---
 
@@ -74,7 +74,7 @@ title: Host Docs
 
 # Host Docs
 
-This MDX page is not a Slida deck.
+This MDX page is not a Deckup deck.
 `,
   );
 }
@@ -103,16 +103,16 @@ async function readBuiltCss(projectRoot: string, html: string) {
 }
 
 function countSlides(html: string) {
-  return html.match(/data-slida-slide(?=[\s=>])/g)?.length ?? 0;
+  return html.match(/data-deckup-slide(?=[\s=>])/g)?.length ?? 0;
 }
 
 function countLayouts(html: string, layout: string) {
-  return html.match(new RegExp(`data-slida-layout="${layout}"`, "g"))?.length ?? 0;
+  return html.match(new RegExp(`data-deckup-layout="${layout}"`, "g"))?.length ?? 0;
 }
 
 function finalConfigProbe(observed: { root?: string; srcDir?: string }): AstroIntegration {
   return {
-    name: "slida-test-final-config-probe",
+    name: "deckup-test-final-config-probe",
     hooks: {
       "astro:config:done"({ config }) {
         observed.root = fileURLToPath(config.root);
@@ -134,7 +134,7 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
       configFile: false,
       logLevel: "silent",
       integrations: [
-        slida({ decks: "source/slides/*.{astro,mdx}", base: "/slides" }),
+        deckup({ decks: "source/slides/*.{astro,mdx}", base: "/slides" }),
         finalConfigProbe(observed),
       ],
     });
@@ -150,12 +150,12 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(countLayouts(intro, "cover")).toBe(1);
     expect(countLayouts(intro, "default")).toBe(1);
     expect(intro).toContain('data-slide-count="2"');
-    expect(intro).toContain('data-slida-theme="bold"');
-    expect(intro).not.toContain('data-slida-theme="minimal"');
+    expect(intro).toContain('data-deckup-theme="bold"');
+    expect(intro).not.toContain('data-deckup-theme="minimal"');
     const introCss = await readBuiltCss(projectRoot, intro);
-    expect(intro).toContain("data-slida-shell");
-    expect(intro).toContain("data-slida-navigation");
-    expect(introCss).toContain(".slida-navigation");
+    expect(intro).toContain("data-deckup-shell");
+    expect(intro).toContain("data-deckup-navigation");
+    expect(introCss).toContain(".deckup-navigation");
     expect(introCss).toContain("astro-dev-toolbar");
     expect(intro).toContain("Intro Astro Deck");
     expect(intro).toContain("Astro Details");
@@ -168,15 +168,15 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(countLayouts(guide, "cover")).toBe(1);
     expect(countLayouts(guide, "default")).toBe(1);
     expect(guide).toContain('data-slide-count="2"');
-    expect(guide).toContain('data-slida-theme="minimal"');
-    expect(guide).not.toContain('data-slida-theme="bold"');
+    expect(guide).toContain('data-deckup-theme="minimal"');
+    expect(guide).not.toContain('data-deckup-theme="bold"');
     expect(guide).toContain("Guide MDX Deck");
     expect(guide).toContain("Guide Details");
 
     const docs = await readFile(join(projectRoot, "dist", "docs", "index.html"), "utf8");
     expect(docs).toContain("Host Docs");
-    expect(docs).toContain("This MDX page is not a Slida deck.");
-    expect(docs).not.toContain("data-slida-slide");
-    expect(docs).not.toContain("data-slida-layout");
+    expect(docs).toContain("This MDX page is not a Deckup deck.");
+    expect(docs).not.toContain("data-deckup-slide");
+    expect(docs).not.toContain("data-deckup-layout");
   });
 });

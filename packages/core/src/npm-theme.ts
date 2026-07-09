@@ -18,7 +18,7 @@ import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { discoverThemeLayouts } from "./theme-layouts.ts";
-import type { SlidaNpmThemeDownloadRequest, SlidaNpmThemeOptions } from "./types.ts";
+import type { DeckupNpmThemeDownloadRequest, DeckupNpmThemeOptions } from "./types.ts";
 
 async function pathExists(path: string) {
   try {
@@ -32,20 +32,20 @@ async function pathExists(path: string) {
   }
 }
 
-export const NPM_SLIDA_THEME_PREFIX = "npm:";
-export const SLIDA_THEME_CACHE_ENV = "SLIDA_THEME_CACHE_DIR";
+export const NPM_DECKUP_THEME_PREFIX = "npm:";
+export const DECKUP_THEME_CACHE_ENV = "DECKUP_THEME_CACHE_DIR";
 
-const cacheMetadataFileName = "slida-npm-theme.json";
+const cacheMetadataFileName = "deckup-npm-theme.json";
 const pacoteCacheDirName = "_cacache";
 
-export interface SlidaNpmThemeSource {
+export interface DeckupNpmThemeSource {
   originalName: string;
   spec: string;
   packageName: string;
   version?: string;
 }
 
-export interface SlidaCachedNpmThemePackage {
+export interface DeckupCachedNpmThemePackage {
   filePath: string;
   packageName: string;
   packageRoot: string;
@@ -77,7 +77,7 @@ export interface NpmThemeInstallOperations {
   extract(spec: string, target: string, options: NpmThemeInstallOptions): Promise<unknown>;
 }
 
-export interface SlidaNpmThemeResolveOptions extends SlidaNpmThemeOptions {
+export interface DeckupNpmThemeResolveOptions extends DeckupNpmThemeOptions {
   /** @internal Test seam for avoiding real npm registry/network access. */
   operations?: NpmThemeInstallOperations;
 }
@@ -102,38 +102,42 @@ function defaultThemeCacheDir() {
   const home = homedir();
 
   if (process.platform === "darwin") {
-    return join(home, "Library", "Caches", "slida", "npm-themes");
+    return join(home, "Library", "Caches", "deckup", "npm-themes");
   }
 
   if (process.platform === "win32") {
-    return join(envString("LOCALAPPDATA") ?? join(home, "AppData", "Local"), "slida", "npm-themes");
+    return join(
+      envString("LOCALAPPDATA") ?? join(home, "AppData", "Local"),
+      "deckup",
+      "npm-themes",
+    );
   }
 
-  return join(envString("XDG_CACHE_HOME") ?? join(home, ".cache"), "slida", "npm-themes");
+  return join(envString("XDG_CACHE_HOME") ?? join(home, ".cache"), "deckup", "npm-themes");
 }
 
 export function resolveNpmThemeCacheDir(cacheDir?: string) {
-  return resolve(cacheDir ?? envString(SLIDA_THEME_CACHE_ENV) ?? defaultThemeCacheDir());
+  return resolve(cacheDir ?? envString(DECKUP_THEME_CACHE_ENV) ?? defaultThemeCacheDir());
 }
 
-export function parseNpmThemeSource(themeName: string): SlidaNpmThemeSource | undefined {
-  if (!themeName.startsWith(NPM_SLIDA_THEME_PREFIX)) return undefined;
+export function parseNpmThemeSource(themeName: string): DeckupNpmThemeSource | undefined {
+  if (!themeName.startsWith(NPM_DECKUP_THEME_PREFIX)) return undefined;
 
-  const spec = themeName.slice(NPM_SLIDA_THEME_PREFIX.length).trim();
+  const spec = themeName.slice(NPM_DECKUP_THEME_PREFIX.length).trim();
   if (spec.length === 0) {
-    throw new TypeError("Slida npm theme must include a package name after the npm: prefix.");
+    throw new TypeError("Deckup npm theme must include a package name after the npm: prefix.");
   }
 
   const parsed = parseNpmPackageSpec(spec);
   if (!parsed) {
     throw new TypeError(
-      `Slida npm theme ${JSON.stringify(themeName)} must reference an npm registry package.`,
+      `Deckup npm theme ${JSON.stringify(themeName)} must reference an npm registry package.`,
     );
   }
 
   if (parsed.versionSpecifier !== undefined && !exactVersionPattern.test(parsed.versionSpecifier)) {
     throw new TypeError(
-      `Slida npm theme ${JSON.stringify(themeName)} must use npm:package or npm:package@version.`,
+      `Deckup npm theme ${JSON.stringify(themeName)} must use npm:package or npm:package@version.`,
     );
   }
 
@@ -175,19 +179,19 @@ function parseNpmPackageSpec(spec: string) {
   if (!packageNamePattern.test(packageName)) return undefined;
   if (hasVersionSpecifier && (!versionSpecifier || versionSpecifier.trim() !== versionSpecifier)) {
     throw new TypeError(
-      `Slida npm theme ${JSON.stringify(`${NPM_SLIDA_THEME_PREFIX}${spec}`)} must use npm:package or npm:package@version.`,
+      `Deckup npm theme ${JSON.stringify(`${NPM_DECKUP_THEME_PREFIX}${spec}`)} must use npm:package or npm:package@version.`,
     );
   }
   return { packageName, versionSpecifier };
 }
 
-function npmThemeCacheKey(source: SlidaNpmThemeSource) {
+function npmThemeCacheKey(source: DeckupNpmThemeSource) {
   const packageSlug = source.packageName.replace(/^@/, "").replace(/[^a-zA-Z0-9._-]+/g, "-");
   const digest = createHash("sha256").update(source.spec).digest("hex").slice(0, 16);
   return `${packageSlug}-${digest}`;
 }
 
-export function getNpmThemeCacheEntryDir(cacheDir: string, source: SlidaNpmThemeSource) {
+export function getNpmThemeCacheEntryDir(cacheDir: string, source: DeckupNpmThemeSource) {
   return join(resolveNpmThemeCacheDir(cacheDir), "packages", npmThemeCacheKey(source));
 }
 
@@ -239,7 +243,7 @@ async function readPackageJson(packageRoot: string) {
     rawPackageJson = await readFile(packageJsonPath, "utf8");
   } catch (error) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme is missing package metadata: ${packageJsonPath}`,
+      `Cached Deckup npm theme is missing package metadata: ${packageJsonPath}`,
       { cause: error },
     );
   }
@@ -253,20 +257,20 @@ async function readPackageJson(packageRoot: string) {
     };
   } catch (error) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme package metadata is not valid JSON: ${packageJsonPath}`,
+      `Cached Deckup npm theme package metadata is not valid JSON: ${packageJsonPath}`,
       { cause: error },
     );
   }
 
   if (typeof packageJson.name !== "string" || typeof packageJson.version !== "string") {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme package metadata must include string name and version: ${packageJsonPath}`,
+      `Cached Deckup npm theme package metadata must include string name and version: ${packageJsonPath}`,
     );
   }
 
   if (!exposesPackageJson(packageJson.exports)) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme package metadata must expose ./package.json: ${packageJsonPath}`,
+      `Cached Deckup npm theme package metadata must expose ./package.json: ${packageJsonPath}`,
     );
   }
 
@@ -280,14 +284,14 @@ type CacheMetadata = {
   version?: unknown;
 };
 
-async function readCacheMetadata(source: SlidaNpmThemeSource, cacheEntryDir: string) {
+async function readCacheMetadata(source: DeckupNpmThemeSource, cacheEntryDir: string) {
   const filePath = metadataPath(cacheEntryDir);
   let rawMetadata: string;
   try {
     rawMetadata = await readFile(filePath, "utf8");
   } catch (error) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme metadata is missing: ${filePath}`,
+      `Cached Deckup npm theme metadata is missing: ${filePath}`,
       {
         cause: error,
       },
@@ -299,7 +303,7 @@ async function readCacheMetadata(source: SlidaNpmThemeSource, cacheEntryDir: str
     metadata = JSON.parse(rawMetadata) as CacheMetadata;
   } catch (error) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme metadata is not valid JSON: ${filePath}`,
+      `Cached Deckup npm theme metadata is not valid JSON: ${filePath}`,
       { cause: error },
     );
   }
@@ -312,7 +316,7 @@ async function readCacheMetadata(source: SlidaNpmThemeSource, cacheEntryDir: str
     (source.version && metadata.version !== source.version)
   ) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme metadata does not match ${source.spec}: ${filePath}`,
+      `Cached Deckup npm theme metadata does not match ${source.spec}: ${filePath}`,
     );
   }
 
@@ -320,21 +324,21 @@ async function readCacheMetadata(source: SlidaNpmThemeSource, cacheEntryDir: str
 }
 
 async function validateCachedNpmThemePackage(
-  source: SlidaNpmThemeSource,
+  source: DeckupNpmThemeSource,
   cacheEntryDir: string,
-): Promise<SlidaCachedNpmThemePackage> {
+): Promise<DeckupCachedNpmThemePackage> {
   const packageRoot = join(cacheEntryDir, "package");
   const packageJson = await readPackageJson(packageRoot);
 
   if (packageJson.name !== source.packageName) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme package name mismatch for ${source.spec}: expected ${source.packageName}, got ${packageJson.name}.`,
+      `Cached Deckup npm theme package name mismatch for ${source.spec}: expected ${source.packageName}, got ${packageJson.name}.`,
     );
   }
 
   if (source.version && packageJson.version !== source.version) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme package version mismatch for ${source.spec}: expected ${source.version}, got ${packageJson.version}.`,
+      `Cached Deckup npm theme package version mismatch for ${source.spec}: expected ${source.version}, got ${packageJson.version}.`,
     );
   }
 
@@ -351,28 +355,28 @@ async function validateCachedNpmThemePackage(
   };
 }
 
-async function validateCachedNpmThemeEntry(source: SlidaNpmThemeSource, cacheEntryDir: string) {
+async function validateCachedNpmThemeEntry(source: DeckupNpmThemeSource, cacheEntryDir: string) {
   const metadata = await readCacheMetadata(source, cacheEntryDir);
   const cachedTheme = await validateCachedNpmThemePackage(source, cacheEntryDir);
   if (metadata.version !== cachedTheme.version) {
     throw new NpmThemeCacheValidationError(
-      `Cached Slida npm theme metadata version mismatch for ${source.spec}: expected ${metadata.version}, got ${cachedTheme.version}.`,
+      `Cached Deckup npm theme metadata version mismatch for ${source.spec}: expected ${metadata.version}, got ${cachedTheme.version}.`,
     );
   }
   return cachedTheme;
 }
 
-async function defaultConfirmNpmThemeDownload(request: SlidaNpmThemeDownloadRequest) {
+async function defaultConfirmNpmThemeDownload(request: DeckupNpmThemeDownloadRequest) {
   if (!input.isTTY || !output.isTTY) {
     throw new Error(
-      `Slida npm theme ${JSON.stringify(request.spec)} is not cached at ${request.cacheDir}. Re-run in an interactive terminal to approve the download, or pre-populate the cache with this theme.`,
+      `Deckup npm theme ${JSON.stringify(request.spec)} is not cached at ${request.cacheDir}. Re-run in an interactive terminal to approve the download, or pre-populate the cache with this theme.`,
     );
   }
 
   const readline = createInterface({ input, output });
   try {
     const answer = await readline.question(
-      `Download Slida npm theme ${request.spec} into ${request.cacheDir}? [y/N] `,
+      `Download Deckup npm theme ${request.spec} into ${request.cacheDir}? [y/N] `,
     );
     return /^(y|yes)$/i.test(answer.trim());
   } finally {
@@ -381,9 +385,9 @@ async function defaultConfirmNpmThemeDownload(request: SlidaNpmThemeDownloadRequ
 }
 
 async function confirmNpmThemeDownload(
-  source: SlidaNpmThemeSource,
+  source: DeckupNpmThemeSource,
   cacheDir: string,
-  options: SlidaNpmThemeResolveOptions,
+  options: DeckupNpmThemeResolveOptions,
 ) {
   const request = { spec: source.spec, packageName: source.packageName, cacheDir };
   const confirmed = options.confirmDownload
@@ -391,12 +395,12 @@ async function confirmNpmThemeDownload(
     : await defaultConfirmNpmThemeDownload(request);
 
   if (!confirmed) {
-    throw new Error(`Slida npm theme download cancelled: ${source.spec}`);
+    throw new Error(`Deckup npm theme download cancelled: ${source.spec}`);
   }
 }
 
 async function writeCacheMetadata(
-  source: SlidaNpmThemeSource,
+  source: DeckupNpmThemeSource,
   cacheEntryDir: string,
   manifest: NpmThemePackageManifest,
 ) {
@@ -420,7 +424,7 @@ const cacheLockStaleMs = 10 * 60_000;
 
 async function withCacheEntryLock<T>(
   cacheDir: string,
-  source: SlidaNpmThemeSource,
+  source: DeckupNpmThemeSource,
   run: () => Promise<T>,
 ): Promise<T> {
   const locksDir = join(cacheDir, "locks");
@@ -469,7 +473,7 @@ async function releaseCacheEntryLock(lockDir: string) {
 async function promoteExtractedPackage(
   tempEntryDir: string,
   cacheEntryDir: string,
-  source: SlidaNpmThemeSource,
+  source: DeckupNpmThemeSource,
 ) {
   await mkdir(join(cacheEntryDir, ".."), { recursive: true });
   try {
@@ -487,16 +491,16 @@ async function promoteExtractedPackage(
 }
 
 export async function resolveCachedNpmThemePackage(
-  source: SlidaNpmThemeSource,
-  options: SlidaNpmThemeResolveOptions = {},
-): Promise<SlidaCachedNpmThemePackage> {
+  source: DeckupNpmThemeSource,
+  options: DeckupNpmThemeResolveOptions = {},
+): Promise<DeckupCachedNpmThemePackage> {
   const cacheDir = resolveNpmThemeCacheDir(options.cacheDir);
   const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
 
   return withCacheEntryLock(cacheDir, source, async () => {
     if (await pathExists(cacheEntryDir)) {
       try {
-        await assertDirectory(cacheEntryDir, "Cached Slida npm theme entry");
+        await assertDirectory(cacheEntryDir, "Cached Deckup npm theme entry");
         return await validateCachedNpmThemeEntry(source, cacheEntryDir);
       } catch (error) {
         if (!(error instanceof NpmThemeCacheValidationError)) throw error;
@@ -517,12 +521,12 @@ export async function resolveCachedNpmThemePackage(
       const manifest = await operations.manifest(source.spec, { cache: npmCacheDir });
       if (manifest.name !== source.packageName) {
         throw new Error(
-          `Resolved Slida npm theme package name mismatch for ${source.spec}: expected ${source.packageName}, got ${manifest.name}.`,
+          `Resolved Deckup npm theme package name mismatch for ${source.spec}: expected ${source.packageName}, got ${manifest.name}.`,
         );
       }
       if (source.version && manifest.version !== source.version) {
         throw new Error(
-          `Resolved Slida npm theme package version mismatch for ${source.spec}: expected ${source.version}, got ${manifest.version}.`,
+          `Resolved Deckup npm theme package version mismatch for ${source.spec}: expected ${source.version}, got ${manifest.version}.`,
         );
       }
 

@@ -13,40 +13,40 @@ import {
   type AstroNode,
   type AstroRoot,
 } from "./astro-ast.ts";
-import { resolveSlidaLayout } from "./layout.ts";
+import { resolveDeckupLayout } from "./layout.ts";
 import { createRuntimePageSource } from "./runtime-page.ts";
-import { analyzeMdxDeckSource } from "./slida-mdx-pages.ts";
+import { analyzeMdxDeckSource } from "./deckup-mdx-pages.ts";
 import {
-  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
   createThemeLayoutDiscoveryCache,
   createGeneratedPageComponentSource,
 } from "./theme-layouts.ts";
 import type {
   RawAstroCodeHighlightOptions,
-  SlidaDeckMetadata,
-  SlidaDeckRegistry,
-  SlidaResolvedDeck,
-  SlidaResolvedDeckRoute,
-  SlidaResolvedTheme,
+  DeckupDeckMetadata,
+  DeckupDeckRegistry,
+  DeckupResolvedDeck,
+  DeckupResolvedDeckRoute,
+  DeckupResolvedTheme,
 } from "./types.ts";
 import { normalizeIdPath, uniqueStrings } from "./utils.ts";
 
-export const VIRTUAL_SLIDA_DECK_ID = "virtual:slida/deck";
+export const VIRTUAL_DECKUP_DECK_ID = "virtual:deckup/deck";
 
 function resolvedVirtualId(id: string) {
   return `\0${id}`;
 }
 
-const resolvedVirtualSlidaThemeLayoutsId = resolvedVirtualId(VIRTUAL_SLIDA_THEME_LAYOUTS_ID);
-const pageComponentExport = "@slida/astro/page";
+const resolvedVirtualDeckupThemeLayoutsId = resolvedVirtualId(VIRTUAL_DECKUP_THEME_LAYOUTS_ID);
+const pageComponentExport = "@deckup/astro/page";
 // Coupling point to Astro's compiled output. The Astro compiler emits
 // `$$renderComponent($$result, "Page", Page, { ...props }, ...)` for each
 // deck Page. If an Astro upgrade changes this shape, the integration tests
-// in tests/astro.test.ts (buildDeck + data-slida-layout assertions) and the
-// characterization tests in tests/slida-vite-plugins.test.ts fail first.
+// in tests/astro.test.ts (buildDeck + data-deckup-layout assertions) and the
+// characterization tests in tests/deckup-vite-plugins.test.ts fail first.
 // Keep this tolerant to whitespace-only formatting changes.
 const compiledPageRenderPattern = /\$\$renderComponent\(\s*\$\$result\s*,\s*"Page"\s*,\s*Page\s*,/g;
-const transformedSourceMarker = "// data-slida-source-transformed";
+const transformedSourceMarker = "// data-deckup-source-transformed";
 const utf8Encoder = new TextEncoder();
 
 type ShikiHighlighter = Awaited<ReturnType<typeof createHighlighter>>;
@@ -58,22 +58,22 @@ type AstroDeckAnalysis = {
   edits: AstroSourceEdit[];
   layouts: AstroPageLayout[];
   pages: AstroNode[];
-  metadata: SlidaDeckMetadata;
+  metadata: DeckupDeckMetadata;
 };
 type StaticAstroCodeBlock = {
   code: string;
   language: string;
   span: { start: number; end: number };
 };
-export interface SlidaVitePluginOptions {
+export interface DeckupVitePluginOptions {
   generatedPageFilePath?: string;
   codeHighlight?: RawAstroCodeHighlightOptions;
   deckLayoutModuleId?: string;
 }
 type DiscoverThemeLayouts = ReturnType<typeof createThemeLayoutDiscoveryCache>;
 type GeneratedPageMemo = { lastSource: string | undefined };
-export type SlidaThemeForDeck = (deck: SlidaResolvedDeck) => SlidaResolvedTheme | undefined;
-type SlidaThemeLookup = SlidaResolvedTheme | SlidaThemeForDeck | undefined;
+export type DeckupThemeForDeck = (deck: DeckupResolvedDeck) => DeckupResolvedTheme | undefined;
+type DeckupThemeLookup = DeckupResolvedTheme | DeckupThemeForDeck | undefined;
 
 const shikiHighlighters = new Map<string, Promise<ShikiHighlighter>>();
 
@@ -160,7 +160,7 @@ function stripQuery(id: string) {
   return id.split("?", 1)[0];
 }
 
-function isSelectedDeckId(id: string, deck: SlidaResolvedDeck) {
+function isSelectedDeckId(id: string, deck: DeckupResolvedDeck) {
   const normalizedId = normalizeIdPath(stripQuery(id));
   const normalizedFilePath = normalizeIdPath(deck.filePath);
   return (
@@ -459,7 +459,7 @@ function resolveAstroPageLayout(page: AstroNode, pageIndex: number, filePath: st
     }
   }
   const explicitLayout = layoutNode ? getLayoutIdAttribute(layoutNode, context) : undefined;
-  return { layout: resolveSlidaLayout(explicitLayout, pageIndex, context), layoutNodes };
+  return { layout: resolveDeckupLayout(explicitLayout, pageIndex, context), layoutNodes };
 }
 
 function analyzeAstroLayouts(
@@ -497,18 +497,18 @@ function applySourceEdits(source: string, edits: AstroSourceEdit[]) {
 export function analyzeAstroDeckMetadata(
   source: string,
   filePath = "Astro deck",
-): SlidaDeckMetadata {
+): DeckupDeckMetadata {
   return extractStaticAstroDeckMetadata(parseAstroDeck(source, filePath), filePath);
 }
 
-function extractStaticAstroDeckMetadata(ast: AstroRoot, filePath: string): SlidaDeckMetadata {
+function extractStaticAstroDeckMetadata(ast: AstroRoot, filePath: string): DeckupDeckMetadata {
   let theme: string | undefined;
   for (const node of ast.frontmatter?.program?.body ?? []) {
     if (node.type !== "VariableDeclaration") continue;
     for (const declaration of node.declarations ?? []) {
       if (declaration.id?.type !== "Identifier" || declaration.id.name !== "theme") continue;
       if (theme !== undefined) {
-        throw new Error(`Duplicate Slida theme metadata in ${filePath}.`);
+        throw new Error(`Duplicate Deckup theme metadata in ${filePath}.`);
       }
       if (node.kind !== "const") {
         throw new TypeError(
@@ -699,44 +699,44 @@ export function transformCompiledAstroDeckSource(
   return applySourceEdits(source, edits).replace(/<layout(?:\s+[^<>]*)?><\/layout>/g, "");
 }
 
-function hasThemeLayouts(theme?: SlidaResolvedTheme) {
+function hasThemeLayouts(theme?: DeckupResolvedTheme) {
   return (theme?.layouts?.length ?? 0) > 0;
 }
 
-function createThemeModuleImport(theme?: SlidaResolvedTheme) {
-  if (hasThemeLayouts(theme)) return `import ${JSON.stringify(VIRTUAL_SLIDA_THEME_LAYOUTS_ID)};`;
+function createThemeModuleImport(theme?: DeckupResolvedTheme) {
+  if (hasThemeLayouts(theme)) return `import ${JSON.stringify(VIRTUAL_DECKUP_THEME_LAYOUTS_ID)};`;
   return undefined;
 }
 
-function assertPluginTheme(theme?: SlidaResolvedTheme) {
+function assertPluginTheme(theme?: DeckupResolvedTheme) {
   if (!theme || hasThemeLayouts(theme)) return;
   throw new Error(
-    `Slida theme ${JSON.stringify(theme.name)} must resolve from layouts/*.astro before installing Slida Vite plugins.`,
+    `Deckup theme ${JSON.stringify(theme.name)} must resolve from layouts/*.astro before installing Deckup Vite plugins.`,
   );
 }
 
-function resolveThemeForDeck(theme: SlidaThemeLookup, deck: SlidaResolvedDeck) {
+function resolveThemeForDeck(theme: DeckupThemeLookup, deck: DeckupResolvedDeck) {
   return typeof theme === "function" ? theme(deck) : theme;
 }
 
-function uniqueResolvedThemes(themes: Array<SlidaResolvedTheme | undefined>) {
-  const byName = new Map<string, SlidaResolvedTheme>();
+function uniqueResolvedThemes(themes: Array<DeckupResolvedTheme | undefined>) {
+  const byName = new Map<string, DeckupResolvedTheme>();
   for (const theme of themes) {
     if (theme && hasThemeLayouts(theme)) byName.set(theme.name, theme);
   }
   return [...byName.values()];
 }
 
-function themesForRuntime(theme: SlidaThemeLookup, decks: SlidaResolvedDeck[] = []) {
+function themesForRuntime(theme: DeckupThemeLookup, decks: DeckupResolvedDeck[] = []) {
   return typeof theme === "function"
     ? uniqueResolvedThemes(decks.map((deck) => theme(deck)))
     : uniqueResolvedThemes([theme]);
 }
 
 async function refreshThemeLayouts(
-  theme?: SlidaResolvedTheme,
+  theme?: DeckupResolvedTheme,
   discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
-): Promise<SlidaResolvedTheme | undefined> {
+): Promise<DeckupResolvedTheme | undefined> {
   if (!theme) return undefined;
   if (!hasThemeLayouts(theme) || !theme.layoutsDir) return theme;
 
@@ -759,8 +759,8 @@ async function refreshThemeLayouts(
 }
 
 async function writeFreshGeneratedPage(
-  themes: Array<SlidaResolvedTheme | undefined>,
-  options: SlidaVitePluginOptions,
+  themes: Array<DeckupResolvedTheme | undefined>,
+  options: DeckupVitePluginOptions,
   generatedPageMemo: GeneratedPageMemo,
   defaultThemeName?: string,
 ) {
@@ -769,7 +769,7 @@ async function writeFreshGeneratedPage(
   const slotNames = uniqueStrings(resolvedThemes.flatMap((theme) => theme.slotNames ?? [])).sort();
   const source = createGeneratedPageComponentSource(
     slotNames,
-    VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+    VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
     defaultThemeName,
   );
   if (source === generatedPageMemo.lastSource) return;
@@ -779,8 +779,8 @@ async function writeFreshGeneratedPage(
 }
 
 async function refreshThemeRuntime(
-  theme: SlidaResolvedTheme | undefined,
-  options: SlidaVitePluginOptions,
+  theme: DeckupResolvedTheme | undefined,
+  options: DeckupVitePluginOptions,
   discoverCached: DiscoverThemeLayouts,
   generatedPageMemo: GeneratedPageMemo,
 ) {
@@ -790,15 +790,15 @@ async function refreshThemeRuntime(
 }
 
 async function refreshThemeRuntimes(
-  themes: SlidaResolvedTheme[],
-  options: SlidaVitePluginOptions,
+  themes: DeckupResolvedTheme[],
+  options: DeckupVitePluginOptions,
   discoverCached: DiscoverThemeLayouts,
   generatedPageMemo: GeneratedPageMemo,
   keyedByTheme = false,
 ) {
   const refreshedThemes = (
     await Promise.all(themes.map((theme) => refreshThemeLayouts(theme, discoverCached)))
-  ).filter((theme): theme is SlidaResolvedTheme => Boolean(theme));
+  ).filter((theme): theme is DeckupResolvedTheme => Boolean(theme));
   await writeFreshGeneratedPage(
     refreshedThemes,
     options,
@@ -809,7 +809,7 @@ async function refreshThemeRuntimes(
 }
 
 function createThemeLayoutsModule(
-  themes: SlidaResolvedTheme[] | SlidaResolvedTheme | undefined,
+  themes: DeckupResolvedTheme[] | DeckupResolvedTheme | undefined,
   keyedByTheme = false,
 ) {
   const resolvedThemes = Array.isArray(themes) ? themes : themes ? [themes] : [];
@@ -851,8 +851,8 @@ export default themeLayoutsByName;
 }
 
 function validateThemeLayoutIds(
-  deck: SlidaResolvedDeck,
-  theme: SlidaResolvedTheme | undefined,
+  deck: DeckupResolvedDeck,
+  theme: DeckupResolvedTheme | undefined,
   layouts: AstroPageLayout[],
 ) {
   if (!hasThemeLayouts(theme)) return;
@@ -862,7 +862,7 @@ function validateThemeLayoutIds(
     .sort();
   if (missing.length === 0) return;
   throw new Error(
-    `Slida theme ${JSON.stringify(theme?.name)} does not provide layout ${
+    `Deckup theme ${JSON.stringify(theme?.name)} does not provide layout ${
       missing.length === 1
         ? JSON.stringify(missing[0])
         : missing.map((layoutId) => JSON.stringify(layoutId)).join(", ")
@@ -874,26 +874,28 @@ function validateThemeLayoutIds(
 
 function addThemeLayoutWatchFiles(
   context: { addWatchFile(filePath: string): void },
-  theme?: SlidaResolvedTheme,
+  theme?: DeckupResolvedTheme,
 ) {
   if (theme?.layoutsDir) context.addWatchFile(theme.layoutsDir);
   for (const layout of theme?.layouts ?? []) context.addWatchFile(layout.filePath);
 }
 
 function createVirtualThemeLayoutsPlugin(
-  theme: SlidaThemeLookup,
-  registry: SlidaDeckRegistry | undefined,
-  options: SlidaVitePluginOptions,
+  theme: DeckupThemeLookup,
+  registry: DeckupDeckRegistry | undefined,
+  options: DeckupVitePluginOptions,
   discoverCached: DiscoverThemeLayouts,
   generatedPageMemo: GeneratedPageMemo,
 ): Plugin {
   return {
-    name: "slida:virtual-theme-layouts",
+    name: "deckup:virtual-theme-layouts",
     resolveId(id) {
-      return id === VIRTUAL_SLIDA_THEME_LAYOUTS_ID ? resolvedVirtualSlidaThemeLayoutsId : undefined;
+      return id === VIRTUAL_DECKUP_THEME_LAYOUTS_ID
+        ? resolvedVirtualDeckupThemeLayoutsId
+        : undefined;
     },
     async load(id) {
-      if (id !== resolvedVirtualSlidaThemeLayoutsId) return undefined;
+      if (id !== resolvedVirtualDeckupThemeLayoutsId) return undefined;
       const keyedByTheme = registry !== undefined;
       const runtimeThemes = await refreshThemeRuntimes(
         themesForRuntime(theme, registry?.decks),
@@ -911,7 +913,7 @@ function createVirtualThemeLayoutsPlugin(
   };
 }
 
-function createAstroDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme) {
+function createAstroDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedTheme) {
   const source = readFileSync(deck.filePath, "utf8");
   const analysis = analyzeAstroDeckSource(source, deck.filePath);
   validateThemeLayoutIds(deck, theme, analysis.layouts);
@@ -932,7 +934,7 @@ function createAstroDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedThe
     .join("\n");
 }
 
-function createMdxDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme) {
+function createMdxDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedTheme) {
   const source = readFileSync(deck.filePath, "utf8");
   const analysis = analyzeMdxDeckSource(source, deck.filePath);
   validateThemeLayoutIds(deck, theme, analysis.layouts);
@@ -953,21 +955,21 @@ function createMdxDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme
     .join("\n");
 }
 
-function createDeckModule(deck: SlidaResolvedDeck, theme?: SlidaResolvedTheme) {
+function createDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedTheme) {
   if (deck.format === "astro") return createAstroDeckModule(deck, theme);
   return createMdxDeckModule(deck, theme);
 }
 
 function createVirtualRoutePlugin(
-  registry: SlidaDeckRegistry,
-  options: SlidaVitePluginOptions,
+  registry: DeckupDeckRegistry,
+  options: DeckupVitePluginOptions,
 ): Plugin {
   const routeIds = new Map(registry.decks.map((deck) => [deck.virtualRouteModuleId, deck]));
   const resolvedRouteIds = new Map(
     registry.decks.map((deck) => [resolvedVirtualId(deck.virtualRouteModuleId), deck]),
   );
   return {
-    name: "slida:virtual-routes",
+    name: "deckup:virtual-routes",
     resolveId(id) {
       const deck = routeIds.get(id);
       return deck ? resolvedVirtualId(deck.virtualRouteModuleId) : undefined;
@@ -984,8 +986,8 @@ function createVirtualRoutePlugin(
 }
 
 function createRegistryVirtualDeckPlugin(
-  registry: SlidaDeckRegistry,
-  theme: SlidaThemeLookup,
+  registry: DeckupDeckRegistry,
+  theme: DeckupThemeLookup,
   discoverCached: DiscoverThemeLayouts,
 ): Plugin {
   const deckIds = new Map(registry.decks.map((deck) => [deck.virtualDeckModuleId, deck]));
@@ -993,7 +995,7 @@ function createRegistryVirtualDeckPlugin(
     registry.decks.map((deck) => [resolvedVirtualId(deck.virtualDeckModuleId), deck]),
   );
   return {
-    name: "slida:virtual-decks",
+    name: "deckup:virtual-decks",
     resolveId(id) {
       const deck = deckIds.get(id);
       return deck ? resolvedVirtualId(deck.virtualDeckModuleId) : undefined;
@@ -1014,16 +1016,16 @@ function createRegistryVirtualDeckPlugin(
 }
 
 function createVirtualDeckPlugin(
-  deck: SlidaResolvedDeck,
-  theme: SlidaResolvedTheme | undefined,
-  options: SlidaVitePluginOptions,
+  deck: DeckupResolvedDeck,
+  theme: DeckupResolvedTheme | undefined,
+  options: DeckupVitePluginOptions,
   discoverCached: DiscoverThemeLayouts,
   generatedPageMemo: GeneratedPageMemo,
-  virtualDeckModuleId = VIRTUAL_SLIDA_DECK_ID,
+  virtualDeckModuleId = VIRTUAL_DECKUP_DECK_ID,
 ): Plugin {
   const resolvedVirtualDeckId = resolvedVirtualId(virtualDeckModuleId);
   return {
-    name: "slida:virtual-deck",
+    name: "deckup:virtual-deck",
     resolveId(id) {
       return id === virtualDeckModuleId ? resolvedVirtualDeckId : undefined;
     },
@@ -1044,13 +1046,13 @@ function createVirtualDeckPlugin(
 }
 
 function createAstroDeckValidationPlugin(
-  deck: SlidaResolvedDeck,
-  theme?: SlidaResolvedTheme,
+  deck: DeckupResolvedDeck,
+  theme?: DeckupResolvedTheme,
   discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
-  options: SlidaVitePluginOptions = {},
+  options: DeckupVitePluginOptions = {},
 ): Plugin {
   return {
-    name: "slida:astro-deck-validation",
+    name: "deckup:astro-deck-validation",
     enforce: "pre",
     async load(id) {
       if (deck.format !== "astro" || !isSelectedDeckId(id, deck)) return undefined;
@@ -1088,14 +1090,17 @@ function createAstroDeckValidationPlugin(
 }
 
 function createRegistryAstroDeckValidationPlugin(
-  registry: SlidaDeckRegistry,
-  theme?: SlidaThemeLookup,
+  registry: DeckupDeckRegistry,
+  theme?: DeckupThemeLookup,
   discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
-  options: SlidaVitePluginOptions = {},
+  options: DeckupVitePluginOptions = {},
 ): Plugin {
-  function matchAstroDeck(id: string): SlidaResolvedDeckRoute | undefined {
+  function matchAstroDeck(id: string): DeckupResolvedDeckRoute | undefined {
     const normalizedId = normalizeIdPath(id.split("?", 1)[0]);
-    if (normalizedId.startsWith("virtual:slida/") || normalizedId.startsWith("\0virtual:slida/")) {
+    if (
+      normalizedId.startsWith("virtual:deckup/") ||
+      normalizedId.startsWith("\0virtual:deckup/")
+    ) {
       return undefined;
     }
     const deck = registry.matchId(id);
@@ -1103,7 +1108,7 @@ function createRegistryAstroDeckValidationPlugin(
   }
 
   return {
-    name: "slida:astro-deck-validation",
+    name: "deckup:astro-deck-validation",
     enforce: "pre",
     async load(id) {
       const deck = matchAstroDeck(id);
@@ -1150,10 +1155,10 @@ function createRegistryAstroDeckValidationPlugin(
   };
 }
 
-export function createSlidaVitePlugins(
-  deck: SlidaResolvedDeck,
-  theme?: SlidaResolvedTheme,
-  options: SlidaVitePluginOptions = {},
+export function createDeckupVitePlugins(
+  deck: DeckupResolvedDeck,
+  theme?: DeckupResolvedTheme,
+  options: DeckupVitePluginOptions = {},
 ): Plugin[] {
   assertPluginTheme(theme);
   const discoverCached = createThemeLayoutDiscoveryCache();
@@ -1165,10 +1170,10 @@ export function createSlidaVitePlugins(
   ];
 }
 
-export function createSlidaVitePluginsForRegistry(
-  registry: SlidaDeckRegistry,
-  theme?: SlidaThemeLookup,
-  options: SlidaVitePluginOptions = {},
+export function createDeckupVitePluginsForRegistry(
+  registry: DeckupDeckRegistry,
+  theme?: DeckupThemeLookup,
+  options: DeckupVitePluginOptions = {},
 ): Plugin[] {
   for (const resolvedTheme of themesForRuntime(theme, registry.decks))
     assertPluginTheme(resolvedTheme);

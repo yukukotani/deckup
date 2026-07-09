@@ -17,25 +17,25 @@ import { expect, test } from "vite-plus/test";
 import {
   createAstroInlineConfig,
   createMarkdownConfig,
-  createSlidaAstroConfig,
+  createDeckupAstroConfig,
   DEFAULT_DEV_PORT,
   resolveRawAstroCodeHighlightOptions,
 } from "../src/astro.ts";
-import { loadSlidaConfig } from "../src/config.ts";
+import { loadDeckupConfig } from "../src/config.ts";
 import {
   getNpmThemeCacheEntryDir,
   parseNpmThemeSource,
   resolveCachedNpmThemePackage,
-  SLIDA_THEME_CACHE_ENV,
+  DECKUP_THEME_CACHE_ENV,
   type NpmThemeInstallOperations,
-  type SlidaNpmThemeSource,
+  type DeckupNpmThemeSource,
 } from "../src/npm-theme.ts";
-import { VIRTUAL_SLIDA_THEME_LAYOUTS_ID } from "@slida/core";
-import { resolveSlidaThemeLayouts } from "../src/theme.ts";
-import type { SlidaRuntimePaths } from "../src/types.ts";
+import { VIRTUAL_DECKUP_THEME_LAYOUTS_ID } from "@deckup/core";
+import { resolveDeckupThemeLayouts } from "../src/theme.ts";
+import type { DeckupRuntimePaths } from "../src/types.ts";
 
 async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-config-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-config-"));
   try {
     await run(projectRoot);
   } finally {
@@ -43,11 +43,11 @@ async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
   }
 }
 
-function testPaths(projectRoot = resolve("/tmp/slida-project")): SlidaRuntimePaths {
+function testPaths(projectRoot = resolve("/tmp/deckup-project")): DeckupRuntimePaths {
   return {
     projectRoot,
-    runtimeSourceDir: join(projectRoot, "node_modules/@slida/cli/runtime"),
-    runtimeOutDir: join(projectRoot, ".slida/runtime"),
+    runtimeSourceDir: join(projectRoot, "node_modules/@deckup/cli/runtime"),
+    runtimeOutDir: join(projectRoot, ".deckup/runtime"),
   };
 }
 
@@ -100,7 +100,7 @@ async function loadVirtualModule(
 async function writeAstroDeck(
   projectRoot: string,
   source = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><h1>Deck</h1></Page>
@@ -117,7 +117,7 @@ async function writeThemePackage(projectRoot: string, packageName: string) {
     join(packageDir, "package.json"),
     JSON.stringify({ name: packageName, type: "module", exports: { ".": "./theme.css" } }),
   );
-  await writeFile(join(packageDir, "theme.css"), ":root { --slida-accent: tomato; }\n");
+  await writeFile(join(packageDir, "theme.css"), ":root { --deckup-accent: tomato; }\n");
 }
 
 async function writeThemeLayoutPackage(projectRoot: string, packageName: string) {
@@ -163,7 +163,7 @@ async function writeMinimalThemeLayoutPackage(projectRoot: string, packageName: 
 }
 
 async function withThemeCache(run: (cacheDir: string) => Promise<void>) {
-  const cacheDir = await mkdtemp(join(tmpdir(), "slida-npm-theme-cache-"));
+  const cacheDir = await mkdtemp(join(tmpdir(), "deckup-npm-theme-cache-"));
   try {
     await run(cacheDir);
   } finally {
@@ -188,15 +188,15 @@ async function withSerializedProcessGlobals<T>(run: () => Promise<T>): Promise<T
 }
 
 async function withNpmThemeCacheEnv(cacheDir: string, run: () => Promise<void>) {
-  const previousCacheDir = process.env[SLIDA_THEME_CACHE_ENV];
-  process.env[SLIDA_THEME_CACHE_ENV] = cacheDir;
+  const previousCacheDir = process.env[DECKUP_THEME_CACHE_ENV];
+  process.env[DECKUP_THEME_CACHE_ENV] = cacheDir;
   try {
     await run();
   } finally {
     if (previousCacheDir === undefined) {
-      delete process.env[SLIDA_THEME_CACHE_ENV];
+      delete process.env[DECKUP_THEME_CACHE_ENV];
     } else {
-      process.env[SLIDA_THEME_CACHE_ENV] = previousCacheDir;
+      process.env[DECKUP_THEME_CACHE_ENV] = previousCacheDir;
     }
   }
 }
@@ -225,11 +225,11 @@ async function writeCachedThemePackage(
 
 async function writeCachedThemeMetadata(
   cacheEntryDir: string,
-  source: SlidaNpmThemeSource,
+  source: DeckupNpmThemeSource,
   version = "1.0.0",
 ) {
   await writeFile(
-    join(cacheEntryDir, "slida-npm-theme.json"),
+    join(cacheEntryDir, "deckup-npm-theme.json"),
     `${JSON.stringify(
       {
         source: source.originalName,
@@ -289,90 +289,92 @@ async function withNonInteractiveStdio(run: () => Promise<void>) {
 
 test("parseNpmThemeSource accepts bare and exact npm theme specs", () => {
   expect(parseNpmThemeSource("minimal")).toBeUndefined();
-  expect(parseNpmThemeSource("npm:@acme/slida-theme")).toEqual({
-    originalName: "npm:@acme/slida-theme",
-    spec: "@acme/slida-theme",
-    packageName: "@acme/slida-theme",
+  expect(parseNpmThemeSource("npm:@acme/deckup-theme")).toEqual({
+    originalName: "npm:@acme/deckup-theme",
+    spec: "@acme/deckup-theme",
+    packageName: "@acme/deckup-theme",
     version: undefined,
   });
-  expect(parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")).toEqual({
-    originalName: "npm:@acme/slida-theme@1.2.3",
-    spec: "@acme/slida-theme@1.2.3",
-    packageName: "@acme/slida-theme",
+  expect(parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")).toEqual({
+    originalName: "npm:@acme/deckup-theme@1.2.3",
+    spec: "@acme/deckup-theme@1.2.3",
+    packageName: "@acme/deckup-theme",
     version: "1.2.3",
   });
 });
 
 test("parseNpmThemeSource rejects unsupported npm theme specs", () => {
   expect(() => parseNpmThemeSource("npm:")).toThrow(/must include a package name/);
-  expect(() => parseNpmThemeSource("npm:@acme/slida-theme@^1.0.0")).toThrow(
+  expect(() => parseNpmThemeSource("npm:@acme/deckup-theme@^1.0.0")).toThrow(
     /must use npm:package or npm:package@version/,
   );
   expect(() => parseNpmThemeSource("npm:github:user/repo")).toThrow(
-    /must reference an npm registry package|Invalid Slida npm theme spec/,
+    /must reference an npm registry package|Invalid Deckup npm theme spec/,
   );
 });
 
-test("loadSlidaConfig loads a project-root TypeScript config", async () => {
+test("loadDeckupConfig loads a project-root TypeScript config", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await writeFile(join(projectRoot, "slida.config.ts"), "export default { port: 3000 };\n");
+    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { port: 3000 };\n");
 
-    await expect(loadSlidaConfig(projectRoot)).resolves.toMatchObject({
+    await expect(loadDeckupConfig(projectRoot)).resolves.toMatchObject({
       config: { port: 3000 },
-      filePath: join(projectRoot, "slida.config.ts"),
+      filePath: join(projectRoot, "deckup.config.ts"),
     });
   });
 });
 
-test("loadSlidaConfig returns an empty config when no config file exists", async () => {
+test("loadDeckupConfig returns an empty config when no config file exists", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await expect(loadSlidaConfig(projectRoot)).resolves.toEqual({ config: {} });
+    await expect(loadDeckupConfig(projectRoot)).resolves.toEqual({ config: {} });
   });
 });
 
-test("loadSlidaConfig rejects multiple project-root config files", async () => {
+test("loadDeckupConfig rejects multiple project-root config files", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await writeFile(join(projectRoot, "slida.config.ts"), "export default { port: 3000 };\n");
-    await writeFile(join(projectRoot, "slida.config.js"), "export default { port: 3001 };\n");
+    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { port: 3000 };\n");
+    await writeFile(join(projectRoot, "deckup.config.js"), "export default { port: 3001 };\n");
 
-    await expect(loadSlidaConfig(projectRoot)).rejects.toThrow(/Multiple Slida config files found/);
+    await expect(loadDeckupConfig(projectRoot)).rejects.toThrow(
+      /Multiple Deckup config files found/,
+    );
   });
 });
 
-test("loadSlidaConfig rejects non-object config exports", async () => {
+test("loadDeckupConfig rejects non-object config exports", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
+      join(projectRoot, "deckup.config.ts"),
       "export default () => ({ port: 3000 });\n",
     );
 
-    await expect(loadSlidaConfig(projectRoot)).rejects.toThrow(
-      /Slida config must default-export an object/,
+    await expect(loadDeckupConfig(projectRoot)).rejects.toThrow(
+      /Deckup config must default-export an object/,
     );
   });
 });
 
-test("createSlidaAstroConfig uses config port when CLI/API port is omitted", async () => {
+test("createDeckupAstroConfig uses config port when CLI/API port is omitted", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
-    await writeFile(join(projectRoot, "slida.config.ts"), "export default { port: 3000 };\n");
+    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { port: 3000 };\n");
 
-    const { astroConfig, slidaConfigFile } = await createSlidaAstroConfig({
+    const { astroConfig, deckupConfigFile } = await createDeckupAstroConfig({
       root: projectRoot,
       deckFile: "slides/deck.astro",
     });
 
     expect(serverPort(astroConfig)).toBe(3000);
-    expect(slidaConfigFile).toBe(await realpath(join(projectRoot, "slida.config.ts")));
+    expect(deckupConfigFile).toBe(await realpath(join(projectRoot, "deckup.config.ts")));
   });
 });
 
 test("explicit API port wins over config port", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
-    await writeFile(join(projectRoot, "slida.config.ts"), "export default { port: 3000 };\n");
+    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { port: 3000 };\n");
 
-    const { astroConfig } = await createSlidaAstroConfig({
+    const { astroConfig } = await createDeckupAstroConfig({
       root: projectRoot,
       deckFile: "slides/deck.astro",
       port: 3333,
@@ -382,9 +384,9 @@ test("explicit API port wins over config port", async () => {
   });
 });
 
-test("resolveSlidaThemeLayouts defaults to the first-party default theme layouts", async () => {
+test("resolveDeckupThemeLayouts defaults to the first-party default theme layouts", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await expect(resolveSlidaThemeLayouts(projectRoot, undefined)).resolves.toMatchObject({
+    await expect(resolveDeckupThemeLayouts(projectRoot, undefined)).resolves.toMatchObject({
       name: "default",
       source: "builtin",
       layouts: expect.arrayContaining([
@@ -395,13 +397,13 @@ test("resolveSlidaThemeLayouts defaults to the first-party default theme layouts
   });
 });
 
-test("resolveSlidaThemeLayouts maps built-in short names to first-party theme packages", async () => {
+test("resolveDeckupThemeLayouts maps built-in short names to first-party theme packages", async () => {
   await withProjectRoot(async (projectRoot) => {
-    const theme = await resolveSlidaThemeLayouts(projectRoot, "minimal");
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "minimal");
 
     expect(theme.name).toBe("minimal");
     expect(theme.source).toBe("builtin");
-    expect(theme.packageName).toBe("@slida/theme-minimal");
+    expect(theme.packageName).toBe("@deckup/theme-minimal");
     expect(theme.packageRoot).toContain("theme-minimal");
     expect(theme.layouts).toEqual(
       expect.arrayContaining([
@@ -414,7 +416,7 @@ test("resolveSlidaThemeLayouts maps built-in short names to first-party theme pa
   });
 });
 
-test("resolveSlidaThemeLayouts resolves every built-in theme from layout components", async () => {
+test("resolveDeckupThemeLayouts resolves every built-in theme from layout components", async () => {
   await withProjectRoot(async (projectRoot) => {
     const expectedLayouts = {
       default: [
@@ -443,10 +445,10 @@ test("resolveSlidaThemeLayouts resolves every built-in theme from layout compone
     } as const;
 
     for (const [themeName, layoutIds] of Object.entries(expectedLayouts)) {
-      const theme = await resolveSlidaThemeLayouts(projectRoot, themeName);
+      const theme = await resolveDeckupThemeLayouts(projectRoot, themeName);
 
       expect(theme.source).toBe("builtin");
-      expect(theme.packageName).toBe(`@slida/theme-${themeName}`);
+      expect(theme.packageName).toBe(`@deckup/theme-${themeName}`);
       expect((theme as { importPath?: string }).importPath).toBeUndefined();
       expect(theme.layoutsDir).toBe(join(theme.packageRoot!, "layouts"));
       expect(theme.layouts?.map((layout) => layout.id)).toEqual(layoutIds);
@@ -457,20 +459,20 @@ test("resolveSlidaThemeLayouts resolves every built-in theme from layout compone
   });
 });
 
-test("resolveSlidaThemeLayouts resolves npm theme layouts from the project root", async () => {
+test("resolveDeckupThemeLayouts resolves npm theme layouts from the project root", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await writeThemeLayoutPackage(projectRoot, "@acme/slida-layout-theme");
+    await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
 
-    const theme = await resolveSlidaThemeLayouts(projectRoot, "@acme/slida-layout-theme");
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
 
     expect(theme).toMatchObject({
-      name: "@acme/slida-layout-theme",
-      packageName: "@acme/slida-layout-theme",
+      name: "@acme/deckup-layout-theme",
+      packageName: "@acme/deckup-layout-theme",
       source: "package",
       slotNames: ["left", "right"],
     });
     expect(theme.packageRoot).toBe(
-      await realpath(join(projectRoot, "node_modules", "@acme", "slida-layout-theme")),
+      await realpath(join(projectRoot, "node_modules", "@acme", "deckup-layout-theme")),
     );
     expect(theme.layouts).toEqual(
       expect.arrayContaining([
@@ -481,7 +483,7 @@ test("resolveSlidaThemeLayouts resolves npm theme layouts from the project root"
               projectRoot,
               "node_modules",
               "@acme",
-              "slida-layout-theme",
+              "deckup-layout-theme",
               "layouts",
               "cover.astro",
             ),
@@ -498,21 +500,24 @@ test("resolveSlidaThemeLayouts resolves npm theme layouts from the project root"
   });
 });
 
-test("resolveSlidaThemeLayouts resolves npm theme layouts from the Slida cache", async () => {
+test("resolveDeckupThemeLayouts resolves npm theme layouts from the Deckup cache", async () => {
   await withProjectRoot(async (projectRoot) => {
     await withThemeCache(async (cacheDir) => {
-      const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+      const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
       const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
-      await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.2.3");
+      await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.2.3");
       await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
 
       await withSerializedProcessGlobals(() =>
         withNpmThemeCacheEnv(cacheDir, async () => {
-          const theme = await resolveSlidaThemeLayouts(projectRoot, "npm:@acme/slida-theme@1.2.3");
+          const theme = await resolveDeckupThemeLayouts(
+            projectRoot,
+            "npm:@acme/deckup-theme@1.2.3",
+          );
 
           expect(theme).toMatchObject({
-            name: "npm:@acme/slida-theme@1.2.3",
-            packageName: "@acme/slida-theme",
+            name: "npm:@acme/deckup-theme@1.2.3",
+            packageName: "@acme/deckup-theme",
             source: "package",
             slotNames: [],
           });
@@ -532,7 +537,7 @@ test("resolveSlidaThemeLayouts resolves npm theme layouts from the Slida cache",
   });
 });
 
-test("resolveSlidaThemeLayouts rejects CSS-only npm themes", async () => {
+test("resolveDeckupThemeLayouts rejects CSS-only npm themes", async () => {
   await withProjectRoot(async (projectRoot) => {
     const packageDir = join(projectRoot, "node_modules", "css-only-theme");
     await mkdir(packageDir, { recursive: true });
@@ -540,40 +545,40 @@ test("resolveSlidaThemeLayouts rejects CSS-only npm themes", async () => {
       join(packageDir, "package.json"),
       JSON.stringify({ name: "css-only-theme", type: "module", exports: { ".": "./style.css" } }),
     );
-    await writeFile(join(packageDir, "style.css"), ":root { --slida-accent: tomato; }\n");
+    await writeFile(join(packageDir, "style.css"), ":root { --deckup-accent: tomato; }\n");
 
-    await expect(resolveSlidaThemeLayouts(projectRoot, "css-only-theme")).rejects.toThrow(
+    await expect(resolveDeckupThemeLayouts(projectRoot, "css-only-theme")).rejects.toThrow(
       /export \.\/package\.json plus Astro layout components/,
     );
   });
 });
 
-test("createSlidaAstroConfig rejects CSS-only configured theme packages", async () => {
+test("createDeckupAstroConfig rejects CSS-only configured theme packages", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
     await writeThemePackage(projectRoot, "css-only-theme");
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
+      join(projectRoot, "deckup.config.ts"),
       "export default { theme: 'css-only-theme' };\n",
     );
 
     await expect(
-      createSlidaAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
+      createDeckupAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
     ).rejects.toThrow(/export \.\/package\.json plus Astro layout components/);
   });
 });
 
-test("resolveSlidaThemeLayouts rejects empty themes", async () => {
+test("resolveDeckupThemeLayouts rejects empty themes", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await expect(resolveSlidaThemeLayouts(projectRoot, " ")).rejects.toThrow(
-      /Slida theme must not be an empty string/,
+    await expect(resolveDeckupThemeLayouts(projectRoot, " ")).rejects.toThrow(
+      /Deckup theme must not be an empty string/,
     );
   });
 });
 
-test("resolveSlidaThemeLayouts rejects missing npm themes with built-in guidance", async () => {
+test("resolveDeckupThemeLayouts rejects missing npm themes with built-in guidance", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await expect(resolveSlidaThemeLayouts(projectRoot, "missing-theme")).rejects.toThrow(
+    await expect(resolveDeckupThemeLayouts(projectRoot, "missing-theme")).rejects.toThrow(
       /Built-in themes: default, minimal, bold, google-basic, apple-basic/,
     );
   });
@@ -581,7 +586,7 @@ test("resolveSlidaThemeLayouts rejects missing npm themes with built-in guidance
 
 test("resolveCachedNpmThemePackage downloads approved missing themes into the cache", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const calls: string[] = [];
     const confirmations: unknown[] = [];
 
@@ -592,31 +597,33 @@ test("resolveCachedNpmThemePackage downloads approved missing themes into the ca
         calls.push(`confirm:${request.spec}:${request.cacheDir}`);
         return true;
       },
-      operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3", calls),
+      operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls),
     });
 
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
     expect(confirmations).toEqual([
-      { spec: "@acme/slida-theme@1.2.3", packageName: "@acme/slida-theme", cacheDir },
+      { spec: "@acme/deckup-theme@1.2.3", packageName: "@acme/deckup-theme", cacheDir },
     ]);
     expect(calls).toEqual([
-      `confirm:@acme/slida-theme@1.2.3:${cacheDir}`,
-      expect.stringContaining("manifest:@acme/slida-theme@1.2.3:"),
-      expect.stringContaining("extract:https://registry.example.test/@acme-slida-theme-1.2.3.tgz:"),
+      `confirm:@acme/deckup-theme@1.2.3:${cacheDir}`,
+      expect.stringContaining("manifest:@acme/deckup-theme@1.2.3:"),
+      expect.stringContaining(
+        "extract:https://registry.example.test/@acme-deckup-theme-1.2.3.tgz:",
+      ),
     ]);
     expect(calls[2]).toContain("sha512-test-integrity");
     expect(resolved).toMatchObject({
-      packageName: "@acme/slida-theme",
+      packageName: "@acme/deckup-theme",
       packageRoot: await realpath(join(cacheEntryDir, "package")),
       version: "1.2.3",
       source: "package",
     });
-    await expect(readFile(join(cacheEntryDir, "slida-npm-theme.json"), "utf8")).resolves.toBe(
+    await expect(readFile(join(cacheEntryDir, "deckup-npm-theme.json"), "utf8")).resolves.toBe(
       `${JSON.stringify(
         {
-          source: "npm:@acme/slida-theme@1.2.3",
-          spec: "@acme/slida-theme@1.2.3",
-          packageName: "@acme/slida-theme",
+          source: "npm:@acme/deckup-theme@1.2.3",
+          spec: "@acme/deckup-theme@1.2.3",
+          packageName: "@acme/deckup-theme",
           version: "1.2.3",
         },
         null,
@@ -628,9 +635,9 @@ test("resolveCachedNpmThemePackage downloads approved missing themes into the ca
 
 test("resolveCachedNpmThemePackage reuses valid cached themes without prompting", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
-    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.2.3");
+    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.2.3");
     await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
 
     const resolved = await resolveCachedNpmThemePackage(source, {
@@ -654,21 +661,23 @@ test("resolveCachedNpmThemePackage reuses valid cached themes without prompting"
 
 test("resolveCachedNpmThemePackage repairs invalid cache entries before downloading", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
     await mkdir(cacheEntryDir, { recursive: true });
-    await writeFile(join(cacheEntryDir, "slida-npm-theme.json"), "{}\n");
+    await writeFile(join(cacheEntryDir, "deckup-npm-theme.json"), "{}\n");
 
     const calls: string[] = [];
     const resolved = await resolveCachedNpmThemePackage(source, {
       cacheDir,
       confirmDownload: async () => true,
-      operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3", calls),
+      operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls),
     });
 
     expect(calls).toEqual([
-      expect.stringContaining("manifest:@acme/slida-theme@1.2.3:"),
-      expect.stringContaining("extract:https://registry.example.test/@acme-slida-theme-1.2.3.tgz:"),
+      expect.stringContaining("manifest:@acme/deckup-theme@1.2.3:"),
+      expect.stringContaining(
+        "extract:https://registry.example.test/@acme-deckup-theme-1.2.3.tgz:",
+      ),
     ]);
     expect(resolved.packageRoot).toBe(await realpath(join(cacheEntryDir, "package")));
   });
@@ -676,21 +685,23 @@ test("resolveCachedNpmThemePackage repairs invalid cache entries before download
 
 test("resolveCachedNpmThemePackage repairs metadata/package version mismatches before downloading", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
-    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.0.0");
+    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.0.0");
     await writeCachedThemeMetadata(cacheEntryDir, source, "2.0.0");
 
     const calls: string[] = [];
     const resolved = await resolveCachedNpmThemePackage(source, {
       cacheDir,
       confirmDownload: async () => true,
-      operations: fakeNpmThemeOperations("@acme/slida-theme", "2.0.0", calls),
+      operations: fakeNpmThemeOperations("@acme/deckup-theme", "2.0.0", calls),
     });
 
     expect(calls).toEqual([
-      expect.stringContaining("manifest:@acme/slida-theme:"),
-      expect.stringContaining("extract:https://registry.example.test/@acme-slida-theme-2.0.0.tgz:"),
+      expect.stringContaining("manifest:@acme/deckup-theme:"),
+      expect.stringContaining(
+        "extract:https://registry.example.test/@acme-deckup-theme-2.0.0.tgz:",
+      ),
     ]);
     expect(resolved.version).toBe("2.0.0");
   });
@@ -698,13 +709,13 @@ test("resolveCachedNpmThemePackage repairs metadata/package version mismatches b
 
 test("resolveCachedNpmThemePackage serializes same-cache-key repair and download", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
     await mkdir(cacheEntryDir, { recursive: true });
-    await writeFile(join(cacheEntryDir, "slida-npm-theme.json"), "{}\n");
+    await writeFile(join(cacheEntryDir, "deckup-npm-theme.json"), "{}\n");
 
     let manifestCalls = 0;
-    const operations = fakeNpmThemeOperations("@acme/slida-theme", "1.2.3");
+    const operations = fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3");
     const wrappedOperations = {
       ...operations,
       async manifest(spec, options) {
@@ -733,11 +744,11 @@ test("resolveCachedNpmThemePackage serializes same-cache-key repair and download
 
 test("resolveCachedNpmThemePackage validates existing cache entry when promotion collides", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
     const calls: string[] = [];
 
-    const operations = fakeNpmThemeOperations("@acme/slida-theme", "1.2.3", calls);
+    const operations = fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls);
     const resolved = await resolveCachedNpmThemePackage(source, {
       cacheDir,
       confirmDownload: async () => true,
@@ -747,7 +758,7 @@ test("resolveCachedNpmThemePackage validates existing cache entry when promotion
           await operations.extract(spec, target, options);
           await writeCachedThemePackage(
             join(cacheEntryDir, "package"),
-            "@acme/slida-theme",
+            "@acme/deckup-theme",
             "1.2.3",
           );
           await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
@@ -763,7 +774,7 @@ test("resolveCachedNpmThemePackage validates existing cache entry when promotion
 
 test("resolveCachedNpmThemePackage preserves original errors when temp cleanup fails", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
 
     await expect(
       resolveCachedNpmThemePackage(source, {
@@ -771,7 +782,7 @@ test("resolveCachedNpmThemePackage preserves original errors when temp cleanup f
         confirmDownload: async () => true,
         operations: {
           async manifest() {
-            return { name: "@acme/slida-theme", version: "1.2.3" };
+            return { name: "@acme/deckup-theme", version: "1.2.3" };
           },
           async extract(_spec, target) {
             await rm(target, { force: true, recursive: true });
@@ -786,14 +797,14 @@ test("resolveCachedNpmThemePackage preserves original errors when temp cleanup f
 
 test("resolveCachedNpmThemePackage stops before network work when download is denied", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
 
     await expect(
       resolveCachedNpmThemePackage(source, {
         cacheDir,
         confirmDownload: async () => false,
-        operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3"),
+        operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3"),
       }),
     ).rejects.toThrow(/download cancelled/);
     await expect(stat(cacheEntryDir)).rejects.toThrow();
@@ -802,14 +813,14 @@ test("resolveCachedNpmThemePackage stops before network work when download is de
 
 test("resolveCachedNpmThemePackage fails uncached non-interactive downloads with guidance", async () => {
   await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
 
     await withSerializedProcessGlobals(() =>
       withNonInteractiveStdio(async () => {
         await expect(
           resolveCachedNpmThemePackage(source, {
             cacheDir,
-            operations: fakeNpmThemeOperations("@acme/slida-theme", "1.2.3"),
+            operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3"),
           }),
         ).rejects.toThrow(/Re-run in an interactive terminal to approve the download/);
       }),
@@ -817,94 +828,94 @@ test("resolveCachedNpmThemePackage fails uncached non-interactive downloads with
   });
 });
 
-test("createSlidaAstroConfig resolves config theme before Astro starts", async () => {
+test("createDeckupAstroConfig resolves config theme before Astro starts", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
-    await writeFile(join(projectRoot, "slida.config.ts"), "export default { theme: 'bold' };\n");
+    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { theme: 'bold' };\n");
 
-    const { slidaTheme } = await createSlidaAstroConfig({
+    const { deckupTheme } = await createDeckupAstroConfig({
       root: projectRoot,
       deckFile: "slides/deck.astro",
     });
 
-    expect(slidaTheme).toMatchObject({ name: "bold", source: "builtin" });
+    expect(deckupTheme).toMatchObject({ name: "bold", source: "builtin" });
   });
 });
 
-test("createSlidaAstroConfig lets deck theme override config theme before Astro starts", async () => {
+test("createDeckupAstroConfig lets deck theme override config theme before Astro starts", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(
       projectRoot,
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const theme = "minimal";
 ---
 
 <Page><h1>Deck</h1></Page>
 `,
     );
-    await writeFile(join(projectRoot, "slida.config.ts"), "export default { theme: 'bold' };\n");
+    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { theme: 'bold' };\n");
 
-    const { deck, slidaTheme } = await createSlidaAstroConfig({
+    const { deck, deckupTheme } = await createDeckupAstroConfig({
       root: projectRoot,
       deckFile: "slides/deck.astro",
     });
 
     expect(deck?.metadata).toEqual({ theme: "minimal" });
-    expect(slidaTheme).toMatchObject({ name: "minimal", source: "builtin" });
+    expect(deckupTheme).toMatchObject({ name: "minimal", source: "builtin" });
   });
 });
 
-test("createSlidaAstroConfig reports unresolved deck themes with deck path context", async () => {
+test("createDeckupAstroConfig reports unresolved deck themes with deck path context", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(
       projectRoot,
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const theme = "missing-theme";
 ---
 
 <Page><h1>Deck</h1></Page>
 `,
     );
-    await writeFile(join(projectRoot, "slida.config.ts"), "export default { theme: 'bold' };\n");
+    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { theme: 'bold' };\n");
 
     await expect(
-      createSlidaAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
-    ).rejects.toThrow(/Invalid Slida theme metadata in slides\/deck\.astro/);
+      createDeckupAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
+    ).rejects.toThrow(/Invalid Deckup theme metadata in slides\/deck\.astro/);
   });
 });
 
-test("createSlidaAstroConfig wires cached npm themes into generated Page and Vite fs allow", async () => {
+test("createDeckupAstroConfig wires cached npm themes into generated Page and Vite fs allow", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
     await withThemeCache(async (cacheDir) => {
-      const source = parseNpmThemeSource("npm:@acme/slida-theme@1.2.3")!;
+      const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
       const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
-      await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/slida-theme", "1.2.3");
+      await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.2.3");
       await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
       await writeFile(
-        join(projectRoot, "slida.config.ts"),
-        "export default { theme: 'npm:@acme/slida-theme@1.2.3' };\n",
+        join(projectRoot, "deckup.config.ts"),
+        "export default { theme: 'npm:@acme/deckup-theme@1.2.3' };\n",
       );
 
       await withSerializedProcessGlobals(() =>
         withNpmThemeCacheEnv(cacheDir, async () => {
-          const { astroConfig, paths, slidaTheme } = await createSlidaAstroConfig({
+          const { astroConfig, paths, deckupTheme } = await createDeckupAstroConfig({
             root: projectRoot,
             deckFile: "slides/deck.astro",
           });
           const packageRoot = await realpath(join(cacheEntryDir, "package"));
 
-          expect(slidaTheme).toMatchObject({
-            name: "npm:@acme/slida-theme@1.2.3",
-            packageName: "@acme/slida-theme",
+          expect(deckupTheme).toMatchObject({
+            name: "npm:@acme/deckup-theme@1.2.3",
+            packageName: "@acme/deckup-theme",
             packageRoot,
             source: "package",
           });
           expect(paths.generatedPageFilePath).toBeDefined();
           expect(await readFile(paths.generatedPageFilePath!, "utf8")).toContain(
-            VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+            VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
           );
           expect(astroConfig.vite?.server?.fs?.allow).toEqual(
             expect.arrayContaining([packageRoot, join(packageRoot, "layouts")]),
@@ -915,19 +926,19 @@ test("createSlidaAstroConfig wires cached npm themes into generated Page and Vit
   });
 });
 
-test("createSlidaAstroConfig fails uncached npm themes before Astro starts in non-interactive mode", async () => {
+test("createDeckupAstroConfig fails uncached npm themes before Astro starts in non-interactive mode", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
-      "export default { theme: 'npm:@acme/slida-theme@1.2.3' };\n",
+      join(projectRoot, "deckup.config.ts"),
+      "export default { theme: 'npm:@acme/deckup-theme@1.2.3' };\n",
     );
     await withThemeCache(async (cacheDir) => {
       await withSerializedProcessGlobals(() =>
         withNpmThemeCacheEnv(cacheDir, () =>
           withNonInteractiveStdio(async () => {
             await expect(
-              createSlidaAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
+              createDeckupAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
             ).rejects.toThrow(/Re-run in an interactive terminal to approve the download/);
           }),
         ),
@@ -1037,43 +1048,43 @@ test("no config does not install Tailwind as a built-in Vite plugin", () => {
 test("layout theme module is imported before the Astro deck and watches layout files", async () => {
   const paths = {
     ...testPaths(),
-    generatedPageFilePath: "/tmp/slida-project/.slida/runtime/generated/Page.astro",
+    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
   };
   const deck = {
     filePath: join(paths.projectRoot, "slides", "deck.astro"),
     projectRelativePath: "slides/deck.astro",
     format: "astro" as const,
   };
-  const defaultLayout = "/tmp/slida-layout-theme/layouts/default.astro";
-  const coverLayout = "/tmp/slida-layout-theme/layouts/cover.astro";
-  const twoColumnLayout = "/tmp/slida-layout-theme/layouts/two-column.astro";
+  const defaultLayout = "/tmp/deckup-layout-theme/layouts/default.astro";
+  const coverLayout = "/tmp/deckup-layout-theme/layouts/cover.astro";
+  const twoColumnLayout = "/tmp/deckup-layout-theme/layouts/two-column.astro";
   await mkdir(dirname(deck.filePath), { recursive: true });
   await writeFile(
     deck.filePath,
-    `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
+    `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
   );
 
   const config = createAstroInlineConfig(paths, {}, {}, deck, {
-    name: "@acme/slida-layout-theme",
-    filePath: "/tmp/slida-layout-theme/package.json",
-    layoutsDir: "/tmp/slida-layout-theme/layouts",
+    name: "@acme/deckup-layout-theme",
+    filePath: "/tmp/deckup-layout-theme/package.json",
+    layoutsDir: "/tmp/deckup-layout-theme/layouts",
     layouts: [
       {
         id: "cover",
         filePath: coverLayout,
-        importPath: "/@fs/tmp/slida-layout-theme/layouts/cover.astro",
+        importPath: "/@fs/tmp/deckup-layout-theme/layouts/cover.astro",
         slotNames: [],
       },
       {
         id: "default",
         filePath: defaultLayout,
-        importPath: "/@fs/tmp/slida-layout-theme/layouts/default.astro",
+        importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
         slotNames: [],
       },
       {
         id: "two-column",
         filePath: twoColumnLayout,
-        importPath: "/@fs/tmp/slida-layout-theme/layouts/two-column.astro",
+        importPath: "/@fs/tmp/deckup-layout-theme/layouts/two-column.astro",
         slotNames: ["left", "right"],
       },
     ],
@@ -1081,61 +1092,61 @@ test("layout theme module is imported before the Astro deck and watches layout f
     source: "package",
   });
 
-  const deckModule = await loadVirtualModule(config, "slida:virtual-deck", "virtual:slida/deck");
+  const deckModule = await loadVirtualModule(config, "deckup:virtual-deck", "virtual:deckup/deck");
   const layoutsModule = await loadVirtualModule(
     config,
-    "slida:virtual-theme-layouts",
-    VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+    "deckup:virtual-theme-layouts",
+    VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
   );
 
-  expect(deckModule.code.indexOf(VIRTUAL_SLIDA_THEME_LAYOUTS_ID)).toBeLessThan(
+  expect(deckModule.code.indexOf(VIRTUAL_DECKUP_THEME_LAYOUTS_ID)).toBeLessThan(
     deckModule.code.indexOf("/slides/deck.astro"),
   );
   expect(deckModule.watched).toEqual(
     expect.arrayContaining([
       deck.filePath,
-      "/tmp/slida-layout-theme/package.json",
-      "/tmp/slida-layout-theme/layouts",
+      "/tmp/deckup-layout-theme/package.json",
+      "/tmp/deckup-layout-theme/layouts",
       coverLayout,
     ]),
   );
   expect(layoutsModule.code).toContain("Layout0");
   expect(layoutsModule.code).toContain('"two-column": Layout2');
   expect(layoutsModule.watched).toEqual(
-    expect.arrayContaining(["/tmp/slida-layout-theme/layouts", coverLayout, twoColumnLayout]),
+    expect.arrayContaining(["/tmp/deckup-layout-theme/layouts", coverLayout, twoColumnLayout]),
   );
 });
 
 test("layout theme module is imported before the MDX deck and validates layout ids", async () => {
   const paths = {
     ...testPaths(),
-    generatedPageFilePath: "/tmp/slida-project/.slida/runtime/generated/Page.astro",
+    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
   };
   const deck = {
     filePath: join(paths.projectRoot, "slides", "deck.mdx"),
     projectRelativePath: "slides/deck.mdx",
     format: "mdx" as const,
   };
-  const defaultLayout = "/tmp/slida-layout-theme/layouts/default.astro";
-  const coverLayout = "/tmp/slida-layout-theme/layouts/cover.astro";
+  const defaultLayout = "/tmp/deckup-layout-theme/layouts/default.astro";
+  const coverLayout = "/tmp/deckup-layout-theme/layouts/cover.astro";
   await mkdir(dirname(deck.filePath), { recursive: true });
   await writeFile(deck.filePath, `---\ntitle: MDX Deck\n---\n\n<layout id="cover" />\n\n# Deck\n`);
 
   const config = createAstroInlineConfig(paths, {}, {}, deck, {
-    name: "@acme/slida-layout-theme",
-    filePath: "/tmp/slida-layout-theme/package.json",
-    layoutsDir: "/tmp/slida-layout-theme/layouts",
+    name: "@acme/deckup-layout-theme",
+    filePath: "/tmp/deckup-layout-theme/package.json",
+    layoutsDir: "/tmp/deckup-layout-theme/layouts",
     layouts: [
       {
         id: "cover",
         filePath: coverLayout,
-        importPath: "/@fs/tmp/slida-layout-theme/layouts/cover.astro",
+        importPath: "/@fs/tmp/deckup-layout-theme/layouts/cover.astro",
         slotNames: [],
       },
       {
         id: "default",
         filePath: defaultLayout,
-        importPath: "/@fs/tmp/slida-layout-theme/layouts/default.astro",
+        importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
         slotNames: [],
       },
     ],
@@ -1143,17 +1154,17 @@ test("layout theme module is imported before the MDX deck and validates layout i
     source: "package",
   });
 
-  const deckModule = await loadVirtualModule(config, "slida:virtual-deck", "virtual:slida/deck");
+  const deckModule = await loadVirtualModule(config, "deckup:virtual-deck", "virtual:deckup/deck");
 
-  expect(deckModule.code.indexOf(VIRTUAL_SLIDA_THEME_LAYOUTS_ID)).toBeLessThan(
+  expect(deckModule.code.indexOf(VIRTUAL_DECKUP_THEME_LAYOUTS_ID)).toBeLessThan(
     deckModule.code.indexOf("/slides/deck.mdx"),
   );
   expect(deckModule.code).toContain('import Deck, { frontmatter } from "/slides/deck.mdx"');
   expect(deckModule.watched).toEqual(
     expect.arrayContaining([
       deck.filePath,
-      "/tmp/slida-layout-theme/package.json",
-      "/tmp/slida-layout-theme/layouts",
+      "/tmp/deckup-layout-theme/package.json",
+      "/tmp/deckup-layout-theme/layouts",
       coverLayout,
     ]),
   );
@@ -1162,7 +1173,7 @@ test("layout theme module is imported before the MDX deck and validates layout i
 test("layout themes add generated Page alias and layout fs allow entry", () => {
   const paths = {
     ...testPaths(),
-    generatedPageFilePath: "/tmp/slida-project/.slida/runtime/generated/Page.astro",
+    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
   };
   const deck = {
     filePath: join(paths.projectRoot, "slides", "deck.astro"),
@@ -1170,14 +1181,14 @@ test("layout themes add generated Page alias and layout fs allow entry", () => {
     format: "astro" as const,
   };
   const config = createAstroInlineConfig(paths, {}, {}, deck, {
-    name: "@acme/slida-layout-theme",
-    filePath: "/tmp/slida-layout-theme/package.json",
-    layoutsDir: "/tmp/slida-layout-theme/layouts",
+    name: "@acme/deckup-layout-theme",
+    filePath: "/tmp/deckup-layout-theme/package.json",
+    layoutsDir: "/tmp/deckup-layout-theme/layouts",
     layouts: [
       {
         id: "default",
-        filePath: "/tmp/slida-layout-theme/layouts/default.astro",
-        importPath: "/@fs/tmp/slida-layout-theme/layouts/default.astro",
+        filePath: "/tmp/deckup-layout-theme/layouts/default.astro",
+        importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
         slotNames: [],
       },
     ],
@@ -1188,25 +1199,25 @@ test("layout themes add generated Page alias and layout fs allow entry", () => {
   expect(config.vite?.resolve?.alias).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        find: /^@slida\/astro\/page$/,
+        find: /^@deckup\/astro\/page$/,
         replacement: paths.generatedPageFilePath,
       }),
     ]),
   );
   expect(config.vite?.server?.fs?.allow).toEqual(
-    expect.arrayContaining(["/tmp/slida-layout-theme", "/tmp/slida-layout-theme/layouts"]),
+    expect.arrayContaining(["/tmp/deckup-layout-theme", "/tmp/deckup-layout-theme/layouts"]),
   );
 });
 
-test("generated Page paths do not alias @slida/astro/page without layout themes", () => {
+test("generated Page paths do not alias @deckup/astro/page without layout themes", () => {
   const paths = {
     ...testPaths(),
-    generatedPageFilePath: "/tmp/slida-project/.slida/runtime/generated/Page.astro",
+    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
   };
   const config = createAstroInlineConfig(paths);
 
   expect(config.vite?.resolve?.alias).not.toEqual(
-    expect.arrayContaining([expect.objectContaining({ find: /^@slida\/cli\/page$/ })]),
+    expect.arrayContaining([expect.objectContaining({ find: /^@deckup\/cli\/page$/ })]),
   );
 });
 
@@ -1237,14 +1248,14 @@ test("createAstroInlineConfig rejects layout themes without generated Page alias
 
   expect(() =>
     createAstroInlineConfig(paths, {}, {}, deck, {
-      name: "@acme/slida-layout-theme",
-      filePath: "/tmp/slida-layout-theme/package.json",
-      layoutsDir: "/tmp/slida-layout-theme/layouts",
+      name: "@acme/deckup-layout-theme",
+      filePath: "/tmp/deckup-layout-theme/package.json",
+      layoutsDir: "/tmp/deckup-layout-theme/layouts",
       layouts: [
         {
           id: "default",
-          filePath: "/tmp/slida-layout-theme/layouts/default.astro",
-          importPath: "/@fs/tmp/slida-layout-theme/layouts/default.astro",
+          filePath: "/tmp/deckup-layout-theme/layouts/default.astro",
+          importPath: "/@fs/tmp/deckup-layout-theme/layouts/default.astro",
           slotNames: [],
         },
       ],
@@ -1254,26 +1265,26 @@ test("createAstroInlineConfig rejects layout themes without generated Page alias
   ).toThrow(/requires a generated Page component/);
 });
 
-test("createSlidaAstroConfig writes generated Page for layout themes", async () => {
+test("createDeckupAstroConfig writes generated Page for layout themes", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
-    await writeThemeLayoutPackage(projectRoot, "@acme/slida-layout-theme");
+    await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
-      "export default { theme: '@acme/slida-layout-theme' };\n",
+      join(projectRoot, "deckup.config.ts"),
+      "export default { theme: '@acme/deckup-layout-theme' };\n",
     );
 
-    const { astroConfig, paths } = await createSlidaAstroConfig({
+    const { astroConfig, paths } = await createDeckupAstroConfig({
       root: projectRoot,
       deckFile: "slides/deck.astro",
     });
 
     expect(paths.generatedPageFilePath).toBe(
-      join(await realpath(projectRoot), ".slida/runtime/generated/Page.astro"),
+      join(await realpath(projectRoot), ".deckup/runtime/generated/Page.astro"),
     );
     expect(paths.generatedPageFilePath).toBeDefined();
     expect(await readFile(paths.generatedPageFilePath!, "utf8")).toContain(
-      VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
     );
     expect(await readFile(paths.generatedPageFilePath!, "utf8")).toContain(
       '<slot name="left" slot="left" />',
@@ -1288,11 +1299,11 @@ test("createSlidaAstroConfig writes generated Page for layout themes", async () 
 
 test("virtual layout registry re-discovers layouts added after config creation", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await writeMinimalThemeLayoutPackage(projectRoot, "@acme/slida-layout-theme");
-    const theme = await resolveSlidaThemeLayouts(projectRoot, "@acme/slida-layout-theme");
+    await writeMinimalThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
     const paths = {
       ...testPaths(projectRoot),
-      generatedPageFilePath: join(projectRoot, ".slida/runtime/generated/Page.astro"),
+      generatedPageFilePath: join(projectRoot, ".deckup/runtime/generated/Page.astro"),
     };
     const deck = {
       filePath: join(projectRoot, "slides", "deck.astro"),
@@ -1302,12 +1313,16 @@ test("virtual layout registry re-discovers layouts added after config creation",
     await mkdir(dirname(deck.filePath), { recursive: true });
     await writeFile(
       deck.filePath,
-      `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
+      `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
     );
     await writeFile(join(theme.layoutsDir!, "speaker.astro"), "<slot />\n");
 
     const config = createAstroInlineConfig(paths, {}, {}, deck, theme);
-    const deckModule = await loadVirtualModule(config, "slida:virtual-deck", "virtual:slida/deck");
+    const deckModule = await loadVirtualModule(
+      config,
+      "deckup:virtual-deck",
+      "virtual:deckup/deck",
+    );
 
     expect(deckModule.code).toContain("slides/deck.astro");
     expect(deckModule.watched).toEqual(
@@ -1318,20 +1333,20 @@ test("virtual layout registry re-discovers layouts added after config creation",
 
 test("virtual layout registry rejects layouts removed after config creation", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await writeMinimalThemeLayoutPackage(projectRoot, "@acme/slida-layout-theme");
+    await writeMinimalThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
     const speakerLayout = join(
       projectRoot,
       "node_modules",
       "@acme",
-      "slida-layout-theme",
+      "deckup-layout-theme",
       "layouts",
       "speaker.astro",
     );
     await writeFile(speakerLayout, "<slot />\n");
-    const theme = await resolveSlidaThemeLayouts(projectRoot, "@acme/slida-layout-theme");
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
     const paths = {
       ...testPaths(projectRoot),
-      generatedPageFilePath: join(projectRoot, ".slida/runtime/generated/Page.astro"),
+      generatedPageFilePath: join(projectRoot, ".deckup/runtime/generated/Page.astro"),
     };
     const deck = {
       filePath: join(projectRoot, "slides", "deck.astro"),
@@ -1341,25 +1356,25 @@ test("virtual layout registry rejects layouts removed after config creation", as
     await mkdir(dirname(deck.filePath), { recursive: true });
     await writeFile(
       deck.filePath,
-      `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
+      `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><layout id="speaker" /><h1>Deck</h1></Page>\n`,
     );
     await unlink(speakerLayout);
 
     const config = createAstroInlineConfig(paths, {}, {}, deck, theme);
 
     await expect(
-      loadVirtualModule(config, "slida:virtual-deck", "virtual:slida/deck"),
+      loadVirtualModule(config, "deckup:virtual-deck", "virtual:deckup/deck"),
     ).rejects.toThrow(/does not provide layout "speaker"/);
   });
 });
 
 test("virtual layout registry refreshes generated Page slot forwarding", async () => {
   await withProjectRoot(async (projectRoot) => {
-    await writeThemeLayoutPackage(projectRoot, "@acme/slida-layout-theme");
-    const theme = await resolveSlidaThemeLayouts(projectRoot, "@acme/slida-layout-theme");
+    await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
     const paths = {
       ...testPaths(projectRoot),
-      generatedPageFilePath: join(projectRoot, ".slida/runtime/generated/Page.astro"),
+      generatedPageFilePath: join(projectRoot, ".deckup/runtime/generated/Page.astro"),
     };
     const deck = {
       filePath: join(projectRoot, "slides", "deck.astro"),
@@ -1369,11 +1384,15 @@ test("virtual layout registry refreshes generated Page slot forwarding", async (
     await mkdir(dirname(deck.filePath), { recursive: true });
     await writeFile(
       deck.filePath,
-      `---\nimport Page from "@slida/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
+      `---\nimport Page from "@deckup/astro/page";\n---\n\n<Page><h1>Deck</h1></Page>\n`,
     );
     const config = createAstroInlineConfig(paths, {}, {}, deck, theme);
 
-    await loadVirtualModule(config, "slida:virtual-theme-layouts", VIRTUAL_SLIDA_THEME_LAYOUTS_ID);
+    await loadVirtualModule(
+      config,
+      "deckup:virtual-theme-layouts",
+      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
+    );
     expect(await readFile(paths.generatedPageFilePath, "utf8")).toContain(
       '<slot name="left" slot="left" />',
     );
@@ -1383,17 +1402,21 @@ test("virtual layout registry refreshes generated Page slot forwarding", async (
       `<section><slot /><slot name="speaker" /></section>\n`,
     );
 
-    await loadVirtualModule(config, "slida:virtual-theme-layouts", VIRTUAL_SLIDA_THEME_LAYOUTS_ID);
+    await loadVirtualModule(
+      config,
+      "deckup:virtual-theme-layouts",
+      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
+    );
     const generatedPage = await readFile(paths.generatedPageFilePath, "utf8");
     expect(generatedPage).toContain('<slot name="speaker" slot="speaker" />');
     expect(generatedPage).not.toContain('<slot name="left" slot="left" />');
   });
 });
 
-test("user Astro config appends without replacing Slida-owned values", () => {
+test("user Astro config appends without replacing Deckup-owned values", () => {
   const paths = {
     ...testPaths(),
-    generatedPageFilePath: "/tmp/slida-project/.slida/runtime/generated/Page.astro",
+    generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
   };
   const userIntegration = { name: "user-integration", hooks: {} } as never;
   const userPlugin = { name: "user-plugin" } as never;
@@ -1431,19 +1454,19 @@ test("user Astro config appends without replacing Slida-owned values", () => {
     deck,
     {
       name: "bold",
-      filePath: "/tmp/slida-theme-bold/package.json",
-      layoutsDir: "/tmp/slida-theme-bold/layouts",
+      filePath: "/tmp/deckup-theme-bold/package.json",
+      layoutsDir: "/tmp/deckup-theme-bold/layouts",
       layouts: [
         {
           id: "cover",
-          filePath: "/tmp/slida-theme-bold/layouts/cover.astro",
-          importPath: "/@fs/tmp/slida-theme-bold/layouts/cover.astro",
+          filePath: "/tmp/deckup-theme-bold/layouts/cover.astro",
+          importPath: "/@fs/tmp/deckup-theme-bold/layouts/cover.astro",
           slotNames: [],
         },
         {
           id: "default",
-          filePath: "/tmp/slida-theme-bold/layouts/default.astro",
-          importPath: "/@fs/tmp/slida-theme-bold/layouts/default.astro",
+          filePath: "/tmp/deckup-theme-bold/layouts/default.astro",
+          importPath: "/@fs/tmp/deckup-theme-bold/layouts/default.astro",
           slotNames: [],
         },
       ],
@@ -1463,9 +1486,9 @@ test("user Astro config appends without replacing Slida-owned values", () => {
   expect(config.srcDir).toBe(paths.runtimeOutDir);
   expect(config.output).toBe("static");
   expect(config.integrations?.at(-1)).toBe(userIntegration);
-  expect(vitePlugins(config)[0]?.name).toBe("slida:virtual-theme-layouts");
+  expect(vitePlugins(config)[0]?.name).toBe("deckup:virtual-theme-layouts");
   expect(config.vite?.plugins).toEqual(
-    expect.arrayContaining([expect.objectContaining({ name: "slida:virtual-deck" })]),
+    expect.arrayContaining([expect.objectContaining({ name: "deckup:virtual-deck" })]),
   );
   expect(config.vite?.plugins?.at(-1)).toBe(userPlugin);
   expect(config.vite?.resolve?.alias).toEqual(
@@ -1480,8 +1503,8 @@ test("user Astro config appends without replacing Slida-owned values", () => {
       paths.runtimeOutDir,
       paths.runtimeSourceDir,
       dirname(deck.filePath),
-      "/tmp/slida-theme-bold",
-      "/tmp/slida-theme-bold/layouts",
+      "/tmp/deckup-theme-bold",
+      "/tmp/deckup-theme-bold/layouts",
       join(paths.projectRoot, "content"),
     ]),
   );

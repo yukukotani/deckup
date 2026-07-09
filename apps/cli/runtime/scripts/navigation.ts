@@ -1,13 +1,13 @@
-const slideSelector = "[data-slida-slide]";
-const currentSelector = "[data-slida-current]";
-const previousButtonSelector = "[data-slida-nav-prev]";
-const nextButtonSelector = "[data-slida-nav-next]";
-const fullscreenButtonSelector = "[data-slida-nav-fullscreen]";
-const navigationMenuSelector = "[data-slida-navigation]";
-const dragHandleSelector = "[data-slida-nav-drag-handle]";
+const slideSelector = "[data-deckup-slide]";
+const currentSelector = "[data-deckup-current]";
+const previousButtonSelector = "[data-deckup-nav-prev]";
+const nextButtonSelector = "[data-deckup-nav-next]";
+const fullscreenButtonSelector = "[data-deckup-nav-fullscreen]";
+const navigationMenuSelector = "[data-deckup-navigation]";
+const dragHandleSelector = "[data-deckup-nav-drag-handle]";
 const editableSelector =
   "input, textarea, select, button, [contenteditable=''], [contenteditable='true']";
-const printModeAttribute = "data-slida-print";
+const printModeAttribute = "data-deckup-print";
 const enterFullscreenLabel = "Enter fullscreen";
 const exitFullscreenLabel = "Exit fullscreen";
 

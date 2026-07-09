@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat c7aa912..HEAD -- apps/cli/src/slida-vite-plugins.ts apps/cli/src/theme-layouts.ts apps/cli/tests/`
+> **Drift check (run first)**: `git diff --stat c7aa912..HEAD -- apps/cli/src/deckup-vite-plugins.ts apps/cli/src/theme-layouts.ts apps/cli/tests/`
 > Changes from Plans 001-004 are EXPECTED (Plan 004 moved shared AST helpers
 > to `astro-ast.ts`/`utils.ts`). Locate every excerpt below by symbol name,
 > not line number. If a named function no longer exists or its body differs
@@ -23,9 +23,9 @@
 
 ## Why this matters
 
-Every load of either Slida virtual module (`virtual:slida/theme-layouts` and
-`virtual:slida/deck`) — which happens on every HMR trigger for the deck or
-theme during `slida dev` — calls `refreshThemeRuntime`, which re-runs
+Every load of either Deckup virtual module (`virtual:deckup/theme-layouts` and
+`virtual:deckup/deck`) — which happens on every HMR trigger for the deck or
+theme during `deckup dev` — calls `refreshThemeRuntime`, which re-runs
 `discoverThemeLayouts`: a `readdir` plus a **sequential** `readFile` + full
 `@astrojs/compiler-rs` parse of every layout `.astro` file, and then
 unconditionally rewrites the generated `Page.astro` file even when nothing
@@ -41,7 +41,7 @@ Relevant files:
 
 - `apps/cli/src/theme-layouts.ts` — `discoverThemeLayouts` (exported; also
   used by `theme.ts` for the initial resolve).
-- `apps/cli/src/slida-vite-plugins.ts` — `refreshThemeLayouts`,
+- `apps/cli/src/deckup-vite-plugins.ts` — `refreshThemeLayouts`,
   `writeFreshGeneratedPage`, `refreshThemeRuntime`, and the three plugin
   factories that call them.
 - `apps/cli/tests/` — there are currently NO direct tests for
@@ -52,10 +52,10 @@ The sequential discovery loop as it exists today:
 
 ```ts
 // apps/cli/src/theme-layouts.ts — discoverThemeLayouts (tail)
-const layouts: SlidaResolvedThemeLayout[] = [];
+const layouts: DeckupResolvedThemeLayout[] = [];
 for (const entry of layoutFiles) {
   const id = layoutIdFromFileName(entry.name);
-  assertValidSlidaLayoutId(id, `${themeName} theme layout ${entry.name}`);
+  assertValidDeckupLayoutId(id, `${themeName} theme layout ${entry.name}`);
   const filePath = join(layoutsDir, entry.name);
   await assertReadableAstroLayout(themeName, id, filePath);
   const source = await readFile(filePath, "utf8");
@@ -70,11 +70,11 @@ for (const entry of layoutFiles) {
 return layouts;
 ```
 
-The refresh path in `slida-vite-plugins.ts`:
+The refresh path in `deckup-vite-plugins.ts`:
 
 ```ts
-// slida-vite-plugins.ts — refreshThemeLayouts (abridged)
-async function refreshThemeLayouts(theme?: SlidaResolvedTheme): Promise<SlidaResolvedTheme | undefined> {
+// deckup-vite-plugins.ts — refreshThemeLayouts (abridged)
+async function refreshThemeLayouts(theme?: DeckupResolvedTheme): Promise<DeckupResolvedTheme | undefined> {
   if (!theme) return undefined;
   if (!hasThemeLayouts(theme) || !theme.layoutsDir) return theme;
   try {
@@ -88,14 +88,14 @@ async function refreshThemeLayouts(theme?: SlidaResolvedTheme): Promise<SlidaRes
   }
 }
 
-// slida-vite-plugins.ts — writeFreshGeneratedPage (abridged)
+// deckup-vite-plugins.ts — writeFreshGeneratedPage (abridged)
 async function writeFreshGeneratedPage(theme, options) {
   if (!theme || !hasThemeLayouts(theme) || !options.generatedPageFilePath) return;
   await mkdir(dirname(options.generatedPageFilePath), { recursive: true });
   await writeFile(options.generatedPageFilePath, createGeneratedPageComponentSource(...));
 }
 
-// slida-vite-plugins.ts — refreshThemeRuntime
+// deckup-vite-plugins.ts — refreshThemeRuntime
 async function refreshThemeRuntime(theme, options) {
   const refreshedTheme = await refreshThemeLayouts(theme);
   await writeFreshGeneratedPage(refreshedTheme, options);
@@ -108,7 +108,7 @@ Callers of the refresh path (all must keep working):
 - `createVirtualThemeLayoutsPlugin` → `refreshThemeRuntime` in `load()`
 - `createVirtualDeckPlugin` → `refreshThemeRuntime` in `load()`
 - `createAstroDeckValidationPlugin` → `refreshThemeLayouts` in `transform()`
-- `createSlidaVitePlugins(deck, theme, options)` constructs all three — this
+- `createDeckupVitePlugins(deck, theme, options)` constructs all three — this
   is the natural place to create one shared cache per dev-server/build run.
 
 Behavioral contracts that MUST NOT change:
@@ -128,20 +128,20 @@ use explicit `.ts` extensions.
 
 ## Commands you will need
 
-| Purpose          | Command                  | Expected on success                                                                        |
-| ---------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
-| Install          | `vp install`             | exit 0                                                                                     |
-| CLI tests        | `vp run @slida/cli#test` | exit 0, all pass                                                                           |
-| Lint/fmt/types   | `vp check`               | exit 0                                                                                     |
-| Full gate        | `vp run ready`           | exit 0                                                                                     |
-| Manual HMR check | `vp run example#dev`     | dev server starts; edits to `packages/theme-google-basic/layouts/*.astro` still hot-reload |
+| Purpose          | Command                   | Expected on success                                                                        |
+| ---------------- | ------------------------- | ------------------------------------------------------------------------------------------ |
+| Install          | `vp install`              | exit 0                                                                                     |
+| CLI tests        | `vp run @deckup/cli#test` | exit 0, all pass                                                                           |
+| Lint/fmt/types   | `vp check`                | exit 0                                                                                     |
+| Full gate        | `vp run ready`            | exit 0                                                                                     |
+| Manual HMR check | `vp run example#dev`      | dev server starts; edits to `packages/theme-google-basic/layouts/*.astro` still hot-reload |
 
 ## Scope
 
 **In scope** (the only files you should modify/create):
 
 - `apps/cli/src/theme-layouts.ts`
-- `apps/cli/src/slida-vite-plugins.ts`
+- `apps/cli/src/deckup-vite-plugins.ts`
 - `apps/cli/tests/theme-layouts.test.ts` (create)
 
 **Out of scope** (do NOT touch):
@@ -170,7 +170,7 @@ In `apps/cli/src/theme-layouts.ts`, replace the sequential tail loop with:
 return Promise.all(
   layoutFiles.map(async (entry) => {
     const id = layoutIdFromFileName(entry.name);
-    assertValidSlidaLayoutId(id, `${themeName} theme layout ${entry.name}`);
+    assertValidDeckupLayoutId(id, `${themeName} theme layout ${entry.name}`);
     const filePath = join(layoutsDir, entry.name);
     await assertReadableAstroLayout(themeName, id, filePath);
     const source = await readFile(filePath, "utf8");
@@ -191,7 +191,7 @@ error surfaces first is no longer strictly the alphabetically-first one —
 each individual error message is unchanged. The existing `astro.test.ts`
 fixtures use single-error cases, so this is safe; verify.
 
-**Verify**: `vp run @slida/cli#test` → exit 0.
+**Verify**: `vp run @deckup/cli#test` → exit 0.
 
 ### Step 2: Add a fingerprint-validated discovery cache
 
@@ -216,7 +216,7 @@ async function fingerprintLayoutsDir(layoutsDir: string) {
 
 export function createThemeLayoutDiscoveryCache() {
   let cached:
-    | { layoutsDir: string; fingerprint: string; layouts: SlidaResolvedThemeLayout[] }
+    | { layoutsDir: string; fingerprint: string; layouts: DeckupResolvedThemeLayout[] }
     | undefined;
 
   return async function discoverCached(themeName: string, layoutsDir: string) {
@@ -244,11 +244,11 @@ The fingerprint filter MUST match `discoverThemeLayouts`'s own filter
 (`.astro`, not `_`-prefixed) so an added/removed/renamed layout file always
 changes the fingerprint.
 
-### Step 3: Wire the cache through `createSlidaVitePlugins`
+### Step 3: Wire the cache through `createDeckupVitePlugins`
 
-In `apps/cli/src/slida-vite-plugins.ts`:
+In `apps/cli/src/deckup-vite-plugins.ts`:
 
-1. `createSlidaVitePlugins` creates ONE cache instance per call:
+1. `createDeckupVitePlugins` creates ONE cache instance per call:
    `const discoverCached = createThemeLayoutDiscoveryCache();`
 2. Pass it down to the three factories
    (`createVirtualThemeLayoutsPlugin`, `createVirtualDeckPlugin`,
@@ -262,25 +262,25 @@ In `apps/cli/src/slida-vite-plugins.ts`:
 
 ### Step 4: Skip rewriting an unchanged generated Page
 
-In `slida-vite-plugins.ts`, give `writeFreshGeneratedPage` a small
+In `deckup-vite-plugins.ts`, give `writeFreshGeneratedPage` a small
 last-written memo so repeated loads don't rewrite an identical file inside
 Astro's `srcDir` (needless writes can trigger extra watcher churn). Keep the
-memo alongside the cache created in `createSlidaVitePlugins`:
+memo alongside the cache created in `createDeckupVitePlugins`:
 
 ```ts
-// in createSlidaVitePlugins:
+// in createDeckupVitePlugins:
 const generatedPageMemo = { lastSource: undefined as string | undefined };
 ```
 
 In `writeFreshGeneratedPage`, compute
-`const source = createGeneratedPageComponentSource(theme.slotNames ?? [], VIRTUAL_SLIDA_THEME_LAYOUTS_ID);`
+`const source = createGeneratedPageComponentSource(theme.slotNames ?? [], VIRTUAL_DECKUP_THEME_LAYOUTS_ID);`
 and return early (before `mkdir`/`writeFile`) when
 `source === generatedPageMemo.lastSource`; otherwise write and update the
-memo. Note the memo is per-`createSlidaVitePlugins` call, so the first load
+memo. Note the memo is per-`createDeckupVitePlugins` call, so the first load
 after server start always writes (correct: `astro.ts` also writes it during
 config creation, but the plugin cannot assume that).
 
-**Verify**: `vp check` → exit 0. `vp run @slida/cli#test` → exit 0.
+**Verify**: `vp check` → exit 0. `vp run @deckup/cli#test` → exit 0.
 
 ### Step 5: Add direct tests
 
@@ -305,7 +305,7 @@ Create `apps/cli/tests/theme-layouts.test.ts` (model temp-dir helpers after
 7. Cache invalidation on file addition: adding a new `.astro` file changes
    the result set.
 
-**Verify**: `vp run @slida/cli#test` → exit 0, including the 7 new tests.
+**Verify**: `vp run @deckup/cli#test` → exit 0, including the 7 new tests.
 
 ### Step 6: Manual HMR smoke test
 
@@ -350,9 +350,9 @@ Stop and report back (do not improvise) if:
 
 ## Maintenance notes
 
-- The cache is per-`createSlidaVitePlugins` call (per dev server / per
+- The cache is per-`createDeckupVitePlugins` call (per dev server / per
   build), so there is no cross-project or cross-run staleness by design.
-- If Slida ever supports multiple themes at once, the single-slot cache
+- If Deckup ever supports multiple themes at once, the single-slot cache
   (`cached` holds one layoutsDir) must become a Map keyed by layoutsDir.
 - Reviewer: scrutinize that the fingerprint's file filter exactly matches
   `discoverThemeLayouts`'s filter, and that the error-fallback contract in

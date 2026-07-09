@@ -1,79 +1,79 @@
-export type SlidaDeckFormat = "astro" | "mdx";
+export type DeckupDeckFormat = "astro" | "mdx";
 
-export type SlidaRouteId = string;
+export type DeckupRouteId = string;
 
-export interface SlidaDeckMetadata {
+export interface DeckupDeckMetadata {
   theme?: string;
 }
 
-export interface SlidaResolvedDeck {
+export interface DeckupResolvedDeck {
   filePath: string;
   projectRelativePath: string;
-  format: SlidaDeckFormat;
-  metadata?: SlidaDeckMetadata;
+  format: DeckupDeckFormat;
+  metadata?: DeckupDeckMetadata;
 }
 
-export interface SlidaResolvedDeckRoute extends SlidaResolvedDeck {
+export interface DeckupResolvedDeckRoute extends DeckupResolvedDeck {
   sourceGlob: string;
   globBase: string;
   slug: string;
   routePath: string;
-  routeId: SlidaRouteId;
+  routeId: DeckupRouteId;
   virtualDeckModuleId: string;
   virtualRouteModuleId: string;
 }
 
-export interface SlidaDeckRegistry {
+export interface DeckupDeckRegistry {
   projectRoot: string;
   base: string;
-  decks: SlidaResolvedDeckRoute[];
-  byFilePath: Map<string, SlidaResolvedDeckRoute>;
-  byProjectRelativePath: Map<string, SlidaResolvedDeckRoute>;
-  byRoutePath: Map<string, SlidaResolvedDeckRoute>;
-  byRouteId: Map<string, SlidaResolvedDeckRoute>;
-  matchId(id: string): SlidaResolvedDeckRoute | undefined;
-  matchMdxFile(file: { path?: string; history?: string[] }): SlidaResolvedDeckRoute | undefined;
-  getByRoutePath(routePath: string): SlidaResolvedDeckRoute | undefined;
-  getByRouteId(routeId: string): SlidaResolvedDeckRoute | undefined;
+  decks: DeckupResolvedDeckRoute[];
+  byFilePath: Map<string, DeckupResolvedDeckRoute>;
+  byProjectRelativePath: Map<string, DeckupResolvedDeckRoute>;
+  byRoutePath: Map<string, DeckupResolvedDeckRoute>;
+  byRouteId: Map<string, DeckupResolvedDeckRoute>;
+  matchId(id: string): DeckupResolvedDeckRoute | undefined;
+  matchMdxFile(file: { path?: string; history?: string[] }): DeckupResolvedDeckRoute | undefined;
+  getByRoutePath(routePath: string): DeckupResolvedDeckRoute | undefined;
+  getByRouteId(routeId: string): DeckupResolvedDeckRoute | undefined;
 }
 
-export interface SlidaRuntimePaths {
+export interface DeckupRuntimePaths {
   projectRoot: string;
   runtimeSourceDir: string;
   runtimeOutDir: string;
   generatedPageFilePath?: string;
 }
 
-export interface SlidaResolvedThemeLayout {
+export interface DeckupResolvedThemeLayout {
   id: string;
   filePath: string;
   importPath: string;
   slotNames: string[];
 }
 
-export interface SlidaResolvedTheme {
+export interface DeckupResolvedTheme {
   name: string;
   importPath?: string;
   filePath?: string;
   packageName?: string;
   packageRoot?: string;
   layoutsDir?: string;
-  layouts?: SlidaResolvedThemeLayout[];
+  layouts?: DeckupResolvedThemeLayout[];
   slotNames?: string[];
   source: "builtin" | "package";
 }
 
 export type RawAstroCodeHighlightOptions = { enabled: true; theme: string } | { enabled: false };
 
-export interface SlidaNpmThemeDownloadRequest {
+export interface DeckupNpmThemeDownloadRequest {
   spec: string;
   packageName: string;
   cacheDir: string;
 }
 
-export interface SlidaNpmThemeOptions {
-  /** @internal Slida-managed npm theme cache override for tests and controlled runtimes. */
+export interface DeckupNpmThemeOptions {
+  /** @internal Deckup-managed npm theme cache override for tests and controlled runtimes. */
   cacheDir?: string;
-  /** @internal Confirmation hook used before Slida downloads an uncached npm theme. */
-  confirmDownload?: (request: SlidaNpmThemeDownloadRequest) => boolean | Promise<boolean>;
+  /** @internal Confirmation hook used before Deckup downloads an uncached npm theme. */
+  confirmDownload?: (request: DeckupNpmThemeDownloadRequest) => boolean | Promise<boolean>;
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "slida-docs",
+  "name": "deckup-docs",
   "compatibility_date": "2026-07-07",
   "assets": {
     "directory": "./dist",
@@ -9,7 +9,7 @@
   },
   "routes": [
     {
-      "pattern": "slida.yuku.dev",
+      "pattern": "deckup.yuku.dev",
       "custom_domain": true,
     },
   ],

@@ -1,84 +1,84 @@
 import type { AddressInfo } from "node:net";
-import type { SlidaResolvedDeck, SlidaResolvedTheme, SlidaRuntimePaths } from "@slida/core";
+import type { DeckupResolvedDeck, DeckupResolvedTheme, DeckupRuntimePaths } from "@deckup/core";
 import type { AstroInlineConfig, dev } from "astro";
 
 export type {
   RawAstroCodeHighlightOptions,
-  SlidaDeckFormat,
-  SlidaDeckMetadata,
-  SlidaDeckRegistry,
-  SlidaNpmThemeDownloadRequest,
-  SlidaNpmThemeOptions,
-  SlidaResolvedDeck,
-  SlidaResolvedDeckRoute,
-  SlidaResolvedTheme,
-  SlidaResolvedThemeLayout,
-  SlidaRouteId,
-  SlidaRuntimePaths,
-} from "@slida/core";
+  DeckupDeckFormat,
+  DeckupDeckMetadata,
+  DeckupDeckRegistry,
+  DeckupNpmThemeDownloadRequest,
+  DeckupNpmThemeOptions,
+  DeckupResolvedDeck,
+  DeckupResolvedDeckRoute,
+  DeckupResolvedTheme,
+  DeckupResolvedThemeLayout,
+  DeckupRouteId,
+  DeckupRuntimePaths,
+} from "@deckup/core";
 
-export type SlidaLogLevel = NonNullable<AstroInlineConfig["logLevel"]>;
-export type SlidaAstroConfig = Omit<
+export type DeckupLogLevel = NonNullable<AstroInlineConfig["logLevel"]>;
+export type DeckupAstroConfig = Omit<
   AstroInlineConfig,
   "root" | "srcDir" | "configFile" | "output" | "server" | "outDir" | "logLevel" | "devToolbar"
 >;
-export type SlidaOutputFormat = "html" | "pdf";
+export type DeckupOutputFormat = "html" | "pdf";
 
-export interface SlidaConfig {
+export interface DeckupConfig {
   port?: number;
   theme?: string;
-  astro?: SlidaAstroConfig;
+  astro?: DeckupAstroConfig;
 }
 
-export interface SlidaLoadedConfig {
-  config: SlidaConfig;
+export interface DeckupLoadedConfig {
+  config: DeckupConfig;
   filePath?: string;
 }
 
-export interface SlidaBaseOptions {
+export interface DeckupBaseOptions {
   root?: string;
   deckFile?: string;
-  logLevel?: SlidaLogLevel;
+  logLevel?: DeckupLogLevel;
 }
 
-export interface SlidaDevOptions extends SlidaBaseOptions {
+export interface DeckupDevOptions extends DeckupBaseOptions {
   host?: string | boolean;
   port?: number;
   open?: string | boolean;
 }
 
-export interface SlidaBuildOptions extends SlidaBaseOptions {
+export interface DeckupBuildOptions extends DeckupBaseOptions {
   outDir?: string;
 }
 
-export interface SlidaExportOptions extends SlidaBuildOptions {
+export interface DeckupExportOptions extends DeckupBuildOptions {
   out?: string;
   browserExecutablePath?: string;
   browserCacheDir?: string;
 }
 
-export interface SlidaBuildCommandOptions extends SlidaExportOptions {
-  format: SlidaOutputFormat;
+export interface DeckupBuildCommandOptions extends DeckupExportOptions {
+  format: DeckupOutputFormat;
   force: boolean;
 }
 
-export interface SlidaExportResult {
+export interface DeckupExportResult {
   outDir: string;
   htmlFile: string;
   pdfFile: string;
   url: string;
 }
 
-export interface SlidaDevResult {
+export interface DeckupDevResult {
   server: Awaited<ReturnType<typeof dev>>;
   address: AddressInfo;
 }
 
-export interface SlidaResolvedConfig {
-  paths: SlidaRuntimePaths;
+export interface DeckupResolvedConfig {
+  paths: DeckupRuntimePaths;
   astroConfig: AstroInlineConfig;
-  deck?: SlidaResolvedDeck;
-  slidaConfig?: SlidaConfig;
-  slidaConfigFile?: string;
-  slidaTheme?: SlidaResolvedTheme;
+  deck?: DeckupResolvedDeck;
+  deckupConfig?: DeckupConfig;
+  deckupConfigFile?: string;
+  deckupTheme?: DeckupResolvedTheme;
 }

@@ -1,8 +1,8 @@
 export {
   analyzeMdxDeckSource,
   countMdxDeckPages,
-  remarkSlidaMdxPages,
+  remarkDeckupMdxPages,
   splitMdxChildrenIntoPages,
   stripMdxFrontmatter,
-} from "@slida/core";
-export type { SlidaMdxPagesOptions } from "@slida/core";
+} from "@deckup/core";
+export type { DeckupMdxPagesOptions } from "@deckup/core";

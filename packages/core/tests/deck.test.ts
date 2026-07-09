@@ -7,14 +7,14 @@ import {
   SUPPORTED_DECK_EXTENSIONS,
   createDeckRegistry,
   inferDeckFormat,
-  normalizeSlidaBasePath,
+  normalizeDeckupBasePath,
   resolveDeckFile,
   resolveDeckFilesFromGlob,
   resolveDeckRegistry,
 } from "../src/deck.ts";
 
 async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-core-deck-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-core-deck-"));
   try {
     await run(projectRoot);
   } finally {
@@ -38,7 +38,7 @@ test("inferDeckFormat accepts Astro and MDX deck files", () => {
 });
 
 test("inferDeckFormat rejects unsupported deck extensions", () => {
-  expect(() => inferDeckFormat("slides/talk.md")).toThrow(/Unsupported Slida deck file extension/);
+  expect(() => inferDeckFormat("slides/talk.md")).toThrow(/Unsupported Deckup deck file extension/);
 });
 
 test("resolveDeckFile resolves a project-relative deck file", async () => {
@@ -81,7 +81,7 @@ test("resolveDeckFile includes static Astro deck metadata", async () => {
       projectRoot,
       "slides/talk.astro",
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const theme = "google-basic";
 ---
 
@@ -100,7 +100,7 @@ const theme = "google-basic";
 test("resolveDeckFile rejects a missing deck argument", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(resolveDeckFile(projectRoot, undefined)).rejects.toThrow(
-      /Missing Slida deck file/,
+      /Missing Deckup deck file/,
     );
   });
 });
@@ -108,14 +108,14 @@ test("resolveDeckFile rejects a missing deck argument", async () => {
 test("resolveDeckFile rejects a missing deck file", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(resolveDeckFile(projectRoot, "slides/missing.astro")).rejects.toThrow(
-      /Slida deck file not found/,
+      /Deckup deck file not found/,
     );
   });
 });
 
 test("resolveDeckFile rejects deck files outside the project root", async () => {
   await withProjectRoot(async (projectRoot) => {
-    const outsideRoot = await mkdtemp(join(tmpdir(), "slida-outside-"));
+    const outsideRoot = await mkdtemp(join(tmpdir(), "deckup-outside-"));
     try {
       await writeFile(join(outsideRoot, "talk.astro"), "---\n---\n");
       await expect(resolveDeckFile(projectRoot, join(outsideRoot, "talk.astro"))).rejects.toThrow(
@@ -127,10 +127,10 @@ test("resolveDeckFile rejects deck files outside the project root", async () => 
   });
 });
 
-test("normalizeSlidaBasePath normalizes route bases", () => {
-  expect(normalizeSlidaBasePath("slides")).toBe("/slides");
-  expect(normalizeSlidaBasePath("/slides/")).toBe("/slides");
-  expect(normalizeSlidaBasePath("/")).toBe("/");
+test("normalizeDeckupBasePath normalizes route bases", () => {
+  expect(normalizeDeckupBasePath("slides")).toBe("/slides");
+  expect(normalizeDeckupBasePath("/slides/")).toBe("/slides");
+  expect(normalizeDeckupBasePath("/")).toBe("/");
 });
 
 test("resolveDeckFilesFromGlob resolves sorted route-aware decks", async () => {
@@ -147,8 +147,8 @@ test("resolveDeckFilesFromGlob resolves sorted route-aware decks", async () => {
         slug: "intro",
         routePath: "/decks/intro",
         routeId: "decks_intro",
-        virtualDeckModuleId: "virtual:slida/decks/decks_intro",
-        virtualRouteModuleId: "virtual:slida/routes/decks_intro.astro",
+        virtualDeckModuleId: "virtual:deckup/decks/decks_intro",
+        virtualRouteModuleId: "virtual:deckup/routes/decks_intro.astro",
       }),
       expect.objectContaining({
         projectRelativePath: "src/slides/nested/guide.mdx",
@@ -201,7 +201,7 @@ test("resolveDeckRegistry exposes match helpers for selected files and routes", 
     expect(registry.getByRouteId("slides_intro")).toBe(deck);
     expect(registry.matchId(deck.filePath)).toBe(deck);
     expect(registry.matchId(`/src/slides/intro.astro?astro&type=script`)).toBe(deck);
-    expect(registry.matchId("virtual:slida/decks/slides_intro")).toBe(deck);
+    expect(registry.matchId("virtual:deckup/decks/slides_intro")).toBe(deck);
   });
 });
 

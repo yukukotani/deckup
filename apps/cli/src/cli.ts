@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { runSlida } from "./commands.ts";
+import { runDeckup } from "./commands.ts";
 
-const output = await runSlida();
+const output = await runDeckup();
 if (output) {
   console.log(output);
 }

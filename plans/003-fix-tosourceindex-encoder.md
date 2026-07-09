@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat c7aa912..HEAD -- apps/cli/src/slida-vite-plugins.ts apps/cli/tests/slida-vite-plugins.test.ts`
+> **Drift check (run first)**: `git diff --stat c7aa912..HEAD -- apps/cli/src/deckup-vite-plugins.ts apps/cli/tests/deckup-vite-plugins.test.ts`
 > Changes from Plans 001/002 in these files are EXPECTED. Compare the
 > "Current state" excerpt of `toSourceIndex` against the live code before
 > proceeding; if `toSourceIndex` itself has changed, treat it as a STOP
@@ -36,12 +36,12 @@ and adds direct unit tests for the conversion.
 
 ## Current state
 
-Relevant file: `apps/cli/src/slida-vite-plugins.ts`.
+Relevant file: `apps/cli/src/deckup-vite-plugins.ts`.
 
 The function as it exists today:
 
 ```ts
-// apps/cli/src/slida-vite-plugins.ts:154-182
+// apps/cli/src/deckup-vite-plugins.ts:154-182
 function toSourceIndex(source: string, byteOffset: number, context: string) {
   if (!Number.isInteger(byteOffset) || byteOffset < 0) {
     throw new Error(`Failed to transform Astro deck: invalid source offset for ${context}.`);
@@ -83,7 +83,7 @@ a `context` string used in error messages. Error message wording
 (`invalid source offset for ...`, `is not a UTF-8 boundary for ...`) is part
 of observable behavior — keep it identical.
 
-Plan 001 added `apps/cli/tests/slida-vite-plugins.test.ts` with an emoji/CJK
+Plan 001 added `apps/cli/tests/deckup-vite-plugins.test.ts` with an emoji/CJK
 deck characterization test that exercises this function end-to-end. That test
 must pass before and after this change.
 
@@ -92,19 +92,19 @@ Repo conventions: tests import from `vite-plus/test`; lint enforces
 
 ## Commands you will need
 
-| Purpose        | Command                  | Expected on success |
-| -------------- | ------------------------ | ------------------- |
-| Install        | `vp install`             | exit 0              |
-| CLI tests      | `vp run @slida/cli#test` | exit 0, all pass    |
-| Lint/fmt/types | `vp check`               | exit 0              |
-| Full gate      | `vp run ready`           | exit 0              |
+| Purpose        | Command                   | Expected on success |
+| -------------- | ------------------------- | ------------------- |
+| Install        | `vp install`              | exit 0              |
+| CLI tests      | `vp run @deckup/cli#test` | exit 0, all pass    |
+| Lint/fmt/types | `vp check`                | exit 0              |
+| Full gate      | `vp run ready`            | exit 0              |
 
 ## Scope
 
 **In scope** (the only files you should modify):
 
-- `apps/cli/src/slida-vite-plugins.ts`
-- `apps/cli/tests/slida-vite-plugins.test.ts` (extend; export one function
+- `apps/cli/src/deckup-vite-plugins.ts`
+- `apps/cli/tests/deckup-vite-plugins.test.ts` (extend; export one function
   for tests as described in Step 1)
 
 **Out of scope** (do NOT touch):
@@ -125,7 +125,7 @@ Repo conventions: tests import from `vite-plus/test`; lint enforces
 
 ### Step 1: Replace the per-lookup scan with a single-pass converter
 
-In `apps/cli/src/slida-vite-plugins.ts`, replace `toSourceIndex` with a
+In `apps/cli/src/deckup-vite-plugins.ts`, replace `toSourceIndex` with a
 factory that scans the source once and answers all lookups for that source:
 
 ```ts
@@ -187,12 +187,12 @@ Notes:
 
 Delete the old standalone `toSourceIndex` function.
 
-**Verify**: `vp check` → exit 0. `vp run @slida/cli#test` → exit 0; in
+**Verify**: `vp check` → exit 0. `vp run @deckup/cli#test` → exit 0; in
 particular the Plan 001 emoji/CJK characterization test passes unchanged.
 
 ### Step 3: Add direct unit tests for the converter
 
-Append to `apps/cli/tests/slida-vite-plugins.test.ts`, importing
+Append to `apps/cli/tests/deckup-vite-plugins.test.ts`, importing
 `createSourceIndexConverter`:
 
 1. ASCII: for `"abc"`, offsets 0→0, 1→1, 3→3.
@@ -205,7 +205,7 @@ Append to `apps/cli/tests/slida-vite-plugins.test.ts`, importing
    `/invalid source offset/`.
 6. End-of-string boundary: `"ab"` offset 2 → 2.
 
-**Verify**: `vp run @slida/cli#test` → exit 0, including the 6 new tests.
+**Verify**: `vp run @deckup/cli#test` → exit 0, including the 6 new tests.
 
 ### Step 4: Full verification
 
@@ -213,7 +213,7 @@ Append to `apps/cli/tests/slida-vite-plugins.test.ts`, importing
 
 ## Test plan
 
-- Six direct unit tests (Step 3) in `apps/cli/tests/slida-vite-plugins.test.ts`,
+- Six direct unit tests (Step 3) in `apps/cli/tests/deckup-vite-plugins.test.ts`,
   modeled after the existing tests in that file (Plan 001 style).
 - Regression: Plan 001's transform characterization tests (including the
   multi-byte deck) pass unchanged.
@@ -221,7 +221,7 @@ Append to `apps/cli/tests/slida-vite-plugins.test.ts`, importing
 ## Done criteria
 
 - [ ] `vp run ready` exits 0
-- [ ] `rg -n "new TextEncoder\(\)" apps/cli/src/slida-vite-plugins.ts` shows exactly one occurrence (the module-level `utf8Encoder`)
+- [ ] `rg -n "new TextEncoder\(\)" apps/cli/src/deckup-vite-plugins.ts` shows exactly one occurrence (the module-level `utf8Encoder`)
 - [ ] `createSourceIndexConverter` unit tests exist and pass (6 new tests)
 - [ ] Plan 001 characterization tests pass unmodified
 - [ ] No files outside the in-scope list are modified (`git status`)
@@ -231,7 +231,7 @@ Append to `apps/cli/tests/slida-vite-plugins.test.ts`, importing
 
 Stop and report back (do not improvise) if:
 
-- `apps/cli/tests/slida-vite-plugins.test.ts` does not exist (Plan 001 has
+- `apps/cli/tests/deckup-vite-plugins.test.ts` does not exist (Plan 001 has
   not landed).
 - `toSourceIndex` in the live code differs from the "Current state" excerpt
   (another plan or commit already changed it).

@@ -1,5 +1,5 @@
 {
-  "name": "@slida/core",
+  "name": "@deckup/core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,11 +15,11 @@
   },
   "dependencies": {
     "@astrojs/compiler-rs": "^0.2.3",
-    "@slida/theme-apple-basic": "workspace:*",
-    "@slida/theme-bold": "workspace:*",
-    "@slida/theme-default": "workspace:*",
-    "@slida/theme-google-basic": "workspace:*",
-    "@slida/theme-minimal": "workspace:*",
+    "@deckup/theme-apple-basic": "workspace:*",
+    "@deckup/theme-bold": "workspace:*",
+    "@deckup/theme-default": "workspace:*",
+    "@deckup/theme-google-basic": "workspace:*",
+    "@deckup/theme-minimal": "workspace:*",
     "acorn": "^8.16.0",
     "npm-package-arg": "^14.0.0",
     "pacote": "^22.0.0",

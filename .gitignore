@@ -10,7 +10,7 @@ lerna-debug.log*
 node_modules
 .astro
 .rpiv
-.slida
+.deckup
 dist
 dist-ssr
 *.local

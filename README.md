@@ -1,25 +1,25 @@
-# Slida
+# Deckup
 
 Astro-native slide deck tooling for authoring `.astro` and `.mdx` slides.
 
 ## Themes
 
-Select a theme in `slida.config.ts` with the top-level `theme` option:
+Select a theme in `deckup.config.ts` with the top-level `theme` option:
 
 ```ts
-import { defineConfig } from "@slida/cli";
+import { defineConfig } from "@deckup/cli";
 
 export default defineConfig({
   theme: "google-basic",
 });
 ```
 
-Slida ships five first-party themes: `default`, `minimal`, `bold`, `google-basic`, and `apple-basic`.
+Deckup ships five first-party themes: `default`, `minimal`, `bold`, `google-basic`, and `apple-basic`.
 Omitting `theme` uses `default`.
-First-party themes are regular npm packages in this workspace (`@slida/theme-default`, `@slida/theme-minimal`, `@slida/theme-bold`, `@slida/theme-google-basic`, and `@slida/theme-apple-basic`), while slide authors use the short names above.
+First-party themes are regular npm packages in this workspace (`@deckup/theme-default`, `@deckup/theme-minimal`, `@deckup/theme-bold`, `@deckup/theme-google-basic`, and `@deckup/theme-apple-basic`), while slide authors use the short names above.
 
 Themes provide Astro layout components instead of a package-root CSS file.
-A slide selects a layout with the existing metadata-only `<layout id="..." />` child, and Slida injects the slide body into the selected layout's slots.
+A slide selects a layout with the existing metadata-only `<layout id="..." />` child, and Deckup injects the slide body into the selected layout's slots.
 Single-region layouts use the default slot, so authors can write normal content without a `slot` attribute.
 Multi-region layouts use Astro's standard named slot syntax:
 
@@ -51,7 +51,7 @@ For a third-party theme, install the package in your deck project and use the pa
 
 ```ts
 export default defineConfig({
-  theme: "@acme/slida-theme",
+  theme: "@acme/deckup-theme",
 });
 ```
 
@@ -59,7 +59,7 @@ A theme package must expose its package metadata and convention-based Astro layo
 
 ```json
 {
-  "name": "@acme/slida-theme",
+  "name": "@acme/deckup-theme",
   "type": "module",
   "exports": {
     "./layouts/*.astro": "./layouts/*.astro",
@@ -86,9 +86,9 @@ import "./styles.css";
 
 CSS-only theme packages that export `style.css` from `.` are no longer supported.
 Move shared styling into files imported by the layout components, such as `layouts/styles.css`.
-Programmatic integrations should use `resolveSlidaThemeLayouts()` for resolved theme metadata.
-The previous `resolveSlidaTheme` named export was intentionally removed with the CSS-only resolver; it no longer exists as a package-root CSS resolver.
-During development, Slida watches the selected theme's layout files and `layouts/` directory, re-discovers layout membership, and refreshes generated Page slot forwarding when layout slot declarations change.
+Programmatic integrations should use `resolveDeckupThemeLayouts()` for resolved theme metadata.
+The previous `resolveDeckupTheme` named export was intentionally removed with the CSS-only resolver; it no longer exists as a package-root CSS resolver.
+During development, Deckup watches the selected theme's layout files and `layouts/` directory, re-discovers layout membership, and refreshes generated Page slot forwarding when layout slot declarations change.
 
 ## Development
 
@@ -98,7 +98,7 @@ During development, Slida watches the selected theme's layout files and `layouts
 vp install
 ```
 
-- Start the Slida preview server:
+- Start the Deckup preview server:
 
 ```bash
 vp run dev

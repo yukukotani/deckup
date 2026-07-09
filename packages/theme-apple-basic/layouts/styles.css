@@ -1,99 +1,99 @@
 :root {
   color-scheme: light;
-  --slida-bg: #fff;
-  --slida-text: #000;
-  --slida-text-strong: #000;
-  --slida-border: transparent;
-  --slida-code-bg: transparent;
-  --slida-accent: #000;
-  --slida-accent-bg: transparent;
-  --slida-shadow: none;
-  --slida-sans:
+  --deckup-bg: #fff;
+  --deckup-text: #000;
+  --deckup-text-strong: #000;
+  --deckup-border: transparent;
+  --deckup-code-bg: transparent;
+  --deckup-accent: #000;
+  --deckup-accent-bg: transparent;
+  --deckup-shadow: none;
+  --deckup-sans:
     "Hiragino Kaku Gothic ProN", "Hiragino Sans", -apple-system, BlinkMacSystemFont,
     "Helvetica Neue", Arial, sans-serif;
-  --slida-heading: var(--slida-sans);
-  --slida-mono: var(--slida-sans);
+  --deckup-heading: var(--deckup-sans);
+  --deckup-mono: var(--deckup-sans);
 }
 
 body {
-  font-family: var(--slida-sans);
+  font-family: var(--deckup-sans);
   color: #000;
   background: #111;
 }
 
-.slida-shell {
+.deckup-shell {
   border: 0;
   background: #fff;
   box-shadow: none;
 }
 
-.slida-slide {
-  --slida-cqw: 1cqw;
+.deckup-slide {
+  --deckup-cqw: 1cqw;
   --ab-text: #000;
 
   display: grid;
   align-content: center;
   justify-items: start;
-  gap: clamp(1rem, calc(2.7 * var(--slida-cqw)), 2.25rem);
-  padding: clamp(2.75rem, calc(5.2 * var(--slida-cqw)), 6rem);
+  gap: clamp(1rem, calc(2.7 * var(--deckup-cqw)), 2.25rem);
+  padding: clamp(2.75rem, calc(5.2 * var(--deckup-cqw)), 6rem);
   color: var(--ab-text);
   background: #fff;
-  font-family: var(--slida-sans);
+  font-family: var(--deckup-sans);
   text-align: left;
   text-wrap: pretty;
 }
 
-.slida-slide > * {
-  max-width: min(100%, calc(90 * var(--slida-cqw)));
+.deckup-slide > * {
+  max-width: min(100%, calc(90 * var(--deckup-cqw)));
   margin: 0;
 }
 
-.slida-slide :is(h1, h2, h3),
-.slida-apple-title,
-.slida-apple-subtitle,
-.slida-apple-big-number,
-.slida-apple-quote-name {
+.deckup-slide :is(h1, h2, h3),
+.deckup-apple-title,
+.deckup-apple-subtitle,
+.deckup-apple-big-number,
+.deckup-apple-quote-name {
   color: #000;
-  font-family: var(--slida-heading);
+  font-family: var(--deckup-heading);
   font-weight: 600;
   letter-spacing: 0;
 }
 
-.slida-slide h1,
-.slida-apple-title {
-  font-size: clamp(3rem, calc(6 * var(--slida-cqw)), 5.35rem);
+.deckup-slide h1,
+.deckup-apple-title {
+  font-size: clamp(3rem, calc(6 * var(--deckup-cqw)), 5.35rem);
   line-height: 1;
 }
 
-.slida-slide :is(p, ul, ol),
-.slida-apple-body,
-.slida-apple-column,
-.slida-apple-quote,
-.slida-apple-statement {
+.deckup-slide :is(p, ul, ol),
+.deckup-apple-body,
+.deckup-apple-column,
+.deckup-apple-quote,
+.deckup-apple-statement {
   color: #000;
-  font-size: clamp(1.4rem, calc(2.7 * var(--slida-cqw)), 3rem);
+  font-size: clamp(1.4rem, calc(2.7 * var(--deckup-cqw)), 3rem);
   font-weight: 300;
   line-height: 1.08;
 }
 
-.slida-slide :is(ul, ol) {
+.deckup-slide :is(ul, ol) {
   list-style-position: outside;
   padding-left: 1.25em;
 }
 
-.slida-slide li {
+.deckup-slide li {
   padding-left: 0;
 }
 
-.slida-slide li + li {
+.deckup-slide li + li {
   margin-top: 0.9em;
 }
 
-.slida-slide :is(p, ul, ol) + :is(p, ul, ol) {
+.deckup-slide :is(p, ul, ol) + :is(p, ul, ol) {
   margin-top: 0.75em;
 }
 
-.slida-slide code {
+.deckup-slide code {
   font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
   font-size: 0.88em;
   color: #000;
@@ -102,199 +102,199 @@ body {
   padding: 0.1em 0.3em;
 }
 
-.slida-slide pre {
+.deckup-slide pre {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: clamp(0.75rem, calc(2 * var(--slida-cqw)), 1.5rem);
+  padding: clamp(0.75rem, calc(2 * var(--deckup-cqw)), 1.5rem);
   background: #f5f5f7;
-  border-radius: clamp(0.35rem, calc(0.8 * var(--slida-cqw)), 0.75rem);
+  border-radius: clamp(0.35rem, calc(0.8 * var(--deckup-cqw)), 0.75rem);
   overflow-x: auto;
-  font-size: clamp(0.8rem, calc(1.6 * var(--slida-cqw)), 1rem);
+  font-size: clamp(0.8rem, calc(1.6 * var(--deckup-cqw)), 1rem);
   line-height: 1.5;
 }
 
-.slida-slide pre code {
+.deckup-slide pre code {
   background: transparent;
   padding: 0;
   border-radius: 0;
   font-size: inherit;
 }
 
-.slida-apple-body,
-.slida-apple-column {
+.deckup-apple-body,
+.deckup-apple-column {
   display: grid;
-  gap: clamp(0.9rem, calc(2 * var(--slida-cqw)), 2rem);
-  max-width: min(100%, calc(90 * var(--slida-cqw)));
+  gap: clamp(0.9rem, calc(2 * var(--deckup-cqw)), 2rem);
+  max-width: min(100%, calc(90 * var(--deckup-cqw)));
   padding: 0;
   margin: 0;
-  font-family: var(--slida-sans);
+  font-family: var(--deckup-sans);
   font-weight: 300;
   letter-spacing: 0;
   text-wrap: pretty;
 }
 
-.slida-apple-body :is(p, ul, ol),
-.slida-apple-column :is(p, ul, ol) {
+.deckup-apple-body :is(p, ul, ol),
+.deckup-apple-column :is(p, ul, ol) {
   margin: 0;
   max-width: none;
   color: inherit;
   font: inherit;
 }
 
-.slida-apple-body :is(ul, ol),
-.slida-apple-column :is(ul, ol) {
+.deckup-apple-body :is(ul, ol),
+.deckup-apple-column :is(ul, ol) {
   padding-left: 1.25em;
 }
 
-[data-slida-layout="cover"] {
+[data-deckup-layout="cover"] {
   align-content: center;
   justify-items: start;
-  padding-inline: calc(5.15 * var(--slida-cqw));
+  padding-inline: calc(5.15 * var(--deckup-cqw));
 }
 
-[data-slida-layout="cover"] h1,
-[data-slida-layout="cover"] .slida-apple-title {
-  font-size: clamp(4rem, calc(6.05 * var(--slida-cqw)), 7.25rem);
+[data-deckup-layout="cover"] h1,
+[data-deckup-layout="cover"] .deckup-apple-title {
+  font-size: clamp(4rem, calc(6.05 * var(--deckup-cqw)), 7.25rem);
   line-height: 1;
 }
 
-[data-slida-layout="cover"] p,
-[data-slida-layout="cover"] .slida-apple-subtitle {
-  font-size: clamp(2rem, calc(2.86 * var(--slida-cqw)), 3.5rem);
+[data-deckup-layout="cover"] p,
+[data-deckup-layout="cover"] .deckup-apple-subtitle {
+  font-size: clamp(2rem, calc(2.86 * var(--deckup-cqw)), 3.5rem);
   font-weight: 600;
   line-height: 1;
 }
 
-[data-slida-layout="section"] {
+[data-deckup-layout="section"] {
   align-content: center;
   justify-items: start;
-  padding-inline: calc(5.15 * var(--slida-cqw));
+  padding-inline: calc(5.15 * var(--deckup-cqw));
 }
 
-[data-slida-layout="section"] h1,
-[data-slida-layout="section"] .slida-apple-title {
-  font-size: clamp(4rem, calc(6.05 * var(--slida-cqw)), 7.25rem);
+[data-deckup-layout="section"] h1,
+[data-deckup-layout="section"] .deckup-apple-title {
+  font-size: clamp(4rem, calc(6.05 * var(--deckup-cqw)), 7.25rem);
   font-weight: 300;
   line-height: 1;
 }
 
-[data-slida-layout="page"],
-[data-slida-layout="two-column"] {
+[data-deckup-layout="page"],
+[data-deckup-layout="two-column"] {
   align-content: start;
-  gap: clamp(1.25rem, calc(2.8 * var(--slida-cqw)), 3rem);
-  padding: calc(4.6 * var(--slida-cqw)) calc(5.15 * var(--slida-cqw)) calc(5 * var(--slida-cqw));
+  gap: clamp(1.25rem, calc(2.8 * var(--deckup-cqw)), 3rem);
+  padding: calc(4.6 * var(--deckup-cqw)) calc(5.15 * var(--deckup-cqw)) calc(5 * var(--deckup-cqw));
 }
 
-[data-slida-layout="page"] > h1,
-[data-slida-layout="two-column"] > h1,
-[data-slida-layout="page"] .slida-apple-title,
-[data-slida-layout="two-column"] .slida-apple-title {
-  font-size: clamp(3rem, calc(4.43 * var(--slida-cqw)), 5.35rem);
+[data-deckup-layout="page"] > h1,
+[data-deckup-layout="two-column"] > h1,
+[data-deckup-layout="page"] .deckup-apple-title,
+[data-deckup-layout="two-column"] .deckup-apple-title {
+  font-size: clamp(3rem, calc(4.43 * var(--deckup-cqw)), 5.35rem);
   font-weight: 600;
   line-height: 1;
 }
 
-[data-slida-layout="page"] > p:first-of-type,
-[data-slida-layout="two-column"] > p:first-of-type,
-[data-slida-layout="page"] .slida-apple-subtitle,
-[data-slida-layout="two-column"] .slida-apple-subtitle {
-  font-size: clamp(2rem, calc(2.86 * var(--slida-cqw)), 3.5rem);
+[data-deckup-layout="page"] > p:first-of-type,
+[data-deckup-layout="two-column"] > p:first-of-type,
+[data-deckup-layout="page"] .deckup-apple-subtitle,
+[data-deckup-layout="two-column"] .deckup-apple-subtitle {
+  font-size: clamp(2rem, calc(2.86 * var(--deckup-cqw)), 3.5rem);
   font-weight: 600;
   line-height: 1;
 }
 
-[data-slida-layout="page"] > :is(p, ul, ol):not(:first-of-type),
-[data-slida-layout="page"] .slida-apple-body {
-  max-width: min(100%, calc(82 * var(--slida-cqw)));
-  font-size: clamp(1.5rem, calc(2.5 * var(--slida-cqw)), 3rem);
+[data-deckup-layout="page"] > :is(p, ul, ol):not(:first-of-type),
+[data-deckup-layout="page"] .deckup-apple-body {
+  max-width: min(100%, calc(82 * var(--deckup-cqw)));
+  font-size: clamp(1.5rem, calc(2.5 * var(--deckup-cqw)), 3rem);
   font-weight: 300;
 }
 
-[data-slida-layout="two-column"] {
+[data-deckup-layout="two-column"] {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: calc(6.9 * var(--slida-cqw));
+  column-gap: calc(6.9 * var(--deckup-cqw));
 }
 
-[data-slida-layout="two-column"] > h1,
-[data-slida-layout="two-column"] > :not(.slida-apple-column) {
+[data-deckup-layout="two-column"] > h1,
+[data-deckup-layout="two-column"] > :not(.deckup-apple-column) {
   grid-column: 1 / -1;
 }
 
-[data-slida-layout="two-column"] .slida-apple-column {
+[data-deckup-layout="two-column"] .deckup-apple-column {
   grid-row: auto;
   align-self: start;
-  font-size: clamp(1.25rem, calc(1.88 * var(--slida-cqw)), 2.25rem);
+  font-size: clamp(1.25rem, calc(1.88 * var(--deckup-cqw)), 2.25rem);
   font-weight: 300;
   line-height: 1.08;
 }
 
-[data-slida-layout="two-column"] .slida-apple-column--left {
+[data-deckup-layout="two-column"] .deckup-apple-column--left {
   grid-column: 1;
 }
 
-[data-slida-layout="two-column"] .slida-apple-column--right {
+[data-deckup-layout="two-column"] .deckup-apple-column--right {
   grid-column: 2;
 }
 
-[data-slida-layout="number"],
-[data-slida-layout="quote"],
-[data-slida-layout="statement"] {
+[data-deckup-layout="number"],
+[data-deckup-layout="quote"],
+[data-deckup-layout="statement"] {
   place-items: center;
   align-content: center;
   text-align: center;
 }
 
-[data-slida-layout="number"] > *,
-[data-slida-layout="quote"] > *,
-[data-slida-layout="statement"] > * {
+[data-deckup-layout="number"] > *,
+[data-deckup-layout="quote"] > *,
+[data-deckup-layout="statement"] > * {
   margin-inline: auto;
 }
 
-[data-slida-layout="number"] > p:first-of-type,
-.slida-apple-big-number {
-  font-size: clamp(7rem, calc(13.02 * var(--slida-cqw)), 15.5rem);
+[data-deckup-layout="number"] > p:first-of-type,
+.deckup-apple-big-number {
+  font-size: clamp(7rem, calc(13.02 * var(--deckup-cqw)), 15.5rem);
   font-weight: 600;
   line-height: 1;
   text-align: center;
 }
 
-[data-slida-layout="number"] > p:nth-of-type(2),
-[data-slida-layout="number"] .slida-apple-subtitle {
-  font-size: clamp(2rem, calc(2.86 * var(--slida-cqw)), 3.5rem);
+[data-deckup-layout="number"] > p:nth-of-type(2),
+[data-deckup-layout="number"] .deckup-apple-subtitle {
+  font-size: clamp(2rem, calc(2.86 * var(--deckup-cqw)), 3.5rem);
   font-weight: 600;
   line-height: 1;
   text-align: center;
 }
 
-[data-slida-layout="quote"] > p:first-of-type,
-.slida-apple-quote {
-  max-width: min(100%, calc(86 * var(--slida-cqw)));
-  font-size: clamp(3rem, calc(4.43 * var(--slida-cqw)), 5.35rem);
+[data-deckup-layout="quote"] > p:first-of-type,
+.deckup-apple-quote {
+  max-width: min(100%, calc(86 * var(--deckup-cqw)));
+  font-size: clamp(3rem, calc(4.43 * var(--deckup-cqw)), 5.35rem);
   font-weight: 300;
   line-height: 1;
   text-align: center;
 }
 
-[data-slida-layout="quote"] > p:nth-of-type(2),
-.slida-apple-quote-name {
-  font-size: clamp(1.5rem, calc(1.88 * var(--slida-cqw)), 2.25rem);
+[data-deckup-layout="quote"] > p:nth-of-type(2),
+.deckup-apple-quote-name {
+  font-size: clamp(1.5rem, calc(1.88 * var(--deckup-cqw)), 2.25rem);
   font-weight: 600;
   line-height: 1;
   text-align: center;
 }
 
-[data-slida-layout="statement"] > p,
-.slida-apple-statement {
-  max-width: min(100%, calc(90 * var(--slida-cqw)));
-  font-size: clamp(4rem, calc(6.05 * var(--slida-cqw)), 7.25rem);
+[data-deckup-layout="statement"] > p,
+.deckup-apple-statement {
+  max-width: min(100%, calc(90 * var(--deckup-cqw)));
+  font-size: clamp(4rem, calc(6.05 * var(--deckup-cqw)), 7.25rem);
   font-weight: 300;
   line-height: 1;
   text-align: center;
 }
 
 @container (max-width: 768px) {
-  .slida-slide {
+  .deckup-slide {
     padding: 2.5rem 1.75rem;
   }
 }

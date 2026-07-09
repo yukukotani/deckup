@@ -1,24 +1,24 @@
 ---
 title: CLI reference
-description: Command syntax and options for slida open and slida build output formats.
+description: Command syntax and options for deckup open and deckup build output formats.
 ---
 
 # CLI reference
 
-The `slida` command provides two workflows:
+The `deckup` command provides two workflows:
 
-- `slida open <deck-file>` previews a deck with Astro's dev server.
-- `slida build <deck-file>` builds a deck as PDF by default, or as static HTML/assets with `--format html`.
+- `deckup open <deck-file>` previews a deck with Astro's dev server.
+- `deckup build <deck-file>` builds a deck as PDF by default, or as static HTML/assets with `--format html`.
 
 Deck files can be `.astro` or `.mdx`.
 All commands accept Astro log levels through `--logLevel`; unsupported values fall back to `info`.
 
-## `slida open`
+## `deckup open`
 
 Preview a deck locally:
 
 ```bash
-slida open slides/deck.mdx
+deckup open slides/deck.mdx
 ```
 
 ### Arguments
@@ -29,27 +29,27 @@ slida open slides/deck.mdx
 
 ### Options
 
-| Option                       | Default                          | Description                                  |
-| ---------------------------- | -------------------------------- | -------------------------------------------- |
-| `--host <host>`              | `127.0.0.1`                      | Host for the Astro dev server.               |
-| `--port <port>`, `-p <port>` | Slida config `port`, then `4321` | Port for the Astro dev server.               |
-| `--open`                     | `false`                          | Open the browser when the dev server starts. |
-| `--logLevel <level>`         | `info`                           | Astro log level.                             |
+| Option                       | Default                           | Description                                  |
+| ---------------------------- | --------------------------------- | -------------------------------------------- |
+| `--host <host>`              | `127.0.0.1`                       | Host for the Astro dev server.               |
+| `--port <port>`, `-p <port>` | Deckup config `port`, then `4321` | Port for the Astro dev server.               |
+| `--open`                     | `false`                           | Open the browser when the dev server starts. |
+| `--logLevel <level>`         | `info`                            | Astro log level.                             |
 
-When the server starts, Slida prints the local URL.
+When the server starts, Deckup prints the local URL.
 
-## `slida build`
+## `deckup build`
 
 Build a deck. The default output format is PDF:
 
 ```bash
-slida build slides/deck.mdx
+deckup build slides/deck.mdx
 ```
 
 Build static HTML and assets explicitly with `--format html`:
 
 ```bash
-slida build slides/deck.mdx --format html --out public-deck
+deckup build slides/deck.mdx --format html --out public-deck
 ```
 
 ### Arguments
@@ -68,9 +68,9 @@ slida build slides/deck.mdx --format html --out public-deck
 | `--logLevel <level>`   | `info`                                | Astro log level.                                                        |
 
 PDF output uses an internal static build staging directory before writing the PDF; that staging directory is not part of the public CLI surface.
-If the target PDF already exists, Slida asks before overwriting in an interactive terminal.
+If the target PDF already exists, Deckup asks before overwriting in an interactive terminal.
 In non-interactive mode, rerun with `--force` to overwrite an existing PDF.
 
 ## Root command
 
-Running `slida` without a subcommand prints a short reminder to use `slida open <deck-file>` or `slida build <deck-file>`.
+Running `deckup` without a subcommand prints a short reminder to use `deckup open <deck-file>` or `deckup build <deck-file>`.

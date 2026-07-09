@@ -6,7 +6,7 @@ import { expect, test } from "vite-plus/test";
 import { createThemeLayoutDiscoveryCache, discoverThemeLayouts } from "../src/theme-layouts.ts";
 
 async function withLayoutsDir(run: (layoutsDir: string) => Promise<void>) {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-layouts-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-layouts-"));
   try {
     const layoutsDir = join(projectRoot, "layouts");
     await mkdir(layoutsDir, { recursive: true });
@@ -58,7 +58,7 @@ test("discoverThemeLayouts rejects empty layout directories", async () => {
 
 test("discoverThemeLayouts rejects missing layout directories", async () => {
   await expect(
-    discoverThemeLayouts("fixture", join(tmpdir(), "slida-missing-layouts")),
+    discoverThemeLayouts("fixture", join(tmpdir(), "deckup-missing-layouts")),
   ).rejects.toThrow(/must include a readable layouts directory/);
 });
 

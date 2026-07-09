@@ -8,10 +8,10 @@ import {
   transformAstroDeckSourceWithCodeHighlighting,
   transformCompiledAstroDeckSource,
   validateAstroDeckSource,
-} from "@slida/core";
+} from "@deckup/core";
 
 const twoPageDeck = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro">
@@ -29,7 +29,7 @@ const compiledTwoPages = [
 ].join("\n");
 
 const codeBlockDeck = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Code">
@@ -69,14 +69,14 @@ test("transformAstroDeckSourceWithCodeHighlighting highlights static Astro code 
 
 test("transformAstroDeckSourceWithCodeHighlighting falls back for unknown languages", async () => {
   const result = await transformAstroDeckSourceWithCodeHighlighting(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
-<Page><pre><code class="language-slida-unknown">const slide = 1;</code></pre></Page>
+<Page><pre><code class="language-deckup-unknown">const slide = 1;</code></pre></Page>
 `);
 
   expect(result).toContain('class="astro-code');
-  expect(result).toContain('data-language="slida-unknown"');
+  expect(result).toContain('data-language="deckup-unknown"');
   expect(result).toContain("const slide = 1;");
 });
 
@@ -91,7 +91,7 @@ test("transformAstroDeckSourceWithCodeHighlighting leaves raw blocks unchanged w
 
 test("transformAstroDeckSourceWithCodeHighlighting leaves unsupported dynamic code blocks unchanged", async () => {
   const source = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const language = "language-ts";
 ---
 
@@ -106,7 +106,7 @@ const language = "language-ts";
 
 test("transformAstroDeckSource uses default cover and content layouts", () => {
   const result = transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro"><h1>Intro</h1></Page>
@@ -145,7 +145,7 @@ test("collectStaticAstroCodeBlocksForTests preserves multibyte source spans", ()
 
 test("collectStaticAstroCodeBlocksForTests decodes escaped code text as static input", () => {
   const [block] = collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre><code class="language-html">&lt;div&gt;safe&lt;/div&gt;</code></pre></Page>
@@ -160,7 +160,7 @@ import Page from "@slida/astro/page";
 test("collectStaticAstroCodeBlocksForTests ignores pre blocks with author attributes", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre id="keep-me"><code class="language-ts">const slide = 1;</code></pre></Page>
@@ -171,7 +171,7 @@ import Page from "@slida/astro/page";
 test("collectStaticAstroCodeBlocksForTests ignores dynamic code classes", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const language = "language-ts";
 ---
 
@@ -183,7 +183,7 @@ const language = "language-ts";
 test("collectStaticAstroCodeBlocksForTests ignores non-text code children", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre><code class="language-ts"><span>const slide = 1;</span></code></pre></Page>
@@ -194,7 +194,7 @@ import Page from "@slida/astro/page";
 test("collectStaticAstroCodeBlocksForTests ignores code blocks without language classes", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre><code class="not-language-ts">const slide = 1;</code></pre></Page>
@@ -204,7 +204,7 @@ import Page from "@slida/astro/page";
 
 test("transformAstroDeckSource inserts layouts into self-closing Pages", () => {
   const result = transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Solo" />
@@ -213,7 +213,7 @@ import Page from "@slida/astro/page";
   expect(result).toContain('<Page title="Solo"  layout="cover"/>');
 });
 
-test("Astro decks must import Page from @slida/astro/page", () => {
+test("Astro decks must import Page from @deckup/astro/page", () => {
   expect(() =>
     validateAstroDeckSource(`---
 const title = "Intro";
@@ -227,7 +227,7 @@ const title = "Intro";
 test("Astro decks reject top-level non-Page content", () => {
   expect(() =>
     validateAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page />
@@ -239,7 +239,7 @@ import Page from "@slida/astro/page";
 test("Astro decks require at least one top-level Page", () => {
   expect(() =>
     validateAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 `),
@@ -249,7 +249,7 @@ import Page from "@slida/astro/page";
 test("Astro Pages reject multiple layout declarations", () => {
   expect(() =>
     transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page>
@@ -263,7 +263,7 @@ import Page from "@slida/astro/page";
 test("Astro layout declarations require a string id", () => {
   expect(() =>
     transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const expr = "cover";
 ---
 
@@ -277,7 +277,7 @@ const expr = "cover";
 test("Astro layout declarations must be self-closing", () => {
   expect(() =>
     transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page>
@@ -289,7 +289,7 @@ import Page from "@slida/astro/page";
 
 test("Astro source transforms preserve offsets after multibyte text", () => {
   const emojiDeck = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="日本語🎉">

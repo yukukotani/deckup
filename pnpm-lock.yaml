@@ -274,10 +274,10 @@ importers:
       '@puppeteer/browsers':
         specifier: 'catalog:'
         version: 3.0.6
-      '@slida/astro':
+      '@deckup/astro':
         specifier: workspace:*
         version: link:../../packages/astro
-      '@slida/core':
+      '@deckup/core':
         specifier: workspace:*
         version: link:../../packages/core
       astro:
@@ -314,7 +314,7 @@ importers:
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.41.2(@astrojs/markdown-remark@7.2.0)(astro@7.0.4(@astrojs/markdown-remark@7.2.0)(@types/node@25.9.4)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0))(typescript@5.9.3)
-      '@slida/astro':
+      '@deckup/astro':
         specifier: workspace:*
         version: link:../../packages/astro
       astro:
@@ -336,10 +336,10 @@ importers:
 
   example:
     devDependencies:
-      '@slida/astro':
+      '@deckup/astro':
         specifier: workspace:*
         version: link:../packages/astro
-      '@slida/cli':
+      '@deckup/cli':
         specifier: workspace:*
         version: link:../apps/cli
       '@tailwindcss/vite':
@@ -360,7 +360,7 @@ importers:
       '@astrojs/mdx':
         specifier: 'catalog:'
         version: 7.0.0(@astrojs/markdown-satteri@0.3.2)(astro@7.0.4(@astrojs/markdown-remark@7.2.0)(@types/node@24.13.2)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0))
-      '@slida/core':
+      '@deckup/core':
         specifier: workspace:*
         version: link:../core
       astro:
@@ -385,19 +385,19 @@ importers:
       '@astrojs/compiler-rs':
         specifier: ^0.2.3
         version: 0.2.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
-      '@slida/theme-apple-basic':
+      '@deckup/theme-apple-basic':
         specifier: workspace:*
         version: link:../theme-apple-basic
-      '@slida/theme-bold':
+      '@deckup/theme-bold':
         specifier: workspace:*
         version: link:../theme-bold
-      '@slida/theme-default':
+      '@deckup/theme-default':
         specifier: workspace:*
         version: link:../theme-default
-      '@slida/theme-google-basic':
+      '@deckup/theme-google-basic':
         specifier: workspace:*
         version: link:../theme-google-basic
-      '@slida/theme-minimal':
+      '@deckup/theme-minimal':
         specifier: workspace:*
         version: link:../theme-minimal
       acorn:

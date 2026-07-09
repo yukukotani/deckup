@@ -1,16 +1,16 @@
 ---
 title: Deck authoring
-description: Learn how Slida turns Astro and MDX files into pages, layouts, and themed slide regions.
+description: Learn how Deckup turns Astro and MDX files into pages, layouts, and themed slide regions.
 ---
 
 # Deck authoring
 
-A Slida deck is a single `.astro` or `.mdx` file.
+A Deckup deck is a single `.astro` or `.mdx` file.
 Both formats render pages with the same layout system, but they use different authoring styles.
 
 ## Layout defaults
 
-Slida chooses a layout for every page:
+Deckup chooses a layout for every page:
 
 - Page 1 defaults to `cover`.
 - Page 2 and later default to `default`.
@@ -24,14 +24,14 @@ Use an explicit layout when the selected theme provides a layout you want to use
 
 ## Deck themes
 
-Decks inherit the `theme` from `slida.config.*`.
+Decks inherit the `theme` from `deckup.config.*`.
 Individual decks can override that fallback with static theme metadata.
 
 In Astro decks, declare a top-level `theme` constant in the frontmatter script:
 
 ```astro
 ---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const theme = "bold";
 ---
 
@@ -51,7 +51,7 @@ theme: minimal
 # Minimal deck
 ```
 
-Slida resolves deck themes as deck metadata first, then `slida.config.*`, then `default`.
+Deckup resolves deck themes as deck metadata first, then `deckup.config.*`, then `default`.
 The deck theme value must be a static string.
 
 ## Astro decks
@@ -60,7 +60,7 @@ Astro decks import `Page` and place only top-level `<Page>` components in the fi
 
 ```astro
 ---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Presentation title">
@@ -96,7 +96,7 @@ Cover subtitle
 - Bullet
 ```
 
-Slida wraps each MDX page in a generated `<Page>` component.
+Deckup wraps each MDX page in a generated `<Page>` component.
 A page may contain at most one `<layout id="..." />` declaration.
 Empty pages are not valid, so avoid adjacent horizontal rules and trailing dividers without content.
 

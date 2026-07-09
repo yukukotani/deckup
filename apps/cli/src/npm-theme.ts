@@ -1,17 +1,17 @@
 export {
-  NPM_SLIDA_THEME_PREFIX,
-  SLIDA_THEME_CACHE_ENV,
+  NPM_DECKUP_THEME_PREFIX,
+  DECKUP_THEME_CACHE_ENV,
   getNpmThemeCacheEntryDir,
   parseNpmThemeSource,
   resolveCachedNpmThemePackage,
   resolveNpmThemeCacheDir,
-} from "@slida/core";
+} from "@deckup/core";
 
 export type {
   NpmThemeInstallOperations,
   NpmThemeInstallOptions,
   NpmThemePackageManifest,
-  SlidaCachedNpmThemePackage,
-  SlidaNpmThemeResolveOptions,
-  SlidaNpmThemeSource,
-} from "@slida/core";
+  DeckupCachedNpmThemePackage,
+  DeckupNpmThemeResolveOptions,
+  DeckupNpmThemeSource,
+} from "@deckup/core";

@@ -1,24 +1,24 @@
 ---
 title: Configuration reference
-description: Supported Slida config files, public config fields, and Astro config boundaries.
+description: Supported Deckup config files, public config fields, and Astro config boundaries.
 ---
 
 # Configuration reference
 
-Slida looks for one config file in the project root.
-If no config file exists, Slida uses an empty config.
-If multiple config files exist, Slida stops and asks you to keep only one.
+Deckup looks for one config file in the project root.
+If no config file exists, Deckup uses an empty config.
+If multiple config files exist, Deckup stops and asks you to keep only one.
 
 ## Supported filenames
 
-Slida supports these filenames:
+Deckup supports these filenames:
 
-- `slida.config.ts`
-- `slida.config.js`
-- `slida.config.mjs`
-- `slida.config.mts`
-- `slida.config.cjs`
-- `slida.config.cts`
+- `deckup.config.ts`
+- `deckup.config.js`
+- `deckup.config.mjs`
+- `deckup.config.mts`
+- `deckup.config.cjs`
+- `deckup.config.cts`
 
 The config file must default-export a plain object.
 Use `defineConfig()` for TypeScript help:
@@ -26,7 +26,7 @@ Use `defineConfig()` for TypeScript help:
 ```ts
 import { fileURLToPath } from "node:url";
 
-import { defineConfig } from "@slida/cli";
+import { defineConfig } from "@deckup/cli";
 
 export default defineConfig({
   port: 4321,
@@ -49,12 +49,12 @@ export default defineConfig({
 | ------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `port`  | `number`                   | Default dev-server port. A CLI `--port` value overrides this.                                                                                                        |
 | `theme` | `string`                   | Fallback theme for decks that do not declare their own theme. Supports built-in names, installed npm package specifiers, or auto-downloaded `npm:package[@version]`. |
-| `astro` | `AstroInlineConfig` subset | Extra Astro config Slida allows users to provide.                                                                                                                    |
+| `astro` | `AstroInlineConfig` subset | Extra Astro config Deckup allows users to provide.                                                                                                                   |
 
 ## Astro boundary
 
-Slida owns the runtime Astro fields that are required to build and preview decks.
-Do not configure these fields through `slida.config.*`:
+Deckup owns the runtime Astro fields that are required to build and preview decks.
+Do not configure these fields through `deckup.config.*`:
 
 - `root`
 - `srcDir`
@@ -65,22 +65,22 @@ Do not configure these fields through `slida.config.*`:
 - `logLevel`
 - `devToolbar`
 
-Slida also strips nested Vite `root` from user-provided `astro.vite` config.
-User Vite plugins and aliases are appended after Slida's required runtime plugins and aliases.
+Deckup also strips nested Vite `root` from user-provided `astro.vite` config.
+User Vite plugins and aliases are appended after Deckup's required runtime plugins and aliases.
 
 ## CLI precedence
 
-For `slida open`, the dev-server port is resolved in this order:
+For `deckup open`, the dev-server port is resolved in this order:
 
 1. `--port` or `-p` from the command line.
-2. `port` from `slida.config.*`.
-3. Slida's default port, `4321`.
+2. `port` from `deckup.config.*`.
+3. Deckup's default port, `4321`.
 
-For deck themes, Slida resolves the effective theme in this order:
+For deck themes, Deckup resolves the effective theme in this order:
 
 1. The deck file's top-level theme metadata.
-2. `theme` from `slida.config.*`.
-3. Slida's default theme, `default`.
+2. `theme` from `deckup.config.*`.
+3. Deckup's default theme, `default`.
 
 In MDX decks, use YAML frontmatter:
 

@@ -7,17 +7,17 @@ import {
   analyzeAstroDeckSourceForTests,
   collectStaticAstroCodeBlocksForTests,
   countAstroDeckPages,
-  createSlidaVitePluginsForRegistry,
+  createDeckupVitePluginsForRegistry,
   createSourceIndexConverter,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
   transformCompiledAstroDeckSource,
   validateAstroDeckSource,
-} from "../src/slida-vite-plugins.ts";
+} from "../src/deckup-vite-plugins.ts";
 import { createDeckRegistry } from "../src/deck.ts";
 
 const twoPageDeck = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro">
@@ -35,7 +35,7 @@ const compiledTwoPages = [
 ].join("\n");
 
 const codeBlockDeck = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Code">
@@ -89,14 +89,14 @@ test("transformAstroDeckSourceWithCodeHighlighting highlights static Astro code 
 
 test("transformAstroDeckSourceWithCodeHighlighting falls back for unknown languages", async () => {
   const result = await transformAstroDeckSourceWithCodeHighlighting(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
-<Page><pre><code class="language-slida-unknown">const slide = 1;</code></pre></Page>
+<Page><pre><code class="language-deckup-unknown">const slide = 1;</code></pre></Page>
 `);
 
   expect(result).toContain('class="astro-code');
-  expect(result).toContain('data-language="slida-unknown"');
+  expect(result).toContain('data-language="deckup-unknown"');
   expect(result).toContain("const slide = 1;");
 });
 
@@ -111,7 +111,7 @@ test("transformAstroDeckSourceWithCodeHighlighting leaves raw blocks unchanged w
 
 test("transformAstroDeckSourceWithCodeHighlighting leaves unsupported dynamic code blocks unchanged", async () => {
   const source = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const language = "language-ts";
 ---
 
@@ -126,7 +126,7 @@ const language = "language-ts";
 
 test("transformAstroDeckSource uses default cover and content layouts", () => {
   const result = transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro"><h1>Intro</h1></Page>
@@ -165,7 +165,7 @@ test("collectStaticAstroCodeBlocksForTests preserves multibyte source spans", ()
 
 test("collectStaticAstroCodeBlocksForTests decodes escaped code text as static input", () => {
   const [block] = collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre><code class="language-html">&lt;div&gt;safe&lt;/div&gt;</code></pre></Page>
@@ -180,7 +180,7 @@ import Page from "@slida/astro/page";
 test("collectStaticAstroCodeBlocksForTests ignores pre blocks with author attributes", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre id="keep-me"><code class="language-ts">const slide = 1;</code></pre></Page>
@@ -191,7 +191,7 @@ import Page from "@slida/astro/page";
 test("collectStaticAstroCodeBlocksForTests ignores dynamic code classes", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const language = "language-ts";
 ---
 
@@ -203,7 +203,7 @@ const language = "language-ts";
 test("collectStaticAstroCodeBlocksForTests ignores non-text code children", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre><code class="language-ts"><span>const slide = 1;</span></code></pre></Page>
@@ -214,7 +214,7 @@ import Page from "@slida/astro/page";
 test("collectStaticAstroCodeBlocksForTests ignores code blocks without language classes", () => {
   expect(
     collectStaticAstroCodeBlocksForTests(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><pre><code class="not-language-ts">const slide = 1;</code></pre></Page>
@@ -224,7 +224,7 @@ import Page from "@slida/astro/page";
 
 test("transformAstroDeckSource inserts layouts into self-closing Pages", () => {
   const result = transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Solo" />
@@ -233,7 +233,7 @@ import Page from "@slida/astro/page";
   expect(result).toContain('<Page title="Solo"  layout="cover"/>');
 });
 
-test("Astro decks must import Page from @slida/astro/page", () => {
+test("Astro decks must import Page from @deckup/astro/page", () => {
   expect(() =>
     validateAstroDeckSource(`---
 const title = "Intro";
@@ -247,7 +247,7 @@ const title = "Intro";
 test("Astro decks reject top-level non-Page content", () => {
   expect(() =>
     validateAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page />
@@ -259,7 +259,7 @@ import Page from "@slida/astro/page";
 test("Astro decks require at least one top-level Page", () => {
   expect(() =>
     validateAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 `),
@@ -269,7 +269,7 @@ import Page from "@slida/astro/page";
 test("analyzeAstroDeckSourceForTests reads static theme metadata", () => {
   const analysis = analyzeAstroDeckSourceForTests(
     `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const theme = "google-basic";
 ---
 
@@ -288,8 +288,8 @@ test("analyzeAstroDeckSourceForTests rejects dynamic theme metadata with deck pa
   expect(() =>
     analyzeAstroDeckSourceForTests(
       `---
-import Page from "@slida/astro/page";
-const theme = process.env.SLIDA_THEME;
+import Page from "@deckup/astro/page";
+const theme = process.env.DECKUP_THEME;
 ---
 
 <Page />
@@ -305,7 +305,7 @@ test("analyzeAstroDeckSourceForTests rejects non-const theme metadata", () => {
   expect(() =>
     analyzeAstroDeckSourceForTests(
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 let theme = "minimal";
 ---
 
@@ -320,7 +320,7 @@ test("analyzeAstroDeckSourceForTests rejects empty theme metadata", () => {
   expect(() =>
     analyzeAstroDeckSourceForTests(
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const theme = "";
 ---
 
@@ -334,7 +334,7 @@ const theme = "";
 test("Astro Pages reject multiple layout declarations", () => {
   expect(() =>
     transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page>
@@ -348,7 +348,7 @@ import Page from "@slida/astro/page";
 test("Astro layout declarations require a string id", () => {
   expect(() =>
     transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const expr = "cover";
 ---
 
@@ -362,7 +362,7 @@ const expr = "cover";
 test("Astro layout declarations must be self-closing", () => {
   expect(() =>
     transformAstroDeckSource(`---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page>
@@ -374,7 +374,7 @@ import Page from "@slida/astro/page";
 
 test("Astro source transforms preserve offsets after multibyte text", () => {
   const emojiDeck = `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="日本語🎉">
@@ -503,12 +503,12 @@ test("registry Astro validation leaves non-deck Astro modules untouched", async 
       slug: "deck",
       routePath: "/slides/deck",
       routeId: "slides_deck",
-      virtualDeckModuleId: "virtual:slida/decks/slides_deck",
-      virtualRouteModuleId: "virtual:slida/routes/slides_deck.astro",
+      virtualDeckModuleId: "virtual:deckup/decks/slides_deck",
+      virtualRouteModuleId: "virtual:deckup/routes/slides_deck.astro",
     },
   ]);
-  const plugins = createSlidaVitePluginsForRegistry(registry);
-  const validation = plugins.find((plugin) => plugin.name === "slida:astro-deck-validation");
+  const plugins = createDeckupVitePluginsForRegistry(registry);
+  const validation = plugins.find((plugin) => plugin.name === "deckup:astro-deck-validation");
   const transform = validation?.transform as
     | ((this: unknown, source: string, id: string) => unknown)
     | undefined;
@@ -518,15 +518,15 @@ test("registry Astro validation leaves non-deck Astro modules untouched", async 
   ).resolves.toBeUndefined();
 });
 
-test("createSlidaVitePluginsForRegistry resolves and loads per-deck virtual ids", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-registry-vite-"));
+test("createDeckupVitePluginsForRegistry resolves and loads per-deck virtual ids", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-registry-vite-"));
   try {
     await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
     const deckFile = join(projectRoot, "src", "slides", "intro.astro");
     await writeFile(
       deckFile,
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro"><h1>Intro</h1></Page>
@@ -541,12 +541,12 @@ import Page from "@slida/astro/page";
       slug: "intro",
       routePath: "/slides/intro",
       routeId: "slides_intro",
-      virtualDeckModuleId: "virtual:slida/decks/slides_intro",
-      virtualRouteModuleId: "virtual:slida/routes/slides_intro.astro",
+      virtualDeckModuleId: "virtual:deckup/decks/slides_intro",
+      virtualRouteModuleId: "virtual:deckup/routes/slides_intro.astro",
     };
     const registry = createDeckRegistry(projectRoot, "/slides", [deck]);
-    const plugins = createSlidaVitePluginsForRegistry(registry);
-    const virtualDeckPlugin = plugins.find((plugin) => plugin.name === "slida:virtual-decks");
+    const plugins = createDeckupVitePluginsForRegistry(registry);
+    const virtualDeckPlugin = plugins.find((plugin) => plugin.name === "deckup:virtual-decks");
     const resolveId = virtualDeckPlugin?.resolveId as
       | ((this: unknown, id: string) => string | undefined | Promise<string | undefined>)
       | undefined;
@@ -574,8 +574,8 @@ import Page from "@slida/astro/page";
   }
 });
 
-test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-registry-themes-"));
+test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-registry-themes-"));
   try {
     await mkdir(join(projectRoot, "themes", "minimal", "layouts"), { recursive: true });
     await mkdir(join(projectRoot, "themes", "bold", "layouts"), { recursive: true });
@@ -591,8 +591,8 @@ test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps"
       slug: "intro",
       routePath: "/slides/intro",
       routeId: "slides_intro",
-      virtualDeckModuleId: "virtual:slida/decks/slides_intro",
-      virtualRouteModuleId: "virtual:slida/routes/slides_intro.astro",
+      virtualDeckModuleId: "virtual:deckup/decks/slides_intro",
+      virtualRouteModuleId: "virtual:deckup/routes/slides_intro.astro",
     };
     const guideDeck = {
       ...introDeck,
@@ -602,14 +602,14 @@ test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps"
       slug: "guide",
       routePath: "/slides/guide",
       routeId: "slides_guide",
-      virtualDeckModuleId: "virtual:slida/decks/slides_guide",
-      virtualRouteModuleId: "virtual:slida/routes/slides_guide.astro",
+      virtualDeckModuleId: "virtual:deckup/decks/slides_guide",
+      virtualRouteModuleId: "virtual:deckup/routes/slides_guide.astro",
     };
     const registry = createDeckRegistry(projectRoot, "/slides", [introDeck, guideDeck]);
     const minimalTheme = {
       name: "minimal",
       filePath: join(projectRoot, "themes/minimal/package.json"),
-      packageName: "@slida/theme-minimal",
+      packageName: "@deckup/theme-minimal",
       packageRoot: join(projectRoot, "themes/minimal"),
       layoutsDir: join(projectRoot, "themes/minimal/layouts"),
       layouts: [
@@ -626,7 +626,7 @@ test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps"
     const boldTheme = {
       name: "bold",
       filePath: join(projectRoot, "themes/bold/package.json"),
-      packageName: "@slida/theme-bold",
+      packageName: "@deckup/theme-bold",
       packageRoot: join(projectRoot, "themes/bold"),
       layoutsDir: join(projectRoot, "themes/bold/layouts"),
       layouts: [
@@ -640,12 +640,12 @@ test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps"
       slotNames: [],
       source: "builtin" as const,
     };
-    const plugins = createSlidaVitePluginsForRegistry(
+    const plugins = createDeckupVitePluginsForRegistry(
       registry,
       (deck) => (deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : boldTheme),
-      { generatedPageFilePath: join(projectRoot, ".slida", "Page.astro") },
+      { generatedPageFilePath: join(projectRoot, ".deckup", "Page.astro") },
     );
-    const layoutsPlugin = plugins.find((plugin) => plugin.name === "slida:virtual-theme-layouts");
+    const layoutsPlugin = plugins.find((plugin) => plugin.name === "deckup:virtual-theme-layouts");
     const resolveId = layoutsPlugin?.resolveId as
       | ((this: unknown, id: string) => string | undefined | Promise<string | undefined>)
       | undefined;
@@ -655,7 +655,7 @@ test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps"
           id: string,
         ) => string | undefined | Promise<string | undefined>)
       | undefined;
-    const resolved = await resolveId?.call({}, "virtual:slida/theme-layouts");
+    const resolved = await resolveId?.call({}, "virtual:deckup/theme-layouts");
     const source = await load?.call({ addWatchFile() {} }, resolved as string);
 
     expect(source).toContain('"minimal"');
@@ -668,7 +668,7 @@ test("createSlidaVitePluginsForRegistry exposes all effective theme layout maps"
 });
 
 test("registry Astro validation uses the matched deck effective theme", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-registry-theme-validation-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-registry-theme-validation-"));
   try {
     await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
     await mkdir(join(projectRoot, "themes", "minimal", "layouts"), { recursive: true });
@@ -678,7 +678,7 @@ test("registry Astro validation uses the matched deck effective theme", async ()
     await writeFile(
       join(projectRoot, "src", "slides", "intro.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><layout id="cover" /><h1>Intro</h1></Page>
@@ -687,7 +687,7 @@ import Page from "@slida/astro/page";
     await writeFile(
       join(projectRoot, "src", "slides", "guide.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><layout id="cover" /><h1>Guide</h1></Page>
@@ -702,8 +702,8 @@ import Page from "@slida/astro/page";
       slug: "intro",
       routePath: "/slides/intro",
       routeId: "slides_intro",
-      virtualDeckModuleId: "virtual:slida/decks/slides_intro",
-      virtualRouteModuleId: "virtual:slida/routes/slides_intro.astro",
+      virtualDeckModuleId: "virtual:deckup/decks/slides_intro",
+      virtualRouteModuleId: "virtual:deckup/routes/slides_intro.astro",
     };
     const guideDeck = {
       ...introDeck,
@@ -712,8 +712,8 @@ import Page from "@slida/astro/page";
       slug: "guide",
       routePath: "/slides/guide",
       routeId: "slides_guide",
-      virtualDeckModuleId: "virtual:slida/decks/slides_guide",
-      virtualRouteModuleId: "virtual:slida/routes/slides_guide.astro",
+      virtualDeckModuleId: "virtual:deckup/decks/slides_guide",
+      virtualRouteModuleId: "virtual:deckup/routes/slides_guide.astro",
     };
     const registry = createDeckRegistry(projectRoot, "/slides", [introDeck, guideDeck]);
     const minimalTheme = {
@@ -748,16 +748,16 @@ import Page from "@slida/astro/page";
       slotNames: [],
       source: "builtin" as const,
     };
-    const validation = createSlidaVitePluginsForRegistry(registry, (deck) =>
+    const validation = createDeckupVitePluginsForRegistry(registry, (deck) =>
       deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : boldTheme,
-    ).find((plugin) => plugin.name === "slida:astro-deck-validation");
+    ).find((plugin) => plugin.name === "deckup:astro-deck-validation");
     const load = validation?.load as
       | ((this: unknown, id: string) => Promise<string | undefined>)
       | undefined;
 
     await expect(load?.call({}, introDeck.filePath)).resolves.toContain('theme="minimal"');
     await expect(load?.call({}, guideDeck.filePath)).rejects.toThrow(
-      /Slida theme "bold" does not provide layout "cover" required by src\/slides\/guide\.astro/,
+      /Deckup theme "bold" does not provide layout "cover" required by src\/slides\/guide\.astro/,
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });

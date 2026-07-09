@@ -4,20 +4,20 @@ import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 
 import { glob } from "tinyglobby";
 
-import { analyzeMdxDeckMetadata } from "./slida-mdx-pages.ts";
-import { analyzeAstroDeckMetadata } from "./slida-vite-plugins.ts";
+import { analyzeMdxDeckMetadata } from "./deckup-mdx-pages.ts";
+import { analyzeAstroDeckMetadata } from "./deckup-vite-plugins.ts";
 import type {
-  SlidaDeckFormat,
-  SlidaDeckMetadata,
-  SlidaDeckRegistry,
-  SlidaResolvedDeck,
-  SlidaResolvedDeckRoute,
+  DeckupDeckFormat,
+  DeckupDeckMetadata,
+  DeckupDeckRegistry,
+  DeckupResolvedDeck,
+  DeckupResolvedDeckRoute,
 } from "./types.ts";
 import { normalizeIdPath, normalizePath } from "./utils.ts";
 
 export const SUPPORTED_DECK_EXTENSIONS = [".astro", ".mdx"] as const;
-export const VIRTUAL_SLIDA_DECK_PREFIX = "virtual:slida/decks/";
-export const VIRTUAL_SLIDA_ROUTE_PREFIX = "virtual:slida/routes/";
+export const VIRTUAL_DECKUP_DECK_PREFIX = "virtual:deckup/decks/";
+export const VIRTUAL_DECKUP_ROUTE_PREFIX = "virtual:deckup/routes/";
 
 function toProjectPath(path: string) {
   return normalizePath(path);
@@ -26,8 +26,8 @@ function toProjectPath(path: string) {
 async function readDeckMetadata(
   filePath: string,
   projectRelativePath: string,
-  format: SlidaDeckFormat,
-): Promise<SlidaDeckMetadata> {
+  format: DeckupDeckFormat,
+): Promise<DeckupDeckMetadata> {
   const source = await readFile(filePath, "utf8");
   return format === "mdx"
     ? analyzeMdxDeckMetadata(source, projectRelativePath)
@@ -51,13 +51,13 @@ function trimSlashes(path: string) {
   return path.replace(/^\/+|\/+$/g, "");
 }
 
-export function normalizeSlidaBasePath(base = "/slides") {
+export function normalizeDeckupBasePath(base = "/slides") {
   const trimmed = trimSlashes(normalizeIdPath(base));
   return trimmed.length === 0 ? "/" : `/${trimmed}`;
 }
 
 function joinRoutePath(base: string, slug: string) {
-  const normalizedBase = normalizeSlidaBasePath(base);
+  const normalizedBase = normalizeDeckupBasePath(base);
   const normalizedSlug = trimSlashes(slug);
   if (normalizedBase === "/") return `/${normalizedSlug}`;
   return normalizedSlug.length === 0 ? normalizedBase : `${normalizedBase}/${normalizedSlug}`;
@@ -98,24 +98,24 @@ function slugForDeck(projectRelativePath: string, globBase: string) {
   return trimSlashes(stripDeckExtension(relativeToGlobBase));
 }
 
-export function inferDeckFormat(filePath: string): SlidaDeckFormat {
+export function inferDeckFormat(filePath: string): DeckupDeckFormat {
   const extension = extname(filePath);
 
   if (extension === ".astro") return "astro";
   if (extension === ".mdx") return "mdx";
 
   throw new Error(
-    `Unsupported Slida deck file extension: ${extension || "<none>"}. Supported extensions: ${SUPPORTED_DECK_EXTENSIONS.join(", ")}`,
+    `Unsupported Deckup deck file extension: ${extension || "<none>"}. Supported extensions: ${SUPPORTED_DECK_EXTENSIONS.join(", ")}`,
   );
 }
 
 export async function resolveDeckFile(
   projectRoot: string,
   deckFile: string | undefined,
-): Promise<SlidaResolvedDeck> {
+): Promise<DeckupResolvedDeck> {
   if (!deckFile) {
     throw new Error(
-      "Missing Slida deck file. Usage: slida open <deck-file> or slida build <deck-file>.",
+      "Missing Deckup deck file. Usage: deckup open <deck-file> or deckup build <deck-file>.",
     );
   }
 
@@ -127,7 +127,7 @@ export async function resolveDeckFile(
     projectRelativePath.startsWith("..") ||
     isAbsolute(projectRelativePath)
   ) {
-    throw new Error(`Slida deck file must be inside the project root: ${deckFile}`);
+    throw new Error(`Deckup deck file must be inside the project root: ${deckFile}`);
   }
 
   const format = inferDeckFormat(resolvedDeckFile);
@@ -137,7 +137,7 @@ export async function resolveDeckFile(
   } catch (error) {
     const code =
       typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
-    if (code === "ENOENT") throw new Error(`Slida deck file not found: ${deckFile}`);
+    if (code === "ENOENT") throw new Error(`Deckup deck file not found: ${deckFile}`);
     throw error;
   }
 
@@ -146,7 +146,7 @@ export async function resolveDeckFile(
     realpath(resolvedDeckFile),
   ]);
   if (!isInsideProject(realProjectRoot, realDeckFile)) {
-    throw new Error(`Slida deck file must be inside the project root: ${deckFile}`);
+    throw new Error(`Deckup deck file must be inside the project root: ${deckFile}`);
   }
 
   const normalizedProjectRelativePath = toProjectPath(projectRelativePath);
@@ -169,7 +169,7 @@ export async function resolveDeckFilesFromGlob(
     (pattern) => pattern.trim().length > 0,
   );
   if (sourceGlobs.length === 0)
-    throw new Error("Missing Slida deck glob. Provide at least one deck glob.");
+    throw new Error("Missing Deckup deck glob. Provide at least one deck glob.");
 
   const matchedByPath = new Map<string, { sourceGlob: string; globBase: string }>();
   for (const sourceGlob of sourceGlobs) {
@@ -189,10 +189,10 @@ export async function resolveDeckFilesFromGlob(
   }
 
   if (matchedByPath.size === 0) {
-    throw new Error(`Slida deck glob matched no files: ${sourceGlobs.join(", ")}`);
+    throw new Error(`Deckup deck glob matched no files: ${sourceGlobs.join(", ")}`);
   }
 
-  const normalizedBase = normalizeSlidaBasePath(base);
+  const normalizedBase = normalizeDeckupBasePath(base);
   const entries = [...matchedByPath.entries()].sort(([a], [b]) => a.localeCompare(b));
 
   return Promise.all(
@@ -208,21 +208,21 @@ export async function resolveDeckFilesFromGlob(
         slug,
         routePath,
         routeId,
-        virtualDeckModuleId: `${VIRTUAL_SLIDA_DECK_PREFIX}${routeId}`,
-        virtualRouteModuleId: `${VIRTUAL_SLIDA_ROUTE_PREFIX}${routeId}.astro`,
-      } satisfies SlidaResolvedDeckRoute;
+        virtualDeckModuleId: `${VIRTUAL_DECKUP_DECK_PREFIX}${routeId}`,
+        virtualRouteModuleId: `${VIRTUAL_DECKUP_ROUTE_PREFIX}${routeId}.astro`,
+      } satisfies DeckupResolvedDeckRoute;
     }),
   );
 }
 
-function assertNoDuplicateDeckRoutes(decks: SlidaResolvedDeckRoute[]) {
-  const seenRoutes = new Map<string, SlidaResolvedDeckRoute>();
-  const seenIds = new Map<string, SlidaResolvedDeckRoute>();
+function assertNoDuplicateDeckRoutes(decks: DeckupResolvedDeckRoute[]) {
+  const seenRoutes = new Map<string, DeckupResolvedDeckRoute>();
+  const seenIds = new Map<string, DeckupResolvedDeckRoute>();
   for (const deck of decks) {
     const routeConflict = seenRoutes.get(deck.routePath);
     if (routeConflict) {
       throw new Error(
-        `Slida deck route collision at ${deck.routePath}: ${routeConflict.projectRelativePath} and ${deck.projectRelativePath}`,
+        `Deckup deck route collision at ${deck.routePath}: ${routeConflict.projectRelativePath} and ${deck.projectRelativePath}`,
       );
     }
     seenRoutes.set(deck.routePath, deck);
@@ -230,7 +230,7 @@ function assertNoDuplicateDeckRoutes(decks: SlidaResolvedDeckRoute[]) {
     const idConflict = seenIds.get(deck.routeId);
     if (idConflict) {
       throw new Error(
-        `Slida deck route id collision at ${deck.routeId}: ${idConflict.projectRelativePath} and ${deck.projectRelativePath}`,
+        `Deckup deck route id collision at ${deck.routeId}: ${idConflict.projectRelativePath} and ${deck.projectRelativePath}`,
       );
     }
     seenIds.set(deck.routeId, deck);
@@ -240,13 +240,13 @@ function assertNoDuplicateDeckRoutes(decks: SlidaResolvedDeckRoute[]) {
 export function createDeckRegistry(
   projectRoot: string,
   base: string,
-  decks: SlidaResolvedDeckRoute[],
-): SlidaDeckRegistry {
+  decks: DeckupResolvedDeckRoute[],
+): DeckupDeckRegistry {
   assertNoDuplicateDeckRoutes(decks);
-  const byFilePath = new Map<string, SlidaResolvedDeckRoute>();
-  const byProjectRelativePath = new Map<string, SlidaResolvedDeckRoute>();
-  const byRoutePath = new Map<string, SlidaResolvedDeckRoute>();
-  const byRouteId = new Map<string, SlidaResolvedDeckRoute>();
+  const byFilePath = new Map<string, DeckupResolvedDeckRoute>();
+  const byProjectRelativePath = new Map<string, DeckupResolvedDeckRoute>();
+  const byRoutePath = new Map<string, DeckupResolvedDeckRoute>();
+  const byRouteId = new Map<string, DeckupResolvedDeckRoute>();
 
   for (const deck of decks) {
     byFilePath.set(normalizeIdPath(deck.filePath), deck);
@@ -255,9 +255,9 @@ export function createDeckRegistry(
     byRouteId.set(deck.routeId, deck);
   }
 
-  const registry: SlidaDeckRegistry = {
+  const registry: DeckupDeckRegistry = {
     projectRoot,
-    base: normalizeSlidaBasePath(base),
+    base: normalizeDeckupBasePath(base),
     decks,
     byFilePath,
     byProjectRelativePath,

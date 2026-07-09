@@ -1,18 +1,18 @@
 export {
   SUPPORTED_DECK_EXTENSIONS,
-  VIRTUAL_SLIDA_DECK_PREFIX,
-  VIRTUAL_SLIDA_ROUTE_PREFIX,
+  VIRTUAL_DECKUP_DECK_PREFIX,
+  VIRTUAL_DECKUP_ROUTE_PREFIX,
   createDeckRegistry,
   inferDeckFormat,
-  normalizeSlidaBasePath,
+  normalizeDeckupBasePath,
   resolveDeckFile,
   resolveDeckFilesFromGlob,
   resolveDeckRegistry,
-} from "@slida/core";
+} from "@deckup/core";
 export type {
-  SlidaDeckFormat,
-  SlidaDeckRegistry,
-  SlidaResolvedDeck,
-  SlidaResolvedDeckRoute,
-  SlidaRouteId,
-} from "@slida/core";
+  DeckupDeckFormat,
+  DeckupDeckRegistry,
+  DeckupResolvedDeck,
+  DeckupResolvedDeckRoute,
+  DeckupRouteId,
+} from "@deckup/core";

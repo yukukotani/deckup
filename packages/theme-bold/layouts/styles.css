@@ -1,65 +1,65 @@
 :root {
-  --slida-text: #1e1b4b;
-  --slida-text-strong: #111827;
-  --slida-bg: #fff7ed;
-  --slida-border: #fb923c;
-  --slida-code-bg: #ffedd5;
-  --slida-accent: #db2777;
-  --slida-accent-bg: rgba(219, 39, 119, 0.14);
-  --slida-shadow:
+  --deckup-text: #1e1b4b;
+  --deckup-text-strong: #111827;
+  --deckup-bg: #fff7ed;
+  --deckup-border: #fb923c;
+  --deckup-code-bg: #ffedd5;
+  --deckup-accent: #db2777;
+  --deckup-accent-bg: rgba(219, 39, 119, 0.14);
+  --deckup-shadow:
     rgba(219, 39, 119, 0.22) 0 18px 35px -15px, rgba(249, 115, 22, 0.18) 0 12px 24px -18px;
-  --slida-sans: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
-  --slida-heading: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
-  --slida-mono: ui-monospace, Consolas, monospace;
+  --deckup-sans: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
+  --deckup-heading: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
+  --deckup-mono: ui-monospace, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --slida-text: #fde68a;
-    --slida-text-strong: #fff7ed;
-    --slida-bg: #312e81;
-    --slida-border: #f472b6;
-    --slida-code-bg: #4c1d95;
-    --slida-accent: #fb7185;
-    --slida-accent-bg: rgba(251, 113, 133, 0.18);
-    --slida-shadow:
+    --deckup-text: #fde68a;
+    --deckup-text-strong: #fff7ed;
+    --deckup-bg: #312e81;
+    --deckup-border: #f472b6;
+    --deckup-code-bg: #4c1d95;
+    --deckup-accent: #fb7185;
+    --deckup-accent-bg: rgba(251, 113, 133, 0.18);
+    --deckup-shadow:
       rgba(251, 113, 133, 0.28) 0 18px 35px -15px, rgba(129, 140, 248, 0.22) 0 12px 24px -18px;
   }
 }
 
 body {
-  font: 18px/145% var(--slida-sans);
+  font: 18px/145% var(--deckup-sans);
   letter-spacing: 0.18px;
-  color: var(--slida-text);
+  color: var(--deckup-text);
 }
 
-.slida-slide {
-  --slida-cqw: 1cqw;
+.deckup-slide {
+  --deckup-cqw: 1cqw;
 
   display: grid;
   align-content: center;
   justify-items: start;
   gap: 1rem;
-  padding: clamp(2rem, calc(6 * var(--slida-cqw)), 5rem);
+  padding: clamp(2rem, calc(6 * var(--deckup-cqw)), 5rem);
   text-align: left;
-  background: var(--slida-bg);
+  background: var(--deckup-bg);
 }
 
-.slida-slide > * {
+.deckup-slide > * {
   max-width: 920px;
   margin-inline: 0;
 }
 
-[data-slida-layout="cover"] {
+[data-deckup-layout="cover"] {
   place-items: center;
   text-align: center;
 }
 
-[data-slida-layout="cover"] > * {
+[data-deckup-layout="cover"] > * {
   max-width: 920px;
 }
 
-[data-slida-layout="default"] {
+[data-deckup-layout="default"] {
   align-content: center;
   justify-items: start;
   text-align: left;
@@ -68,19 +68,19 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--slida-heading);
-  color: var(--slida-text-strong);
+  font-family: var(--deckup-heading);
+  color: var(--deckup-text-strong);
   letter-spacing: -0.04em;
 }
 
 h1 {
-  font-size: clamp(2.25rem, calc(6 * var(--slida-cqw)), 4.25rem);
+  font-size: clamp(2.25rem, calc(6 * var(--deckup-cqw)), 4.25rem);
   line-height: 0.98;
   margin: 0 0 1rem;
 }
 
-[data-slida-layout="cover"] h1 {
-  font-size: clamp(3.25rem, calc(10 * var(--slida-cqw)), 6.5rem);
+[data-deckup-layout="cover"] h1 {
+  font-size: clamp(3.25rem, calc(10 * var(--deckup-cqw)), 6.5rem);
   line-height: 0.92;
   margin-bottom: 1.5rem;
 }
@@ -88,24 +88,24 @@ h1 {
 p {
   max-width: 720px;
   margin: 0.75rem 0;
-  font-size: clamp(1.125rem, calc(2 * var(--slida-cqw)), 1.5rem);
+  font-size: clamp(1.125rem, calc(2 * var(--deckup-cqw)), 1.5rem);
 }
 
-[data-slida-layout="cover"] p {
+[data-deckup-layout="cover"] p {
   margin-inline: auto;
 }
 
 code {
-  font-family: var(--slida-mono);
-  color: var(--slida-text-strong);
-  background: var(--slida-code-bg);
+  font-family: var(--deckup-mono);
+  color: var(--deckup-text-strong);
+  background: var(--deckup-code-bg);
   border-radius: 0.25rem;
   padding: 0.15em 0.35em;
 }
 
-.slida-kicker {
-  color: var(--slida-accent);
-  font-family: var(--slida-mono);
+.deckup-kicker {
+  color: var(--deckup-accent);
+  font-family: var(--deckup-mono);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.85rem !important;
@@ -118,7 +118,7 @@ code {
 }
 
 @container (max-width: 768px) {
-  .slida-slide {
+  .deckup-slide {
     padding: 2rem 1.25rem;
   }
 }

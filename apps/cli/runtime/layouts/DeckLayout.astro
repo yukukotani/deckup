@@ -6,7 +6,7 @@ interface Props {
   title?: string;
 }
 
-const { slideCount, title = "Slida Deck" } = Astro.props;
+const { slideCount, title = "Deckup Deck" } = Astro.props;
 ---
 
 <!doctype html>
@@ -14,18 +14,18 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="generator" content="Slida" />
+    <meta name="generator" content="Deckup" />
     <title>{title}</title>
   </head>
   <body>
-    <div class="slida-shell" data-slida-shell data-slide-count={slideCount}>
+    <div class="deckup-shell" data-deckup-shell data-slide-count={slideCount}>
       <slot />
     </div>
-    <nav class="slida-navigation slida-status" data-slida-navigation aria-label="Slide navigation">
+    <nav class="deckup-navigation deckup-status" data-deckup-navigation aria-label="Slide navigation">
       <button
         type="button"
-        class="slida-navigation__handle"
-        data-slida-nav-drag-handle
+        class="deckup-navigation__handle"
+        data-deckup-nav-drag-handle
         aria-label="Move navigation menu"
         title="Move navigation menu"
       >
@@ -33,20 +33,20 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
       </button>
       <button
         type="button"
-        class="slida-navigation__button"
-        data-slida-nav-prev
+        class="deckup-navigation__button"
+        data-deckup-nav-prev
         aria-label="Previous slide"
         disabled
       >
         ‹
       </button>
-      <span class="slida-navigation__status" aria-live="polite">
-        <span data-slida-current>1</span>/<span data-slida-total>{Math.max(slideCount, 1)}</span>
+      <span class="deckup-navigation__status" aria-live="polite">
+        <span data-deckup-current>1</span>/<span data-deckup-total>{Math.max(slideCount, 1)}</span>
       </span>
       <button
         type="button"
-        class="slida-navigation__button"
-        data-slida-nav-next
+        class="deckup-navigation__button"
+        data-deckup-nav-next
         aria-label="Next slide"
         disabled={slideCount <= 1}
       >
@@ -54,8 +54,8 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
       </button>
       <button
         type="button"
-        class="slida-navigation__button"
-        data-slida-nav-fullscreen
+        class="deckup-navigation__button"
+        data-deckup-nav-fullscreen
         aria-label="Enter fullscreen"
         aria-pressed="false"
         title="Enter fullscreen"

@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "@slida/cli";
+import { defineConfig } from "@deckup/cli";
 
 export default defineConfig({
   port: 4321,

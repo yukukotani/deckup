@@ -31,7 +31,7 @@ import {
 const cliPackageRoot = fileURLToPath(new URL("..", import.meta.url));
 
 async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-astro-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-astro-"));
   try {
     await run(projectRoot);
   } finally {
@@ -40,14 +40,14 @@ async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
 }
 
 async function linkCliPackage(projectRoot: string) {
-  const scopeDir = join(projectRoot, "node_modules", "@slida");
+  const scopeDir = join(projectRoot, "node_modules", "@deckup");
   await mkdir(scopeDir, { recursive: true });
   await symlink(cliPackageRoot, join(scopeDir, "cli"), "dir");
 }
 
 async function localBrowserExecutablePath() {
   const candidates = [
-    process.env.SLIDA_CHROMIUM_EXECUTABLE_PATH,
+    process.env.DECKUP_CHROMIUM_EXECUTABLE_PATH,
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
@@ -65,15 +65,15 @@ async function localBrowserExecutablePath() {
 }
 
 function slideCount(html: string) {
-  return html.match(/data-slida-slide(?=[\s=>])/g)?.length ?? 0;
+  return html.match(/data-deckup-slide(?=[\s=>])/g)?.length ?? 0;
 }
 
 function layoutCount(html: string, layout: string) {
-  return html.match(new RegExp(`data-slida-layout="${layout}"`, "g"))?.length ?? 0;
+  return html.match(new RegExp(`data-deckup-layout="${layout}"`, "g"))?.length ?? 0;
 }
 
 function slideSectionCount(html: string) {
-  return html.match(/<section\b[^>]*data-slida-slide/g)?.length ?? 0;
+  return html.match(/<section\b[^>]*data-deckup-slide/g)?.length ?? 0;
 }
 
 function extractInlineCss(html: string) {
@@ -130,10 +130,10 @@ async function writeThemeLayoutPackage(projectRoot: string, packageName: string)
 }
 
 async function writeLayoutThemeConfig(projectRoot: string) {
-  await writeThemeLayoutPackage(projectRoot, "@acme/slida-layout-theme");
+  await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
   await writeFile(
-    join(projectRoot, "slida.config.ts"),
-    "export default { theme: '@acme/slida-layout-theme' };\n",
+    join(projectRoot, "deckup.config.ts"),
+    "export default { theme: '@acme/deckup-layout-theme' };\n",
   );
 }
 
@@ -146,12 +146,12 @@ test("resolveRuntimeSourceDir points at the package runtime directory", () => {
 });
 
 test("normalizeBuildOutDir resolves the default output under the project root", () => {
-  const root = resolve("/tmp/slida-project");
+  const root = resolve("/tmp/deckup-project");
   expect(normalizeBuildOutDir(root)).toBe(join(root, DEFAULT_BUILD_OUT_DIR));
 });
 
 test("normalizeExportOutFile resolves the default PDF output from the selected deck basename", () => {
-  const root = resolve("/tmp/slida-project");
+  const root = resolve("/tmp/deckup-project");
   expect(
     normalizeExportOutFile(root, {
       filePath: join(root, "slides", "talk.astro"),
@@ -162,31 +162,31 @@ test("normalizeExportOutFile resolves the default PDF output from the selected d
 });
 
 test("createAstroInlineConfig disables external config and wires runtime dirs", () => {
-  const root = resolve("/tmp/slida-project");
+  const root = resolve("/tmp/deckup-project");
   const config = createAstroInlineConfig(
     {
       projectRoot: root,
-      runtimeSourceDir: join(root, "node_modules/@slida/cli/runtime"),
-      runtimeOutDir: join(root, ".slida/runtime"),
+      runtimeSourceDir: join(root, "node_modules/@deckup/cli/runtime"),
+      runtimeOutDir: join(root, ".deckup/runtime"),
     },
     { outDir: "public-deck", logLevel: "warn" },
   );
 
   expect(config.root).toBe(root);
   expect(config.configFile).toBe(false);
-  expect(config.srcDir).toBe(join(root, ".slida/runtime"));
+  expect(config.srcDir).toBe(join(root, ".deckup/runtime"));
   expect(config.outDir).toBe(join(root, "public-deck"));
   expect(config.logLevel).toBe("warn");
 });
 
 test("prepareRuntime writes a fallback page when the selected runtime source is absent", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-runtime-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-runtime-"));
   try {
     const missingRuntimeSource = join(projectRoot, "missing-runtime");
     const paths = await prepareRuntime(projectRoot, missingRuntimeSource);
     const fallback = await readFile(join(paths.runtimeOutDir, "pages/index.astro"), "utf8");
     expect(paths.runtimeSourceDir).toBe(missingRuntimeSource);
-    expect(fallback).toContain("Slida runtime unavailable");
+    expect(fallback).toContain("Deckup runtime unavailable");
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
@@ -199,7 +199,7 @@ test("buildDeck builds one selected Astro deck file", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro"><layout id="cover" /><h1>Intro</h1></Page>
@@ -214,8 +214,8 @@ import Page from "@slida/astro/page";
     });
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
     expect(slideCount(html)).toBe(2);
-    expect(html.match(/data-slida-layout="cover"/g)?.length ?? 0).toBe(1);
-    expect(html.match(/data-slida-layout="default"/g)?.length ?? 0).toBe(1);
+    expect(html.match(/data-deckup-layout="cover"/g)?.length ?? 0).toBe(1);
+    expect(html.match(/data-deckup-layout="default"/g)?.length ?? 0).toBe(1);
     expect(html).toContain('data-slide-count="2"');
     expect(html).toContain("Intro");
     expect(html).toContain("Details");
@@ -264,7 +264,7 @@ test("buildDeck highlights static Astro pre code blocks", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Astro Code">
@@ -300,7 +300,7 @@ test("buildDeck uses astro markdown theme for static Astro code blocks", async (
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
+      join(projectRoot, "deckup.config.ts"),
       `export default {
   astro: {
     markdown: {
@@ -316,7 +316,7 @@ test("buildDeck uses astro markdown theme for static Astro code blocks", async (
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Theme"><pre><code class="language-ts">const theme = "light";</code></pre></Page>
@@ -344,7 +344,7 @@ test("buildDeck leaves dynamic Astro code blocks unchanged", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 const language = "language-ts";
 ---
 
@@ -376,7 +376,7 @@ test("buildDeck renders Astro pages through theme layouts and named slots", asyn
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Columns"><layout id="two-column" /><h1>Column title</h1><div slot="left">Left content</div><div slot="right">Right content</div></Page>
@@ -394,8 +394,8 @@ import Page from "@slida/astro/page";
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
     expect(slideCount(html)).toBe(2);
     expect(slideSectionCount(html)).toBe(2);
-    expect(html).toContain('class="slida-slide"');
-    expect(html).toContain("data-slida-slide");
+    expect(html).toContain('class="deckup-slide"');
+    expect(html).toContain("data-deckup-slide");
     expect(html).toContain('data-slide-count="2"');
     expect(layoutCount(html, "two-column")).toBe(1);
     expect(layoutCount(html, "default")).toBe(1);
@@ -427,7 +427,7 @@ async function expectAstroDeckError(deckSource: string, matcher: RegExp) {
 test("buildDeck rejects a missing deck file option", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(buildDeck({ root: projectRoot, logLevel: "silent" })).rejects.toThrow(
-      /Missing Slida deck file/,
+      /Missing Deckup deck file/,
     );
   });
 });
@@ -439,7 +439,7 @@ test("buildDeck rejects Astro deck top-level content outside Page", async () => 
     await writeFile(
       join(projectRoot, "slides", "bad.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <h1>Loose content</h1>
@@ -474,7 +474,7 @@ test("buildDeck rejects Astro decks without the package Page import", async () =
 test("buildDeck rejects duplicate Astro layout declarations", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><layout id="cover" /><layout id="default" /><h1>Intro</h1></Page>
@@ -486,7 +486,7 @@ import Page from "@slida/astro/page";
 test("buildDeck rejects Astro layout declarations without id", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><layout /><h1>Intro</h1></Page>
@@ -498,24 +498,24 @@ import Page from "@slida/astro/page";
 test("buildDeck rejects empty Astro layout ids", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><layout id="" /><h1>Intro</h1></Page>
 `,
-    /Invalid Slida layout id/,
+    /Invalid Deckup layout id/,
   );
 });
 
 test("buildDeck rejects invalid Astro layout ids", async () => {
   await expectAstroDeckError(
     `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><layout id="Cover Slide" /><h1>Intro</h1></Page>
 `,
-    /Invalid Slida layout id/,
+    /Invalid Deckup layout id/,
   );
 });
 
@@ -527,7 +527,7 @@ test("buildDeck rejects Astro decks that select a missing theme layout", async (
     await writeFile(
       join(projectRoot, "slides", "bad.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page><layout id="missing" /><h1>Missing</h1></Page>
@@ -544,14 +544,14 @@ test("buildDeck renders Astro pages through the Google Basic flow layouts", asyn
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
+      join(projectRoot, "deckup.config.ts"),
       "export default { theme: 'google-basic' };\n",
     );
     await mkdir(join(projectRoot, "slides"));
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Google Page"><layout id="page" /><h1>Google page title</h1><p>Google page body</p><ul><li>Google bullet</li></ul><p>Google follow-up</p></Page>
@@ -575,9 +575,9 @@ import Page from "@slida/astro/page";
     expect(html).toContain("Google bullet");
     expect(html).toContain("Google follow-up");
     expect(html).toContain("Google column title");
-    expect(html).toContain('class="slida-google-column slida-google-column--left"');
+    expect(html).toContain('class="deckup-google-column deckup-google-column--left"');
     expect(html).toContain("Google left");
-    expect(html).toContain('class="slida-google-column slida-google-column--right"');
+    expect(html).toContain('class="deckup-google-column deckup-google-column--right"');
     expect(html).toContain("Google right");
     expect(html).not.toContain("<layout");
   });
@@ -587,14 +587,14 @@ test("buildDeck renders Astro pages through the Apple Basic flow layouts", async
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
+      join(projectRoot, "deckup.config.ts"),
       "export default { theme: 'apple-basic' };\n",
     );
     await mkdir(join(projectRoot, "slides"));
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Apple Page"><layout id="page" /><h1>Apple page title</h1><p>Apple page subtitle</p><p>Apple page body</p><ul><li>Apple bullet</li></ul></Page>
@@ -618,9 +618,9 @@ import Page from "@slida/astro/page";
     expect(html).toContain("Apple page body");
     expect(html).toContain("Apple bullet");
     expect(html).toContain("Apple column title");
-    expect(html).toContain('class="slida-apple-column slida-apple-column--left"');
+    expect(html).toContain('class="deckup-apple-column deckup-apple-column--left"');
     expect(html).toContain("Apple left");
-    expect(html).toContain('class="slida-apple-column slida-apple-column--right"');
+    expect(html).toContain('class="deckup-apple-column deckup-apple-column--right"');
     expect(html).toContain("Apple right");
     expect(html).not.toContain("<layout");
   });
@@ -631,14 +631,14 @@ for (const theme of builtInViewerThemes) {
     await withProjectRoot(async (projectRoot) => {
       await linkCliPackage(projectRoot);
       await writeFile(
-        join(projectRoot, "slida.config.ts"),
+        join(projectRoot, "deckup.config.ts"),
         `export default { theme: '${theme}' };\n`,
       );
       await mkdir(join(projectRoot, "slides"));
       await writeFile(
         join(projectRoot, "slides", "deck.astro"),
         `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro"><layout id="cover" /><h1>Intro</h1><p>Body</p></Page>
@@ -658,13 +658,13 @@ import Page from "@slida/astro/page";
       expect(slideSectionCount(html)).toBe(1);
       expect(layoutCount(html, "cover")).toBe(1);
       expect(html).toContain('data-slide-count="1"');
-      expect(html).toContain("data-slida-navigation");
-      expect(html).toContain("data-slida-nav-drag-handle");
-      expect(html).toContain("data-slida-nav-prev");
-      expect(html).toContain("data-slida-nav-next");
-      expect(html).toContain("data-slida-nav-fullscreen");
-      expect(html).toContain("data-slida-current");
-      expect(html).toContain("data-slida-total");
+      expect(html).toContain("data-deckup-navigation");
+      expect(html).toContain("data-deckup-nav-drag-handle");
+      expect(html).toContain("data-deckup-nav-prev");
+      expect(html).toContain("data-deckup-nav-next");
+      expect(html).toContain("data-deckup-nav-fullscreen");
+      expect(html).toContain("data-deckup-current");
+      expect(html).toContain("data-deckup-total");
       expect(html).toContain('aria-label="Slide navigation"');
       expect(html).toContain('aria-label="Move navigation menu"');
       expect(html).toContain('aria-label="Previous slide"');
@@ -675,44 +675,44 @@ import Page from "@slida/astro/page";
       expect(css).toMatch(
         /body\{(?=[^}]*display:grid)(?=[^}]*place-items:center)(?=[^}]*background:#111)[^}]*\}/,
       );
-      expect(css).toMatch(/\.slida-shell\{[^}]*aspect-ratio:16\/9/);
+      expect(css).toMatch(/\.deckup-shell\{[^}]*aspect-ratio:16\/9/);
       expect(css).toContain("container-type:size");
       expect(css).toMatch(
-        /\.slida-deck,\.slida-empty\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/,
+        /\.deckup-deck,\.deckup-empty\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/,
       );
-      expect(css).toMatch(/\.slida-slide\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/);
+      expect(css).toMatch(/\.deckup-slide\{[^}]*width:100%[^}]*height:100%[^}]*min-height:0/);
       expect(css).toMatch(
-        /\.slida-status\{(?=[^}]*position:fixed)(?=[^}]*display:inline-flex)[^}]*\}/,
-      );
-      expect(css).toMatch(
-        /\.slida-status\{(?=[^}]*left:50%)(?=[^}]*bottom:1rem)(?=[^}]*transform:translate(?:X)?\(-50%\))[^}]*\}/,
-      );
-      expect(css).toContain(".slida-navigation__button");
-      expect(css).toContain(".slida-navigation__handle");
-      expect(css).toMatch(/\.slida-navigation__handle\{[^}]*touch-action:none/);
-      expect(css).toMatch(
-        /\.slida-navigation__button:not\(:disabled\),\.slida-navigation__handle\{[^}]*cursor:pointer/,
+        /\.deckup-status\{(?=[^}]*position:fixed)(?=[^}]*display:inline-flex)[^}]*\}/,
       );
       expect(css).toMatch(
-        /\.slida-navigation__button:not\(:disabled\):hover,[^}]*\.slida-navigation__handle:focus-visible\{[^}]*background:/,
+        /\.deckup-status\{(?=[^}]*left:50%)(?=[^}]*bottom:1rem)(?=[^}]*transform:translate(?:X)?\(-50%\))[^}]*\}/,
       );
-      expect(css).toMatch(/\.slida-navigation__button:disabled\{[^}]*opacity:/);
-      expect(css).not.toMatch(/\.slida-status\{display:none!important\}/);
-      expect(css).not.toMatch(/\.slida-navigation\{display:none!important\}/);
+      expect(css).toContain(".deckup-navigation__button");
+      expect(css).toContain(".deckup-navigation__handle");
+      expect(css).toMatch(/\.deckup-navigation__handle\{[^}]*touch-action:none/);
+      expect(css).toMatch(
+        /\.deckup-navigation__button:not\(:disabled\),\.deckup-navigation__handle\{[^}]*cursor:pointer/,
+      );
+      expect(css).toMatch(
+        /\.deckup-navigation__button:not\(:disabled\):hover,[^}]*\.deckup-navigation__handle:focus-visible\{[^}]*background:/,
+      );
+      expect(css).toMatch(/\.deckup-navigation__button:disabled\{[^}]*opacity:/);
+      expect(css).not.toMatch(/\.deckup-status\{display:none!important\}/);
+      expect(css).not.toMatch(/\.deckup-navigation\{display:none!important\}/);
 
-      expect(css).not.toMatch(/body\{[^}]*background:var\(--slida-bg\)/);
-      expect(css).toContain("--slida-cqw:1cqw");
-      expect(css).toContain("var(--slida-cqw)");
+      expect(css).not.toMatch(/body\{[^}]*background:var\(--deckup-bg\)/);
+      expect(css).toContain("--deckup-cqw:1cqw");
+      expect(css).toContain("var(--deckup-cqw)");
       expect(css).not.toContain("6vw");
       expect(css).not.toContain("9vw");
 
       if (theme === "google-basic" || theme === "apple-basic") {
-        expect(css).not.toMatch(/\[data-slida-layout\]>:is\(h1,p,ul,ol\)\{[^}]*position:absolute/);
+        expect(css).not.toMatch(/\[data-deckup-layout\]>:is\(h1,p,ul,ol\)\{[^}]*position:absolute/);
         expect(css).not.toMatch(
-          /\[data-slida-layout=(?:"page"|page|"two-column"|two-column)\]>[^{}]*(?:first-of-type|nth-of-type)[^{]*\{(?=[^}]*(?:top|left):)[^}]*\}/,
+          /\[data-deckup-layout=(?:"page"|page|"two-column"|two-column)\]>[^{}]*(?:first-of-type|nth-of-type)[^{]*\{(?=[^}]*(?:top|left):)[^}]*\}/,
         );
         expect(css).not.toMatch(
-          /[^{}]*\.slida-(?:google|apple)-column[^{}]*\{[^}]*position:absolute/,
+          /[^{}]*\.deckup-(?:google|apple)-column[^{}]*\{[^}]*position:absolute/,
         );
       }
     });
@@ -724,14 +724,14 @@ for (const theme of ["google-basic", "apple-basic"] as const) {
     await withProjectRoot(async (projectRoot) => {
       await linkCliPackage(projectRoot);
       await writeFile(
-        join(projectRoot, "slida.config.ts"),
+        join(projectRoot, "deckup.config.ts"),
         `export default { theme: '${theme}' };\n`,
       );
       await mkdir(join(projectRoot, "slides"));
       await writeFile(
         join(projectRoot, "slides", "deck.astro"),
         `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Cover"><layout id="cover" /><h1>Cover title</h1><p>Cover subtitle</p></Page>
@@ -773,7 +773,7 @@ test("buildDeck emits print CSS that reveals slides and hides navigation for PDF
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro"><h1>Intro</h1></Page>
@@ -791,14 +791,14 @@ import Page from "@slida/astro/page";
 
     expect(css).toContain("@media print");
     expect(css).toContain("@page");
-    expect(css).toContain("[data-slida-navigation]");
+    expect(css).toContain("[data-deckup-navigation]");
     expect(css).toMatch(/break-after:page|page-break-after:always/);
     expect(css).toMatch(/@page\{size:16in 9in;margin:0\}/);
     expect(css).toMatch(
-      /\.slida-slide,\.slida-slide\[hidden\],\.slida-slide:not\(:first-child\):not\(\[data-active\]\)\{(?=[^}]*height:100vh)(?=[^}]*overflow:hidden)[^}]*\}/,
+      /\.deckup-slide,\.deckup-slide\[hidden\],\.deckup-slide:not\(:first-child\):not\(\[data-active\]\)\{(?=[^}]*height:100vh)(?=[^}]*overflow:hidden)[^}]*\}/,
     );
     expect(css).not.toMatch(
-      /\.slida-slide,\.slida-slide\[hidden\],\.slida-slide:not\(:first-child\):not\(\[data-active\]\)\{[^}]*display:block!important/,
+      /\.deckup-slide,\.deckup-slide\[hidden\],\.deckup-slide:not\(:first-child\):not\(\[data-active\]\)\{[^}]*display:block!important/,
     );
   });
 });
@@ -810,7 +810,7 @@ test("exportDeck builds a deck and writes a PDF", async () => {
     await writeFile(
       join(projectRoot, "slides", "deck.astro"),
       `---
-import Page from "@slida/astro/page";
+import Page from "@deckup/astro/page";
 ---
 
 <Page title="Intro"><h1>Intro</h1></Page>
@@ -922,7 +922,7 @@ test("buildDeck renders MDX pages through the Google Basic flow layouts", async 
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
+      join(projectRoot, "deckup.config.ts"),
       "export default { theme: 'google-basic' };\n",
     );
     await mkdir(join(projectRoot, "slides"));
@@ -970,9 +970,9 @@ Google MDX follow-up
     expect(html).toContain("Google MDX bullet");
     expect(html).toContain("Google MDX follow-up");
     expect(html).toContain("Google MDX column title");
-    expect(html).toContain('class="slida-google-column slida-google-column--left"');
+    expect(html).toContain('class="deckup-google-column deckup-google-column--left"');
     expect(html).toContain("Google MDX left");
-    expect(html).toContain('class="slida-google-column slida-google-column--right"');
+    expect(html).toContain('class="deckup-google-column deckup-google-column--right"');
     expect(html).toContain("Google MDX right");
     expect(html).not.toContain("<layout");
   });
@@ -982,7 +982,7 @@ test("buildDeck renders MDX pages through the Apple Basic flow layouts", async (
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await writeFile(
-      join(projectRoot, "slida.config.ts"),
+      join(projectRoot, "deckup.config.ts"),
       "export default { theme: 'apple-basic' };\n",
     );
     await mkdir(join(projectRoot, "slides"));
@@ -1030,9 +1030,9 @@ Apple MDX page body
     expect(html).toContain("Apple MDX page body");
     expect(html).toContain("Apple MDX bullet");
     expect(html).toContain("Apple MDX column title");
-    expect(html).toContain('class="slida-apple-column slida-apple-column--left"');
+    expect(html).toContain('class="deckup-apple-column deckup-apple-column--left"');
     expect(html).toContain("Apple MDX left");
-    expect(html).toContain('class="slida-apple-column slida-apple-column--right"');
+    expect(html).toContain('class="deckup-apple-column deckup-apple-column--right"');
     expect(html).toContain("Apple MDX right");
     expect(html).not.toContain("<layout");
   });

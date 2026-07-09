@@ -5,11 +5,11 @@ import { basename, extname, join } from "node:path";
 import { parse } from "@astrojs/compiler-rs";
 
 import { findAstroRoot, getAttribute, isJsxElementNamed, type AstroNode } from "./astro-ast.ts";
-import { assertValidSlidaLayoutId } from "./layout.ts";
-import type { SlidaResolvedThemeLayout } from "./types.ts";
+import { assertValidDeckupLayoutId } from "./layout.ts";
+import type { DeckupResolvedThemeLayout } from "./types.ts";
 import { normalizePath } from "./utils.ts";
 
-export const VIRTUAL_SLIDA_THEME_LAYOUTS_ID = "virtual:slida/theme-layouts";
+export const VIRTUAL_DECKUP_THEME_LAYOUTS_ID = "virtual:deckup/theme-layouts";
 
 export function toViteFsImportPath(filePath: string) {
   return `/@fs/${normalizePath(filePath)}`;
@@ -32,12 +32,12 @@ function parseAstroLayout(source: string, filePath: string) {
   const result = parse(source);
   if (result.diagnostics.length > 0) {
     throw new Error(
-      `Failed to parse Slida theme layout ${filePath}: ${result.diagnostics[0]?.text ?? "unknown parse error"}`,
+      `Failed to parse Deckup theme layout ${filePath}: ${result.diagnostics[0]?.text ?? "unknown parse error"}`,
     );
   }
   const parsedAst = typeof result.ast === "string" ? JSON.parse(result.ast) : result.ast;
   const ast = findAstroRoot(parsedAst);
-  if (!ast) throw new Error(`Failed to parse Slida theme layout ${filePath}: AstroRoot not found`);
+  if (!ast) throw new Error(`Failed to parse Deckup theme layout ${filePath}: AstroRoot not found`);
   return ast;
 }
 
@@ -70,7 +70,7 @@ async function assertReadableAstroLayout(themeName: string, layoutId: string, fi
     await access(filePath, constants.R_OK);
   } catch (error) {
     throw new Error(
-      `Slida theme ${JSON.stringify(themeName)} layout ${JSON.stringify(layoutId)} is not readable: ${filePath}`,
+      `Deckup theme ${JSON.stringify(themeName)} layout ${JSON.stringify(layoutId)} is not readable: ${filePath}`,
       { cause: error },
     );
   }
@@ -99,13 +99,13 @@ async function fingerprintLayoutsDir(layoutsDir: string) {
 export async function discoverThemeLayouts(
   themeName: string,
   layoutsDir: string,
-): Promise<SlidaResolvedThemeLayout[]> {
+): Promise<DeckupResolvedThemeLayout[]> {
   let entries;
   try {
     entries = await readdir(layoutsDir, { withFileTypes: true });
   } catch (error) {
     throw new Error(
-      `Slida theme ${JSON.stringify(themeName)} must include a readable layouts directory: ${layoutsDir}`,
+      `Deckup theme ${JSON.stringify(themeName)} must include a readable layouts directory: ${layoutsDir}`,
       { cause: error },
     );
   }
@@ -118,14 +118,14 @@ export async function discoverThemeLayouts(
 
   if (layoutFiles.length === 0) {
     throw new Error(
-      `Slida theme ${JSON.stringify(themeName)} must include at least one layouts/*.astro component.`,
+      `Deckup theme ${JSON.stringify(themeName)} must include at least one layouts/*.astro component.`,
     );
   }
 
   return Promise.all(
     layoutFiles.map(async (entry) => {
       const id = layoutIdFromFileName(entry.name);
-      assertValidSlidaLayoutId(id, `${themeName} theme layout ${entry.name}`);
+      assertValidDeckupLayoutId(id, `${themeName} theme layout ${entry.name}`);
       const filePath = join(layoutsDir, entry.name);
       await assertReadableAstroLayout(themeName, id, filePath);
       const source = await readFile(filePath, "utf8");
@@ -141,7 +141,7 @@ export async function discoverThemeLayouts(
 
 export function createThemeLayoutDiscoveryCache() {
   let cached:
-    | { layoutsDir: string; fingerprint: string; layouts: SlidaResolvedThemeLayout[] }
+    | { layoutsDir: string; fingerprint: string; layouts: DeckupResolvedThemeLayout[] }
     | undefined;
 
   return async function discoverCached(themeName: string, layoutsDir: string) {
@@ -201,15 +201,15 @@ const themeLayouts = theme
 const Layout = themeLayouts?.[layout as keyof typeof themeLayouts];
 
 if (!Layout) {
-  throw new Error(\`Slida theme \${theme ? JSON.stringify(theme) : "<default>"} layout \${JSON.stringify(layout)} is not available.\`);
+  throw new Error(\`Deckup theme \${theme ? JSON.stringify(theme) : "<default>"} layout \${JSON.stringify(layout)} is not available.\`);
 }
 ---
 
 <section
-  class:list={["slida-slide", className]}
-  data-slida-slide
-  data-slida-theme={theme}
-  data-slida-layout={layout}
+  class:list={["deckup-slide", className]}
+  data-deckup-slide
+  data-deckup-theme={theme}
+  data-deckup-layout={layout}
   aria-label={title ?? "Slide"}
 >
   <Layout>

@@ -6,22 +6,22 @@ import { parseNpmThemeSource, resolveCachedNpmThemePackage } from "./npm-theme.t
 import { discoverThemeLayouts } from "./theme-layouts.ts";
 import { uniqueStrings } from "./utils.ts";
 
-export const DEFAULT_SLIDA_THEME = "default";
-export const BUILTIN_SLIDA_THEME_PACKAGES = {
-  default: "@slida/theme-default",
-  minimal: "@slida/theme-minimal",
-  bold: "@slida/theme-bold",
-  "google-basic": "@slida/theme-google-basic",
-  "apple-basic": "@slida/theme-apple-basic",
+export const DEFAULT_DECKUP_THEME = "default";
+export const BUILTIN_DECKUP_THEME_PACKAGES = {
+  default: "@deckup/theme-default",
+  minimal: "@deckup/theme-minimal",
+  bold: "@deckup/theme-bold",
+  "google-basic": "@deckup/theme-google-basic",
+  "apple-basic": "@deckup/theme-apple-basic",
 } as const;
-export const BUILTIN_SLIDA_THEMES = Object.keys(BUILTIN_SLIDA_THEME_PACKAGES) as Array<
-  keyof typeof BUILTIN_SLIDA_THEME_PACKAGES
+export const BUILTIN_DECKUP_THEMES = Object.keys(BUILTIN_DECKUP_THEME_PACKAGES) as Array<
+  keyof typeof BUILTIN_DECKUP_THEME_PACKAGES
 >;
 
 const coreRequire = createRequire(import.meta.url);
 const coreModuleDir = dirname(fileURLToPath(import.meta.url));
 
-type SlidaBuiltinTheme = (typeof BUILTIN_SLIDA_THEMES)[number];
+type DeckupBuiltinTheme = (typeof BUILTIN_DECKUP_THEMES)[number];
 
 type ResolvedThemePackage = {
   filePath: string;
@@ -31,20 +31,20 @@ type ResolvedThemePackage = {
   source: "builtin" | "package";
 };
 
-function isBuiltinThemeName(themeName: string): themeName is SlidaBuiltinTheme {
-  return Object.hasOwn(BUILTIN_SLIDA_THEME_PACKAGES, themeName);
+function isBuiltinThemeName(themeName: string): themeName is DeckupBuiltinTheme {
+  return Object.hasOwn(BUILTIN_DECKUP_THEME_PACKAGES, themeName);
 }
 
 function normalizeThemeName(theme: unknown) {
-  const themeName = theme ?? DEFAULT_SLIDA_THEME;
+  const themeName = theme ?? DEFAULT_DECKUP_THEME;
 
   if (typeof themeName !== "string") {
-    throw new TypeError("Slida theme must be a string when provided.");
+    throw new TypeError("Deckup theme must be a string when provided.");
   }
 
   const trimmedThemeName = themeName.trim();
   if (trimmedThemeName.length === 0) {
-    throw new TypeError("Slida theme must not be an empty string.");
+    throw new TypeError("Deckup theme must not be an empty string.");
   }
 
   return trimmedThemeName;
@@ -52,7 +52,7 @@ function normalizeThemeName(theme: unknown) {
 
 function createThemeResolver(projectRoot: string, themeName: string) {
   const isBuiltin = isBuiltinThemeName(themeName);
-  const packageName = isBuiltin ? BUILTIN_SLIDA_THEME_PACKAGES[themeName] : themeName;
+  const packageName = isBuiltin ? BUILTIN_DECKUP_THEME_PACKAGES[themeName] : themeName;
   const resolver = isBuiltin ? coreRequire : createRequire(join(projectRoot, "package.json"));
   return { isBuiltin, packageName, resolver };
 }
@@ -75,7 +75,7 @@ function resolveThemePackageRoot(projectRoot: string, themeName: string): Resolv
         coreModuleDir,
         "..",
         "..",
-        packageName.replace("@slida/theme-", "theme-"),
+        packageName.replace("@deckup/theme-", "theme-"),
         "package.json",
       );
       return {
@@ -88,13 +88,13 @@ function resolveThemePackageRoot(projectRoot: string, themeName: string): Resolv
     }
 
     throw new Error(
-      `Unable to resolve Slida theme ${JSON.stringify(themeName)} package metadata from ${projectRoot}. Built-in themes: ${BUILTIN_SLIDA_THEMES.join(", ")}. For npm themes, install the package and export ./package.json plus Astro layout components from layouts/*.astro.`,
+      `Unable to resolve Deckup theme ${JSON.stringify(themeName)} package metadata from ${projectRoot}. Built-in themes: ${BUILTIN_DECKUP_THEMES.join(", ")}. For npm themes, install the package and export ./package.json plus Astro layout components from layouts/*.astro.`,
       { cause: error },
     );
   }
 }
 
-export async function resolveSlidaThemeLayouts(projectRoot: string, theme: unknown) {
+export async function resolveDeckupThemeLayouts(projectRoot: string, theme: unknown) {
   const name = normalizeThemeName(theme);
   const npmSource = parseNpmThemeSource(name);
   const resolvedTheme = npmSource

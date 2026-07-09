@@ -3,26 +3,26 @@ import { join } from "node:path";
 import { createJiti } from "jiti";
 
 import type {
-  SlidaBuildOptions,
-  SlidaConfig,
-  SlidaDevOptions,
-  SlidaExportOptions,
-  SlidaLoadedConfig,
+  DeckupBuildOptions,
+  DeckupConfig,
+  DeckupDevOptions,
+  DeckupExportOptions,
+  DeckupLoadedConfig,
 } from "./types.ts";
 import { pathExists } from "./fs-utils.ts";
 
-type SlidaConfigResolveOptions = SlidaDevOptions | SlidaBuildOptions | SlidaExportOptions;
+type DeckupConfigResolveOptions = DeckupDevOptions | DeckupBuildOptions | DeckupExportOptions;
 
-export const SLIDA_CONFIG_FILES = [
-  "slida.config.ts",
-  "slida.config.js",
-  "slida.config.mjs",
-  "slida.config.mts",
-  "slida.config.cjs",
-  "slida.config.cts",
+export const DECKUP_CONFIG_FILES = [
+  "deckup.config.ts",
+  "deckup.config.js",
+  "deckup.config.mjs",
+  "deckup.config.mts",
+  "deckup.config.cjs",
+  "deckup.config.cts",
 ] as const;
 
-export function defineConfig(config: SlidaConfig): SlidaConfig {
+export function defineConfig(config: DeckupConfig): DeckupConfig {
   return config;
 }
 
@@ -30,10 +30,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === "[object Object]";
 }
 
-export async function findSlidaConfigFiles(projectRoot: string): Promise<string[]> {
+export async function findDeckupConfigFiles(projectRoot: string): Promise<string[]> {
   const filePaths: string[] = [];
 
-  for (const fileName of SLIDA_CONFIG_FILES) {
+  for (const fileName of DECKUP_CONFIG_FILES) {
     const filePath = join(projectRoot, fileName);
     if (await pathExists(filePath)) {
       filePaths.push(filePath);
@@ -43,8 +43,8 @@ export async function findSlidaConfigFiles(projectRoot: string): Promise<string[
   return filePaths;
 }
 
-export async function loadSlidaConfig(projectRoot: string): Promise<SlidaLoadedConfig> {
-  const filePaths = await findSlidaConfigFiles(projectRoot);
+export async function loadDeckupConfig(projectRoot: string): Promise<DeckupLoadedConfig> {
+  const filePaths = await findDeckupConfigFiles(projectRoot);
 
   if (filePaths.length === 0) {
     return { config: {} };
@@ -52,7 +52,7 @@ export async function loadSlidaConfig(projectRoot: string): Promise<SlidaLoadedC
 
   if (filePaths.length > 1) {
     throw new Error(
-      `Multiple Slida config files found:\n${filePaths.map((filePath) => `- ${filePath}`).join("\n")}`,
+      `Multiple Deckup config files found:\n${filePaths.map((filePath) => `- ${filePath}`).join("\n")}`,
     );
   }
 
@@ -63,17 +63,17 @@ export async function loadSlidaConfig(projectRoot: string): Promise<SlidaLoadedC
   const loaded = await jiti.import<unknown>(filePath, { default: true });
 
   if (!isPlainObject(loaded)) {
-    throw new TypeError(`Slida config must default-export an object: ${filePath}`);
+    throw new TypeError(`Deckup config must default-export an object: ${filePath}`);
   }
 
-  return { config: loaded as SlidaConfig, filePath };
+  return { config: loaded as DeckupConfig, filePath };
 }
 
-export function resolveSlidaConfig(
-  config: SlidaConfig,
-  options: SlidaConfigResolveOptions = {},
-): SlidaConfig {
-  const devOptions = options as SlidaDevOptions;
+export function resolveDeckupConfig(
+  config: DeckupConfig,
+  options: DeckupConfigResolveOptions = {},
+): DeckupConfig {
+  const devOptions = options as DeckupDevOptions;
   return {
     ...config,
     port: devOptions.port ?? config.port,

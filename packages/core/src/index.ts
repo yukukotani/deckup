@@ -1,22 +1,22 @@
 export {
   SUPPORTED_DECK_EXTENSIONS,
-  VIRTUAL_SLIDA_DECK_PREFIX,
-  VIRTUAL_SLIDA_ROUTE_PREFIX,
+  VIRTUAL_DECKUP_DECK_PREFIX,
+  VIRTUAL_DECKUP_ROUTE_PREFIX,
   createDeckRegistry,
   inferDeckFormat,
-  normalizeSlidaBasePath,
+  normalizeDeckupBasePath,
   resolveDeckFile,
   resolveDeckFilesFromGlob,
   resolveDeckRegistry,
 } from "./deck.ts";
 export {
-  SLIDA_COVER_LAYOUT,
-  SLIDA_DEFAULT_LAYOUT,
-  SLIDA_LAYOUT_ID_PATTERN,
-  assertValidSlidaLayoutId,
-  getDefaultSlidaLayout,
-  isValidSlidaLayoutId,
-  resolveSlidaLayout,
+  DECKUP_COVER_LAYOUT,
+  DECKUP_DEFAULT_LAYOUT,
+  DECKUP_LAYOUT_ID_PATTERN,
+  assertValidDeckupLayoutId,
+  getDefaultDeckupLayout,
+  isValidDeckupLayoutId,
+  resolveDeckupLayout,
 } from "./layout.ts";
 export {
   findAstroRoot,
@@ -29,12 +29,12 @@ export {
   analyzeMdxDeckMetadata,
   analyzeMdxDeckSource,
   countMdxDeckPages,
-  remarkSlidaMdxPages,
+  remarkDeckupMdxPages,
   splitMdxChildrenIntoPages,
   stripMdxFrontmatter,
-} from "./slida-mdx-pages.ts";
+} from "./deckup-mdx-pages.ts";
 export {
-  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
   createGeneratedPageComponentSource,
   createThemeLayoutDiscoveryCache,
   discoverThemeLayouts,
@@ -42,29 +42,29 @@ export {
   toViteFsImportPath,
 } from "./theme-layouts.ts";
 export {
-  VIRTUAL_SLIDA_DECK_ID,
+  VIRTUAL_DECKUP_DECK_ID,
   analyzeAstroDeckMetadata,
   analyzeAstroDeckSourceForTests,
   collectStaticAstroCodeBlocksForTests,
   countAstroDeckPages,
-  createSlidaVitePlugins,
-  createSlidaVitePluginsForRegistry,
+  createDeckupVitePlugins,
+  createDeckupVitePluginsForRegistry,
   createSourceIndexConverter,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
   transformCompiledAstroDeckSource,
   validateAstroDeckSource,
-} from "./slida-vite-plugins.ts";
+} from "./deckup-vite-plugins.ts";
 export { DEFAULT_DECK_LAYOUT_MODULE_ID, createRuntimePageSource } from "./runtime-page.ts";
 export {
-  BUILTIN_SLIDA_THEME_PACKAGES,
-  BUILTIN_SLIDA_THEMES,
-  DEFAULT_SLIDA_THEME,
-  resolveSlidaThemeLayouts,
+  BUILTIN_DECKUP_THEME_PACKAGES,
+  BUILTIN_DECKUP_THEMES,
+  DEFAULT_DECKUP_THEME,
+  resolveDeckupThemeLayouts,
 } from "./theme.ts";
 export {
-  NPM_SLIDA_THEME_PREFIX,
-  SLIDA_THEME_CACHE_ENV,
+  NPM_DECKUP_THEME_PREFIX,
+  DECKUP_THEME_CACHE_ENV,
   getNpmThemeCacheEntryDir,
   parseNpmThemeSource,
   resolveCachedNpmThemePackage,
@@ -78,28 +78,28 @@ export type {
   AstroNode,
   AstroRoot,
 } from "./astro-ast.ts";
-export type { SlidaMdxPagesOptions } from "./slida-mdx-pages.ts";
+export type { DeckupMdxPagesOptions } from "./deckup-mdx-pages.ts";
 export type { RuntimePageSourceOptions } from "./runtime-page.ts";
 export type {
   NpmThemeInstallOperations,
   NpmThemeInstallOptions,
   NpmThemePackageManifest,
-  SlidaCachedNpmThemePackage,
-  SlidaNpmThemeResolveOptions,
-  SlidaNpmThemeSource,
+  DeckupCachedNpmThemePackage,
+  DeckupNpmThemeResolveOptions,
+  DeckupNpmThemeSource,
 } from "./npm-theme.ts";
-export type { SlidaThemeForDeck, SlidaVitePluginOptions } from "./slida-vite-plugins.ts";
+export type { DeckupThemeForDeck, DeckupVitePluginOptions } from "./deckup-vite-plugins.ts";
 export type {
   RawAstroCodeHighlightOptions,
-  SlidaDeckFormat,
-  SlidaDeckMetadata,
-  SlidaDeckRegistry,
-  SlidaNpmThemeDownloadRequest,
-  SlidaNpmThemeOptions,
-  SlidaResolvedDeck,
-  SlidaResolvedDeckRoute,
-  SlidaResolvedTheme,
-  SlidaResolvedThemeLayout,
-  SlidaRouteId,
-  SlidaRuntimePaths,
+  DeckupDeckFormat,
+  DeckupDeckMetadata,
+  DeckupDeckRegistry,
+  DeckupNpmThemeDownloadRequest,
+  DeckupNpmThemeOptions,
+  DeckupResolvedDeck,
+  DeckupResolvedDeckRoute,
+  DeckupResolvedTheme,
+  DeckupResolvedThemeLayout,
+  DeckupRouteId,
+  DeckupRuntimePaths,
 } from "./types.ts";

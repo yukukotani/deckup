@@ -7,7 +7,7 @@
 > in `plans/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat c7aa912..HEAD -- apps/cli/src/`
-> Changes from Plans 002/003 inside `slida-vite-plugins.ts` are EXPECTED.
+> Changes from Plans 002/003 inside `deckup-vite-plugins.ts` are EXPECTED.
 > For every excerpt below, confirm the named function still exists in the
 > named file before moving it; treat missing/renamed functions as a STOP
 > condition.
@@ -24,13 +24,13 @@
 ## Why this matters
 
 The Astro AST helper layer is duplicated wholesale between
-`slida-vite-plugins.ts` and `theme-layouts.ts`: the type shapes
+`deckup-vite-plugins.ts` and `theme-layouts.ts`: the type shapes
 (`AstroIdentifier`, `AstroAttribute`, `AstroNode`, `AstroRoot`) and the
 functions `getIdentifierName`, `isJsxElementNamed`, `getAttributeName`,
 `getAttribute`, `findAstroRoot` exist twice, character-for-character or
 nearly so. Beyond that, `uniqueStrings` is defined three times (`astro.ts`,
-`theme.ts`, `slida-vite-plugins.ts`), `normalizePath` three times
-(`slida-vite-plugins.ts`, `theme-layouts.ts`, `slida-mdx-pages.ts` — the MDX
+`theme.ts`, `deckup-vite-plugins.ts`), `normalizePath` three times
+(`deckup-vite-plugins.ts`, `theme-layouts.ts`, `deckup-mdx-pages.ts` — the MDX
 one differs: it splits on `/[\\/]+/` instead of `sep`), and the
 ENOENT-swallowing file-existence helper twice (`config.ts` `fileExists`,
 `runtime.ts` `pathExists`). Every AST-handling fix currently must be applied
@@ -43,22 +43,22 @@ change.
 Duplication map (verified at commit c7aa912; line numbers may have shifted
 slightly after Plans 002/003 — locate by symbol name):
 
-| Symbol                                                           | Copy 1                                                                                                                       | Copy 2                                                                  | Copy 3                                                                                                        |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `AstroIdentifier`/`AstroAttribute`/`AstroNode`/`AstroRoot` types | `slida-vite-plugins.ts:23-55` (superset: also has `start`/`end`, `AstroImportDeclaration`, `AstroSourceEdit`, `frontmatter`) | `theme-layouts.ts:12-30` (subset)                                       | —                                                                                                             |
-| `getIdentifierName`                                              | `slida-vite-plugins.ts:77`                                                                                                   | `theme-layouts.ts:40`                                                   | —                                                                                                             |
-| `isJsxElementNamed`                                              | `slida-vite-plugins.ts:85`                                                                                                   | `theme-layouts.ts:44`                                                   | —                                                                                                             |
-| `getAttributeName`                                               | `slida-vite-plugins.ts:97`                                                                                                   | `theme-layouts.ts:48`                                                   | —                                                                                                             |
-| `getAttribute`                                                   | `slida-vite-plugins.ts:101`                                                                                                  | `theme-layouts.ts:52`                                                   | —                                                                                                             |
-| `findAstroRoot`                                                  | `slida-vite-plugins.ts:123`                                                                                                  | `theme-layouts.ts:69`                                                   | —                                                                                                             |
-| `uniqueStrings`                                                  | `astro.ts:44`                                                                                                                | `theme.ts:29`                                                           | `slida-vite-plugins.ts:366`                                                                                   |
-| `normalizePath`                                                  | `slida-vite-plugins.ts:61` (`path.split(sep).join("/")`)                                                                     | `theme-layouts.ts:32` (identical)                                       | `slida-mdx-pages.ts:48` (`path.split(/[\\/]+/).join("/")` — DIFFERENT, collapses repeats and both separators) |
-| ENOENT-tolerant exists                                           | `config.ts:26` `fileExists` (bare `access(filePath)`)                                                                        | `runtime.ts:36` `pathExists` (exported; `access(path, constants.F_OK)`) | inline variant in `deck.ts:60-68` (different: rethrows as "deck file not found" — leave alone)                |
+| Symbol                                                           | Copy 1                                                                                                                        | Copy 2                                                                  | Copy 3                                                                                                         |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `AstroIdentifier`/`AstroAttribute`/`AstroNode`/`AstroRoot` types | `deckup-vite-plugins.ts:23-55` (superset: also has `start`/`end`, `AstroImportDeclaration`, `AstroSourceEdit`, `frontmatter`) | `theme-layouts.ts:12-30` (subset)                                       | —                                                                                                              |
+| `getIdentifierName`                                              | `deckup-vite-plugins.ts:77`                                                                                                   | `theme-layouts.ts:40`                                                   | —                                                                                                              |
+| `isJsxElementNamed`                                              | `deckup-vite-plugins.ts:85`                                                                                                   | `theme-layouts.ts:44`                                                   | —                                                                                                              |
+| `getAttributeName`                                               | `deckup-vite-plugins.ts:97`                                                                                                   | `theme-layouts.ts:48`                                                   | —                                                                                                              |
+| `getAttribute`                                                   | `deckup-vite-plugins.ts:101`                                                                                                  | `theme-layouts.ts:52`                                                   | —                                                                                                              |
+| `findAstroRoot`                                                  | `deckup-vite-plugins.ts:123`                                                                                                  | `theme-layouts.ts:69`                                                   | —                                                                                                              |
+| `uniqueStrings`                                                  | `astro.ts:44`                                                                                                                 | `theme.ts:29`                                                           | `deckup-vite-plugins.ts:366`                                                                                   |
+| `normalizePath`                                                  | `deckup-vite-plugins.ts:61` (`path.split(sep).join("/")`)                                                                     | `theme-layouts.ts:32` (identical)                                       | `deckup-mdx-pages.ts:48` (`path.split(/[\\/]+/).join("/")` — DIFFERENT, collapses repeats and both separators) |
+| ENOENT-tolerant exists                                           | `config.ts:26` `fileExists` (bare `access(filePath)`)                                                                         | `runtime.ts:36` `pathExists` (exported; `access(path, constants.F_OK)`) | inline variant in `deck.ts:60-68` (different: rethrows as "deck file not found" — leave alone)                 |
 
 Canonical copies to keep:
 
 ```ts
-// slida-vite-plugins.ts — findAstroRoot (identical in theme-layouts.ts)
+// deckup-vite-plugins.ts — findAstroRoot (identical in theme-layouts.ts)
 function findAstroRoot(value: unknown): AstroRoot | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const node = value as AstroRoot & Record<string, unknown>;
@@ -101,11 +101,11 @@ Important constraints:
   (`export { pathExists, prepareRuntime, ... } from "./runtime.ts";`). Its
   export location must not break — re-export from `runtime.ts` after moving.
 - The MDX `normalizePath` variant is BEHAVIORALLY DIFFERENT (regex split).
-  Do NOT unify it — `isSelectedFile` in `slida-mdx-pages.ts` depends on
-  collapsing mixed separators from vfile paths. Leave `slida-mdx-pages.ts`
+  Do NOT unify it — `isSelectedFile` in `deckup-mdx-pages.ts` depends on
+  collapsing mixed separators from vfile paths. Leave `deckup-mdx-pages.ts`
   untouched.
 - `theme-layouts.ts` has `visitAstroNodes` and `parseAstroLayout`;
-  `slida-vite-plugins.ts` has `parseAstroDeck`. These are NOT duplicates
+  `deckup-vite-plugins.ts` has `parseAstroDeck`. These are NOT duplicates
   (different error messages, different traversal purpose) — leave in place,
   but `parseAstroDeck`/`parseAstroLayout` both call `findAstroRoot`, which
   moves.
@@ -115,12 +115,12 @@ Important constraints:
 
 ## Commands you will need
 
-| Purpose        | Command                  | Expected on success |
-| -------------- | ------------------------ | ------------------- |
-| Install        | `vp install`             | exit 0              |
-| CLI tests      | `vp run @slida/cli#test` | exit 0, all pass    |
-| Lint/fmt/types | `vp check`               | exit 0              |
-| Full gate      | `vp run ready`           | exit 0              |
+| Purpose        | Command                   | Expected on success |
+| -------------- | ------------------------- | ------------------- |
+| Install        | `vp install`              | exit 0              |
+| CLI tests      | `vp run @deckup/cli#test` | exit 0, all pass    |
+| Lint/fmt/types | `vp check`                | exit 0              |
+| Full gate      | `vp run ready`            | exit 0              |
 
 ## Scope
 
@@ -128,7 +128,7 @@ Important constraints:
 
 - `apps/cli/src/astro-ast.ts` (create)
 - `apps/cli/src/fs-utils.ts` (create)
-- `apps/cli/src/slida-vite-plugins.ts` (remove moved code, add imports)
+- `apps/cli/src/deckup-vite-plugins.ts` (remove moved code, add imports)
 - `apps/cli/src/theme-layouts.ts` (remove moved code, add imports)
 - `apps/cli/src/astro.ts` (remove `uniqueStrings`, import it)
 - `apps/cli/src/theme.ts` (remove `uniqueStrings`, import it)
@@ -137,7 +137,7 @@ Important constraints:
 
 **Out of scope** (do NOT touch):
 
-- `apps/cli/src/slida-mdx-pages.ts` — its `normalizePath` is intentionally
+- `apps/cli/src/deckup-mdx-pages.ts` — its `normalizePath` is intentionally
   different (see constraints).
 - `apps/cli/src/deck.ts` — its inline ENOENT handling produces a different
   user-facing error; not a duplicate.
@@ -155,7 +155,7 @@ Important constraints:
 
 ### Step 1: Create `apps/cli/src/astro-ast.ts`
 
-Move from `slida-vite-plugins.ts` (the superset copies) into the new module,
+Move from `deckup-vite-plugins.ts` (the superset copies) into the new module,
 exporting all of them:
 
 - Types: `AstroIdentifier`, `AstroAttribute`, `AstroNode`, `AstroRoot`
@@ -177,13 +177,13 @@ Keep `AstroSourceEdit`, `AstroPageLayout`, `applySourceEdits`,
 **Verify**: `vp check` → exit 0 (after Step 3 — run at end of Step 3 if
 intermediate state doesn't compile).
 
-### Step 2: Rewire `slida-vite-plugins.ts` and `theme-layouts.ts`
+### Step 2: Rewire `deckup-vite-plugins.ts` and `theme-layouts.ts`
 
 - Delete the moved types/functions from both files.
 - Add `import { findAstroRoot, getAttribute, getAttributeName, getIdentifierName, isJsxElementNamed, type AstroAttribute, type AstroIdentifier, type AstroImportDeclaration, type AstroNode, type AstroRoot } from "./astro-ast.ts";`
   (each file imports only what it uses; lint will flag unused imports).
 - Add `import { normalizePath, uniqueStrings } from "./utils.ts";` where
-  used (`slida-vite-plugins.ts` uses both; `theme-layouts.ts` uses
+  used (`deckup-vite-plugins.ts` uses both; `theme-layouts.ts` uses
   `normalizePath`).
 - `theme-layouts.ts` note: its local `AstroNode` lacked `start`/`end` — the
   superset type is compatible; its `visitAstroNodes` signature
@@ -194,7 +194,7 @@ intermediate state doesn't compile).
 - Delete `function uniqueStrings` from `astro.ts` (line 44) and `theme.ts`
   (line 29); add `import { uniqueStrings } from "./utils.ts";` to each.
 
-**Verify**: `vp check` → exit 0. `vp run @slida/cli#test` → exit 0.
+**Verify**: `vp check` → exit 0. `vp run @deckup/cli#test` → exit 0.
 
 ### Step 4: Create `apps/cli/src/fs-utils.ts` and dedupe exists-helpers
 
@@ -206,11 +206,11 @@ intermediate state doesn't compile).
   internal use in `prepareRuntime`.
 - In `config.ts`: delete local `fileExists` (line 26-38), import
   `{ pathExists }` from `./fs-utils.ts`, and replace the two call sites
-  (`findSlidaConfigFiles`, line ~48) with `pathExists(filePath)`.
+  (`findDeckupConfigFiles`, line ~48) with `pathExists(filePath)`.
   Behavior note: `fileExists` called `access(filePath)` (default F_OK mode);
   `pathExists` calls `access(path, constants.F_OK)` — identical semantics.
 
-**Verify**: `vp check` → exit 0. `vp run @slida/cli#test` → exit 0
+**Verify**: `vp check` → exit 0. `vp run @deckup/cli#test` → exit 0
 (config.test.ts and astro.test.ts cover both call paths).
 
 ### Step 5: Prove the dedupe is complete
@@ -220,7 +220,7 @@ intermediate state doesn't compile).
 - `rg -n "function uniqueStrings" apps/cli/src/` → exactly 1 match (utils.ts)
 - `rg -n "function findAstroRoot" apps/cli/src/` → exactly 1 match (astro-ast.ts)
 - `rg -n "function normalizePath" apps/cli/src/` → exactly 2 matches
-  (utils.ts + the intentionally-different one in slida-mdx-pages.ts)
+  (utils.ts + the intentionally-different one in deckup-mdx-pages.ts)
 - `rg -n "function fileExists|async function pathExists" apps/cli/src/` →
   exactly 1 match (fs-utils.ts)
 - `vp run ready` → exit 0
@@ -265,5 +265,5 @@ Stop and report back (do not improvise) if:
   (different error contexts), the Page markup duplication between
   `runtime/components/Page.astro` and `createGeneratedPageComponentSource`
   (audit finding TECH-DEBT-08 — needs a design decision on canonical source),
-  and the full god-module split of `slida-vite-plugins.ts` (audit finding
+  and the full god-module split of `deckup-vite-plugins.ts` (audit finding
   TECH-DEBT-03 — L effort, deferred by the maintainer).

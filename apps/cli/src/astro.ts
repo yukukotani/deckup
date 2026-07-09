@@ -1,18 +1,18 @@
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import {
-  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
   createGeneratedPageComponentSource,
-  createSlidaVitePlugins,
-  remarkSlidaMdxPages,
+  createDeckupVitePlugins,
+  remarkDeckupMdxPages,
   resolveDeckFile,
-  resolveSlidaThemeLayouts,
+  resolveDeckupThemeLayouts,
   uniqueStrings,
   type RawAstroCodeHighlightOptions,
-  type SlidaResolvedDeck,
-  type SlidaResolvedTheme,
-  type SlidaRuntimePaths,
-} from "@slida/core";
+  type DeckupResolvedDeck,
+  type DeckupResolvedTheme,
+  type DeckupRuntimePaths,
+} from "@deckup/core";
 import { build, dev, type AstroInlineConfig } from "astro";
 import { createReadStream } from "node:fs";
 import { mkdir, realpath, stat, writeFile } from "node:fs/promises";
@@ -21,30 +21,30 @@ import { createRequire } from "node:module";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { resolveChromiumExecutablePath } from "./browser.ts";
-import { loadSlidaConfig, resolveSlidaConfig } from "./config.ts";
+import { loadDeckupConfig, resolveDeckupConfig } from "./config.ts";
 import { prepareRuntime, resolveProjectRoot } from "./runtime.ts";
 import type {
-  SlidaBuildOptions,
-  SlidaConfig,
-  SlidaDevOptions,
-  SlidaDevResult,
-  SlidaExportOptions,
-  SlidaExportResult,
-  SlidaResolvedConfig,
+  DeckupBuildOptions,
+  DeckupConfig,
+  DeckupDevOptions,
+  DeckupDevResult,
+  DeckupExportOptions,
+  DeckupExportResult,
+  DeckupResolvedConfig,
 } from "./types.ts";
 
-export type { RawAstroCodeHighlightOptions } from "@slida/core";
+export type { RawAstroCodeHighlightOptions } from "@deckup/core";
 
 export const DEFAULT_DEV_HOST = "127.0.0.1";
 export const DEFAULT_DEV_PORT = 4321;
 export const DEFAULT_BUILD_OUT_DIR = "dist";
-export const DEFAULT_EXPORT_SEARCH_PARAM = "slida-export";
+export const DEFAULT_EXPORT_SEARCH_PARAM = "deckup-export";
 export const DEFAULT_EXPORT_SEARCH_VALUE = "pdf";
 export const PDF_SLIDE_WIDTH = "16in";
 export const PDF_SLIDE_HEIGHT = "9in";
 const DEFAULT_CODE_HIGHLIGHT_THEME = "github-dark";
 
-type SlidaMarkdownConfig = NonNullable<AstroInlineConfig["markdown"]>;
+type DeckupMarkdownConfig = NonNullable<AstroInlineConfig["markdown"]>;
 
 const require = createRequire(import.meta.url);
 const astroPackageRoot = dirname(require.resolve("astro/package.json"));
@@ -74,30 +74,30 @@ export function normalizeBuildOutDir(projectRoot: string, outDir = DEFAULT_BUILD
   return resolve(projectRoot, outDir);
 }
 
-function defaultExportOutFile(deck: SlidaResolvedDeck) {
+function defaultExportOutFile(deck: DeckupResolvedDeck) {
   return `${basename(deck.filePath, extname(deck.filePath))}.pdf`;
 }
 
 export function normalizeExportOutFile(
   projectRoot: string,
-  deck: SlidaResolvedDeck,
+  deck: DeckupResolvedDeck,
   out = defaultExportOutFile(deck),
 ) {
   return resolve(projectRoot, out);
 }
 
-async function resolveRuntimeSlidaTheme(
+async function resolveRuntimeDeckupTheme(
   projectRoot: string,
   theme: unknown,
-  sourceDeck?: SlidaResolvedDeck,
+  sourceDeck?: DeckupResolvedDeck,
 ) {
   try {
-    return await resolveSlidaThemeLayouts(projectRoot, theme);
+    return await resolveDeckupThemeLayouts(projectRoot, theme);
   } catch (error) {
     if (sourceDeck?.metadata?.theme !== undefined) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Invalid Slida theme metadata in ${sourceDeck.projectRelativePath}: ${message}`,
+        `Invalid Deckup theme metadata in ${sourceDeck.projectRelativePath}: ${message}`,
         {
           cause: error,
         },
@@ -107,64 +107,67 @@ async function resolveRuntimeSlidaTheme(
   }
 }
 
-function effectiveThemeInput(deck: SlidaResolvedDeck, slidaConfig: SlidaConfig) {
-  return deck.metadata?.theme ?? slidaConfig.theme;
+function effectiveThemeInput(deck: DeckupResolvedDeck, deckupConfig: DeckupConfig) {
+  return deck.metadata?.theme ?? deckupConfig.theme;
 }
 
 async function writeGeneratedPageComponent(
-  paths: SlidaRuntimePaths,
-  slidaTheme: SlidaResolvedTheme,
-): Promise<SlidaRuntimePaths> {
-  if (!slidaTheme.layouts?.length) return paths;
+  paths: DeckupRuntimePaths,
+  deckupTheme: DeckupResolvedTheme,
+): Promise<DeckupRuntimePaths> {
+  if (!deckupTheme.layouts?.length) return paths;
   const generatedPageFilePath = join(paths.runtimeOutDir, "generated", "Page.astro");
   await mkdir(dirname(generatedPageFilePath), { recursive: true });
   await writeFile(
     generatedPageFilePath,
-    createGeneratedPageComponentSource(slidaTheme.slotNames ?? [], VIRTUAL_SLIDA_THEME_LAYOUTS_ID),
+    createGeneratedPageComponentSource(
+      deckupTheme.slotNames ?? [],
+      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
+    ),
   );
   return { ...paths, generatedPageFilePath };
 }
 
-function assertLayoutThemeConfig(paths: SlidaRuntimePaths, slidaTheme?: SlidaResolvedTheme) {
-  if (!slidaTheme) return;
-  if (!slidaTheme.layouts?.length) {
+function assertLayoutThemeConfig(paths: DeckupRuntimePaths, deckupTheme?: DeckupResolvedTheme) {
+  if (!deckupTheme) return;
+  if (!deckupTheme.layouts?.length) {
     throw new Error(
-      `Slida theme ${JSON.stringify(slidaTheme.name)} must resolve from layouts/*.astro. Use resolveSlidaThemeLayouts() or createSlidaAstroConfig() instead of a CSS-only theme object.`,
+      `Deckup theme ${JSON.stringify(deckupTheme.name)} must resolve from layouts/*.astro. Use resolveDeckupThemeLayouts() or createDeckupAstroConfig() instead of a CSS-only theme object.`,
     );
   }
   if (!paths.generatedPageFilePath) {
     throw new Error(
-      `Layout Slida theme ${JSON.stringify(slidaTheme.name)} requires a generated Page component. Use createSlidaAstroConfig() or pass paths.generatedPageFilePath when calling createAstroInlineConfig().`,
+      `Layout Deckup theme ${JSON.stringify(deckupTheme.name)} requires a generated Page component. Use createDeckupAstroConfig() or pass paths.generatedPageFilePath when calling createAstroInlineConfig().`,
     );
   }
 }
 
-function createMdxIntegration(deck?: SlidaResolvedDeck) {
+function createMdxIntegration(deck?: DeckupResolvedDeck) {
   if (!deck) {
     return mdx();
   }
 
   return mdx({
     processor: unified({
-      remarkPlugins: [[remarkSlidaMdxPages, { deckFile: deck.filePath }] as never],
+      remarkPlugins: [[remarkDeckupMdxPages, { deckFile: deck.filePath }] as never],
     }),
   });
 }
 
 export function createMarkdownConfig(
   markdown: AstroInlineConfig["markdown"] | undefined,
-): SlidaMarkdownConfig {
+): DeckupMarkdownConfig {
   return {
     syntaxHighlight: "shiki",
     ...markdown,
     shikiConfig: {
       ...markdown?.shikiConfig,
     },
-  } satisfies SlidaMarkdownConfig;
+  } satisfies DeckupMarkdownConfig;
 }
 
 export function resolveRawAstroCodeHighlightOptions(
-  markdown: SlidaMarkdownConfig,
+  markdown: DeckupMarkdownConfig,
 ): RawAstroCodeHighlightOptions {
   if (markdown.syntaxHighlight === false || markdown.syntaxHighlight === "prism") {
     return { enabled: false };
@@ -252,7 +255,7 @@ async function serveStaticExportOutDir(outDir: string) {
   const address = server.address();
   if (typeof address === "string" || address === null) {
     server.close();
-    throw new Error("Failed to start Slida export static server.");
+    throw new Error("Failed to start Deckup export static server.");
   }
 
   return {
@@ -265,15 +268,15 @@ async function serveStaticExportOutDir(outDir: string) {
 }
 
 export function createAstroInlineConfig(
-  paths: SlidaRuntimePaths,
-  options: SlidaDevOptions | SlidaBuildOptions | SlidaExportOptions = {},
-  slidaConfig: SlidaConfig = {},
-  deck?: SlidaResolvedDeck,
-  slidaTheme?: SlidaResolvedTheme,
+  paths: DeckupRuntimePaths,
+  options: DeckupDevOptions | DeckupBuildOptions | DeckupExportOptions = {},
+  deckupConfig: DeckupConfig = {},
+  deck?: DeckupResolvedDeck,
+  deckupTheme?: DeckupResolvedTheme,
 ): AstroInlineConfig {
-  const devOptions = options as SlidaDevOptions;
-  const buildOptions = options as SlidaBuildOptions;
-  const userAstroConfig = slidaConfig.astro ?? {};
+  const devOptions = options as DeckupDevOptions;
+  const buildOptions = options as DeckupBuildOptions;
+  const userAstroConfig = deckupConfig.astro ?? {};
   const userMarkdownConfig = userAstroConfig.markdown;
   const markdownConfig = createMarkdownConfig(userMarkdownConfig);
   const rawAstroCodeHighlight = resolveRawAstroCodeHighlightOptions(markdownConfig);
@@ -281,19 +284,19 @@ export function createAstroInlineConfig(
   delete (userViteConfig as { root?: unknown }).root;
   const userViteServer = userViteConfig.server ?? {};
   const userViteFs = userViteServer.fs ?? {};
-  assertLayoutThemeConfig(paths, slidaTheme);
-  const slidaVitePlugins = deck
-    ? createSlidaVitePlugins(deck, slidaTheme, {
+  assertLayoutThemeConfig(paths, deckupTheme);
+  const deckupVitePlugins = deck
+    ? createDeckupVitePlugins(deck, deckupTheme, {
         generatedPageFilePath: paths.generatedPageFilePath,
         codeHighlight: rawAstroCodeHighlight,
       })
     : [];
-  const slidaPageAlias =
-    slidaTheme?.layouts?.length && paths.generatedPageFilePath
-      ? [{ find: /^@slida\/astro\/page$/, replacement: paths.generatedPageFilePath }]
+  const deckupPageAlias =
+    deckupTheme?.layouts?.length && paths.generatedPageFilePath
+      ? [{ find: /^@deckup\/astro\/page$/, replacement: paths.generatedPageFilePath }]
       : [];
   const requiredAliases = [
-    ...slidaPageAlias,
+    ...deckupPageAlias,
     {
       find: /^astro\/app$/,
       replacement: `${astroPackageRoot}/dist/core/app/entrypoints/index.js`,
@@ -319,8 +322,8 @@ export function createAstroInlineConfig(
     paths.runtimeOutDir,
     paths.runtimeSourceDir,
     ...(deck ? [dirname(deck.filePath)] : []),
-    ...(slidaTheme?.filePath ? [dirname(slidaTheme.filePath)] : []),
-    ...(slidaTheme?.layoutsDir ? [slidaTheme.layoutsDir] : []),
+    ...(deckupTheme?.filePath ? [dirname(deckupTheme.filePath)] : []),
+    ...(deckupTheme?.layoutsDir ? [deckupTheme.layoutsDir] : []),
   ];
 
   const astroConfig = {
@@ -336,12 +339,12 @@ export function createAstroInlineConfig(
     integrations: [createMdxIntegration(deck), ...toArray(userAstroConfig.integrations as never)],
     server: {
       host: devOptions.host ?? DEFAULT_DEV_HOST,
-      port: devOptions.port ?? slidaConfig.port ?? DEFAULT_DEV_PORT,
+      port: devOptions.port ?? deckupConfig.port ?? DEFAULT_DEV_PORT,
       open: devOptions.open ?? false,
     },
     vite: {
       ...userViteConfig,
-      plugins: [...slidaVitePlugins, ...toArray(userViteConfig.plugins as never)],
+      plugins: [...deckupVitePlugins, ...toArray(userViteConfig.plugins as never)],
       optimizeDeps: {
         ...userViteConfig.optimizeDeps,
         exclude: uniqueStrings([
@@ -367,47 +370,47 @@ export function createAstroInlineConfig(
   return astroConfig;
 }
 
-export async function createSlidaAstroConfig(
-  options: SlidaDevOptions | SlidaBuildOptions | SlidaExportOptions = {},
-): Promise<SlidaResolvedConfig> {
+export async function createDeckupAstroConfig(
+  options: DeckupDevOptions | DeckupBuildOptions | DeckupExportOptions = {},
+): Promise<DeckupResolvedConfig> {
   const projectRoot = await realpath(resolveProjectRoot(options.root));
   const deck = await resolveDeckFile(projectRoot, options.deckFile);
   const preparedPaths = await prepareRuntime(projectRoot);
-  const loadedConfig = await loadSlidaConfig(preparedPaths.projectRoot);
-  const slidaConfig = resolveSlidaConfig(loadedConfig.config, options);
+  const loadedConfig = await loadDeckupConfig(preparedPaths.projectRoot);
+  const deckupConfig = resolveDeckupConfig(loadedConfig.config, options);
   const deckThemeSelected = deck.metadata?.theme !== undefined;
-  const slidaTheme = await resolveRuntimeSlidaTheme(
+  const deckupTheme = await resolveRuntimeDeckupTheme(
     preparedPaths.projectRoot,
-    effectiveThemeInput(deck, slidaConfig),
+    effectiveThemeInput(deck, deckupConfig),
     deckThemeSelected ? deck : undefined,
   );
-  const paths = await writeGeneratedPageComponent(preparedPaths, slidaTheme);
+  const paths = await writeGeneratedPageComponent(preparedPaths, deckupTheme);
   return {
     paths,
     deck,
-    slidaConfig,
-    slidaConfigFile: loadedConfig.filePath,
-    slidaTheme,
-    astroConfig: createAstroInlineConfig(paths, options, slidaConfig, deck, slidaTheme),
+    deckupConfig,
+    deckupConfigFile: loadedConfig.filePath,
+    deckupTheme,
+    astroConfig: createAstroInlineConfig(paths, options, deckupConfig, deck, deckupTheme),
   };
 }
 
-export async function startDevServer(options: SlidaDevOptions = {}): Promise<SlidaDevResult> {
-  const { astroConfig } = await createSlidaAstroConfig(options);
+export async function startDevServer(options: DeckupDevOptions = {}): Promise<DeckupDevResult> {
+  const { astroConfig } = await createDeckupAstroConfig(options);
   const server = await dev(astroConfig);
 
   return { server, address: server.address };
 }
 
-export async function buildDeck(options: SlidaBuildOptions = {}) {
-  const { astroConfig } = await createSlidaAstroConfig(options);
+export async function buildDeck(options: DeckupBuildOptions = {}) {
+  const { astroConfig } = await createDeckupAstroConfig(options);
   await build(astroConfig);
 }
 
-export async function exportDeck(options: SlidaExportOptions = {}): Promise<SlidaExportResult> {
-  const { astroConfig, deck, paths } = await createSlidaAstroConfig(options);
+export async function exportDeck(options: DeckupExportOptions = {}): Promise<DeckupExportResult> {
+  const { astroConfig, deck, paths } = await createDeckupAstroConfig(options);
   if (!deck) {
-    throw new Error("Missing resolved Slida deck for PDF export.");
+    throw new Error("Missing resolved Deckup deck for PDF export.");
   }
 
   await build(astroConfig);

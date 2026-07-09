@@ -12,10 +12,10 @@ import { join, resolve } from "node:path";
 
 import { pathExists } from "./runtime.ts";
 
-export const SLIDA_BROWSER_CACHE_ENV = "SLIDA_BROWSER_CACHE_DIR";
-export const SLIDA_CHROMIUM_EXECUTABLE_ENV = "SLIDA_CHROMIUM_EXECUTABLE_PATH";
+export const DECKUP_BROWSER_CACHE_ENV = "DECKUP_BROWSER_CACHE_DIR";
+export const DECKUP_CHROMIUM_EXECUTABLE_ENV = "DECKUP_CHROMIUM_EXECUTABLE_PATH";
 
-export interface SlidaChromiumOptions {
+export interface DeckupChromiumOptions {
   executablePath?: string;
   cacheDir?: string;
 }
@@ -36,18 +36,18 @@ function defaultBrowserCacheDir() {
   const home = homedir();
 
   if (process.platform === "darwin") {
-    return join(home, "Library", "Caches", "slida", "browsers");
+    return join(home, "Library", "Caches", "deckup", "browsers");
   }
 
   if (process.platform === "win32") {
-    return join(envString("LOCALAPPDATA") ?? join(home, "AppData", "Local"), "slida", "browsers");
+    return join(envString("LOCALAPPDATA") ?? join(home, "AppData", "Local"), "deckup", "browsers");
   }
 
-  return join(envString("XDG_CACHE_HOME") ?? join(home, ".cache"), "slida", "browsers");
+  return join(envString("XDG_CACHE_HOME") ?? join(home, ".cache"), "deckup", "browsers");
 }
 
 export function resolveBrowserCacheDir(cacheDir?: string) {
-  return resolve(cacheDir ?? envString(SLIDA_BROWSER_CACHE_ENV) ?? defaultBrowserCacheDir());
+  return resolve(cacheDir ?? envString(DECKUP_BROWSER_CACHE_ENV) ?? defaultBrowserCacheDir());
 }
 
 function isMissingCachedExecutableError(error: unknown) {
@@ -75,15 +75,15 @@ export async function installChromiumWithCacheRepair(
   }
 }
 
-export async function resolveChromiumExecutablePath(options: SlidaChromiumOptions = {}) {
-  const explicitPath = options.executablePath ?? envString(SLIDA_CHROMIUM_EXECUTABLE_ENV);
+export async function resolveChromiumExecutablePath(options: DeckupChromiumOptions = {}) {
+  const explicitPath = options.executablePath ?? envString(DECKUP_CHROMIUM_EXECUTABLE_ENV);
   if (explicitPath) {
     return resolve(explicitPath);
   }
 
   const platform = detectBrowserPlatform();
   if (!platform) {
-    throw new Error("Unsupported platform for Slida PDF export Chromium download.");
+    throw new Error("Unsupported platform for Deckup PDF export Chromium download.");
   }
 
   const cacheDir = resolveBrowserCacheDir(options.cacheDir);
@@ -101,7 +101,7 @@ export async function resolveChromiumExecutablePath(options: SlidaChromiumOption
 
   if (!(await pathExists(executablePath))) {
     throw new Error(
-      `Downloaded Slida PDF export Chromium executable is missing: ${executablePath}`,
+      `Downloaded Deckup PDF export Chromium executable is missing: ${executablePath}`,
     );
   }
 

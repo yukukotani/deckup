@@ -1,5 +1,5 @@
 {
-  "name": "@slida/web",
+  "name": "@deckup/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@astrojs/starlight": "catalog:",
-    "@slida/astro": "workspace:*",
+    "@deckup/astro": "workspace:*",
     "astro": "catalog:"
   },
   "devDependencies": {

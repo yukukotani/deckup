@@ -4,17 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vp run @slida/cli#build && slida open slides/deck.astro",
-    "dev:astro": "vp run @slida/cli#build && slida open slides/deck.astro",
-    "dev:mdx": "vp run @slida/cli#build && slida open slides/deck.mdx",
-    "build": "vp run @slida/cli#build && slida build slides/deck.astro --format html && slida build slides/deck.mdx --format html",
-    "build:astro": "vp run @slida/cli#build && slida build slides/deck.astro --format html",
-    "build:mdx": "vp run @slida/cli#build && slida build slides/deck.mdx --format html",
-    "build:pdf:mdx": "vp run @slida/cli#build && slida build slides/deck.mdx --format pdf"
+    "dev": "vp run @deckup/cli#build && deckup open slides/deck.astro",
+    "dev:astro": "vp run @deckup/cli#build && deckup open slides/deck.astro",
+    "dev:mdx": "vp run @deckup/cli#build && deckup open slides/deck.mdx",
+    "build": "vp run @deckup/cli#build && deckup build slides/deck.astro --format html && deckup build slides/deck.mdx --format html",
+    "build:astro": "vp run @deckup/cli#build && deckup build slides/deck.astro --format html",
+    "build:mdx": "vp run @deckup/cli#build && deckup build slides/deck.mdx --format html",
+    "build:pdf:mdx": "vp run @deckup/cli#build && deckup build slides/deck.mdx --format pdf"
   },
   "devDependencies": {
-    "@slida/astro": "workspace:*",
-    "@slida/cli": "workspace:*",
+    "@deckup/astro": "workspace:*",
+    "@deckup/cli": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "tailwindcss": "catalog:",
     "vite-plus": "catalog:"

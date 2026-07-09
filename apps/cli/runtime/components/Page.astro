@@ -9,9 +9,9 @@ const { title, class: className, layout = "default" } = Astro.props;
 ---
 
 <section
-  class:list={["slida-slide", className]}
-  data-slida-slide
-  data-slida-layout={layout}
+  class:list={["deckup-slide", className]}
+  data-deckup-slide
+  data-deckup-layout={layout}
   aria-label={title ?? "Slide"}
 >
   <slot />

@@ -1,5 +1,5 @@
 {
-  "name": "@slida/astro",
+  "name": "@deckup/astro",
   "version": "0.0.0",
   "private": true,
   "files": [
@@ -21,7 +21,7 @@
   "dependencies": {
     "@astrojs/markdown-remark": "catalog:",
     "@astrojs/mdx": "catalog:",
-    "@slida/core": "workspace:*",
+    "@deckup/core": "workspace:*",
     "astro": "catalog:"
   },
   "devDependencies": {

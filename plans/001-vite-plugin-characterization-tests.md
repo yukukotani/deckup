@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat c7aa912..HEAD -- apps/cli/src/slida-vite-plugins.ts apps/cli/tests/`
+> **Drift check (run first)**: `git diff --stat c7aa912..HEAD -- apps/cli/src/deckup-vite-plugins.ts apps/cli/tests/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -22,12 +22,12 @@
 
 ## Why this matters
 
-`apps/cli/src/slida-vite-plugins.ts` (592 lines) is the most complex and most
-load-bearing module in Slida: it parses `.astro` deck source with
+`apps/cli/src/deckup-vite-plugins.ts` (592 lines) is the most complex and most
+load-bearing module in Deckup: it parses `.astro` deck source with
 `@astrojs/compiler-rs`, rewrites it by byte-offset edits, and separately
 rewrites Astro's _compiled_ JS output by string scanning. None of its exported
 functions (`countAstroDeckPages`, `validateAstroDeckSource`,
-`transformAstroDeckSource`, `createSlidaVitePlugins`) is imported by any test
+`transformAstroDeckSource`, `createDeckupVitePlugins`) is imported by any test
 file today — coverage exists only indirectly through full `buildDeck()`
 integration tests in `apps/cli/tests/astro.test.ts`. Two follow-up plans
 (002: replace the compiled-output string scanner with an AST-based transform;
@@ -39,7 +39,7 @@ pinned current behavior.
 
 Relevant files:
 
-- `apps/cli/src/slida-vite-plugins.ts` — the module under test.
+- `apps/cli/src/deckup-vite-plugins.ts` — the module under test.
   - `toSourceIndex` (line 154) — converts UTF-8 byte offsets from the Astro
     compiler AST into JS string indices. Only reachable through the public
     transform functions.
@@ -52,9 +52,9 @@ Relevant files:
     marker string `'$$renderComponent($$result, "Page", Page,'`),
     `addCompiledLayoutProp` (line 333), `transformCompiledAstroDeckSource`
     (line 345) — internal, untested; this is the compiled-output path.
-  - `createSlidaVitePlugins` (line 581) — exported factory returning three
-    plugins: `slida:virtual-theme-layouts`, `slida:virtual-deck`,
-    `slida:astro-deck-validation`.
+  - `createDeckupVitePlugins` (line 581) — exported factory returning three
+    plugins: `deckup:virtual-theme-layouts`, `deckup:virtual-deck`,
+    `deckup:astro-deck-validation`.
 - `apps/cli/tests/astro.test.ts` — existing integration tests (structure to
   imitate for helpers, NOT to duplicate).
 - `apps/cli/tests/mdx-pages.test.ts` — the exemplar for pure-function unit
@@ -68,13 +68,13 @@ import {
   analyzeMdxDeckSource,
   countMdxDeckPages,
   ...
-} from "../src/slida-mdx-pages.ts";
+} from "../src/deckup-mdx-pages.ts";
 ```
 
 Key excerpts of the code under test as it exists today:
 
 ```ts
-// apps/cli/src/slida-vite-plugins.ts:277-288
+// apps/cli/src/deckup-vite-plugins.ts:277-288
 export function countAstroDeckPages(source: string, filePath = "<deck>") {
   const ast = parseAstroDeck(source, filePath);
   return (ast.body ?? []).filter(isTopLevelPage).length;
@@ -90,7 +90,7 @@ export function transformAstroDeckSource(source: string, filePath = "<deck>") {
 ```
 
 ```ts
-// apps/cli/src/slida-vite-plugins.ts:345-360
+// apps/cli/src/deckup-vite-plugins.ts:345-360
 function transformCompiledAstroDeckSource(
   source: string,
   layouts: AstroPageLayout[],
@@ -112,13 +112,13 @@ function transformCompiledAstroDeckSource(
 Behavioral facts to characterize (verified against the current code):
 
 - A valid Astro deck source must import `Page` as the default import from
-  `"@slida/cli/page"` in frontmatter, and its body may contain only
+  `"@deckup/cli/page"` in frontmatter, and its body may contain only
   whitespace and top-level `<Page>` elements (see `analyzeAstroDeckSource`,
   line 258-275).
 - `transformAstroDeckSource` inserts ` layout="<id>"` into each `<Page>`
   opening tag and removes `<layout id="..." />` child declarations.
 - Layout defaults come from `apps/cli/src/layout.ts`: page index 0 →
-  `"cover"`, all others → `"default"` (`getDefaultSlidaLayout`, line 5-7).
+  `"cover"`, all others → `"default"` (`getDefaultDeckupLayout`, line 5-7).
 - Multiple `<layout>` children in one page, a missing/non-string `id`
   attribute, or a non-self-closing `<layout>` each throw (lines 205-234).
 - The compiled path (`transformCompiledAstroDeckSource`) injects
@@ -134,26 +134,26 @@ Repo conventions:
 
 ## Commands you will need
 
-| Purpose        | Command                  | Expected on success |
-| -------------- | ------------------------ | ------------------- |
-| Install        | `vp install`             | exit 0              |
-| CLI tests      | `vp run @slida/cli#test` | exit 0, all pass    |
-| Lint/fmt/types | `vp check`               | exit 0              |
-| Full gate      | `vp run ready`           | exit 0              |
+| Purpose        | Command                   | Expected on success |
+| -------------- | ------------------------- | ------------------- |
+| Install        | `vp install`              | exit 0              |
+| CLI tests      | `vp run @deckup/cli#test` | exit 0, all pass    |
+| Lint/fmt/types | `vp check`                | exit 0              |
+| Full gate      | `vp run ready`            | exit 0              |
 
 ## Scope
 
 **In scope** (the only files you should modify/create):
 
-- `apps/cli/tests/slida-vite-plugins.test.ts` (create)
-- `apps/cli/src/slida-vite-plugins.ts` — ONE permitted change only: add
+- `apps/cli/tests/deckup-vite-plugins.test.ts` (create)
+- `apps/cli/src/deckup-vite-plugins.ts` — ONE permitted change only: add
   `export` to `transformCompiledAstroDeckSource` (Step 2). No other edits.
 
 **Out of scope** (do NOT touch):
 
 - `apps/cli/src/index.ts` — do not add the new export to the public package
-  surface; tests import from `../src/slida-vite-plugins.ts` directly.
-- Any behavioral change to `slida-vite-plugins.ts`. If a test reveals what
+  surface; tests import from `../src/deckup-vite-plugins.ts` directly.
+- Any behavioral change to `deckup-vite-plugins.ts`. If a test reveals what
   looks like a bug, characterize the CURRENT behavior and note it in your
   report — do not fix it here.
 - `apps/cli/tests/astro.test.ts` and all other existing tests.
@@ -169,7 +169,7 @@ Repo conventions:
 
 ### Step 1: Create the test file with source-transform characterization tests
 
-Create `apps/cli/tests/slida-vite-plugins.test.ts`. Import:
+Create `apps/cli/tests/deckup-vite-plugins.test.ts`. Import:
 
 ```ts
 import { expect, test } from "vite-plus/test";
@@ -178,14 +178,14 @@ import {
   countAstroDeckPages,
   transformAstroDeckSource,
   validateAstroDeckSource,
-} from "../src/slida-vite-plugins.ts";
+} from "../src/deckup-vite-plugins.ts";
 ```
 
 Define a reusable valid deck fixture as a template string:
 
 ```ts
 const twoPageDeck = `---
-import Page from "@slida/cli/page";
+import Page from "@deckup/cli/page";
 ---
 
 <Page title="Intro">
@@ -226,7 +226,7 @@ Write these tests (exact behaviors, all against current code):
 
 ```ts
 const emojiDeck = `---
-import Page from "@slida/cli/page";
+import Page from "@deckup/cli/page";
 ---
 
 <Page title="日本語🎉">
@@ -243,12 +243,12 @@ import Page from "@slida/cli/page";
     `layout="two-column"` on page 2, removes the `<layout>` declaration, and
     leaves the multi-byte text intact (`expect(result).toContain("絵文字 🚀 と CJK")`).
 
-**Verify**: `vp run @slida/cli#test` → exit 0, all tests pass including the
+**Verify**: `vp run @deckup/cli#test` → exit 0, all tests pass including the
 new file.
 
 ### Step 2: Export `transformCompiledAstroDeckSource` for tests
 
-In `apps/cli/src/slida-vite-plugins.ts` line 345, change:
+In `apps/cli/src/deckup-vite-plugins.ts` line 345, change:
 
 ```ts
 function transformCompiledAstroDeckSource(
@@ -298,22 +298,22 @@ Tests:
 
 Call signature: `transformCompiledAstroDeckSource(source, [{ layout: "cover" }, { layout: "two-column" }], "<deck>")`.
 
-**Verify**: `vp run @slida/cli#test` → exit 0; the new test count includes
+**Verify**: `vp run @deckup/cli#test` → exit 0; the new test count includes
 all tests from Steps 1 and 3.
 
 ## Test plan
 
-This plan IS the test plan. New file: `apps/cli/tests/slida-vite-plugins.test.ts`
+This plan IS the test plan. New file: `apps/cli/tests/deckup-vite-plugins.test.ts`
 covering the ~17 cases above. Model structure after
 `apps/cli/tests/mdx-pages.test.ts`.
 
 ## Done criteria
 
-- [ ] `vp run @slida/cli#test` exits 0; `apps/cli/tests/slida-vite-plugins.test.ts` exists with ≥15 passing tests
+- [ ] `vp run @deckup/cli#test` exits 0; `apps/cli/tests/deckup-vite-plugins.test.ts` exists with ≥15 passing tests
 - [ ] `vp check` exits 0
 - [ ] `vp run ready` exits 0
 - [ ] `git diff --stat` shows only the two in-scope files changed
-- [ ] The only source change in `slida-vite-plugins.ts` is the `export` keyword + comment on `transformCompiledAstroDeckSource`
+- [ ] The only source change in `deckup-vite-plugins.ts` is the `export` keyword + comment on `transformCompiledAstroDeckSource`
 - [ ] `plans/README.md` status row updated
 
 ## STOP conditions

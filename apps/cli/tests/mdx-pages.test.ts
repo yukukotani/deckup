@@ -3,10 +3,10 @@ import { expect, test } from "vite-plus/test";
 import {
   analyzeMdxDeckSource,
   countMdxDeckPages,
-  remarkSlidaMdxPages,
+  remarkDeckupMdxPages,
   splitMdxChildrenIntoPages,
   stripMdxFrontmatter,
-} from "@slida/core";
+} from "@deckup/core";
 
 const twoPageMdx = `---
 title: Talk
@@ -66,11 +66,11 @@ test("splitMdxChildrenIntoPages splits thematicBreak nodes", () => {
   ).toEqual([[{ type: "heading" }], [{ type: "paragraph" }]]);
 });
 
-test("remarkSlidaMdxPages wraps only the selected file in Page nodes", () => {
+test("remarkDeckupMdxPages wraps only the selected file in Page nodes", () => {
   const tree = {
     children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -79,11 +79,11 @@ test("remarkSlidaMdxPages wraps only the selected file in Page nodes", () => {
   expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
 });
 
-test("remarkSlidaMdxPages adds default layout attributes", () => {
+test("remarkDeckupMdxPages adds default layout attributes", () => {
   const tree = {
     children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -91,7 +91,7 @@ test("remarkSlidaMdxPages adds default layout attributes", () => {
   expect(getPageLayout(tree.children[2])).toBe("default");
 });
 
-test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
+test("remarkDeckupMdxPages moves layout declarations to Page attributes", () => {
   const layoutNode = {
     type: "mdxJsxFlowElement",
     name: "layout",
@@ -101,7 +101,7 @@ test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
   const tree = {
     children: [layoutNode, { type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -110,7 +110,7 @@ test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
   expect(tree.children[2]).toMatchObject({ children: [{ type: "paragraph" }] });
 });
 
-test("remarkSlidaMdxPages preserves slot attributes on generated Page children", () => {
+test("remarkDeckupMdxPages preserves slot attributes on generated Page children", () => {
   const slottedNode = {
     type: "mdxJsxFlowElement",
     name: "div",
@@ -129,7 +129,7 @@ test("remarkSlidaMdxPages preserves slot attributes on generated Page children",
       slottedNode,
     ],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -137,7 +137,7 @@ test("remarkSlidaMdxPages preserves slot attributes on generated Page children",
   expect(getPageChildren(tree.children[1])).toEqual([{ type: "heading" }, slottedNode]);
 });
 
-test("remarkSlidaMdxPages keeps author-side slot elements as content", () => {
+test("remarkDeckupMdxPages keeps author-side slot elements as content", () => {
   const authorSlotNode = {
     type: "mdxJsxFlowElement",
     name: "slot",
@@ -145,7 +145,7 @@ test("remarkSlidaMdxPages keeps author-side slot elements as content", () => {
     children: [{ type: "paragraph" }],
   };
   const tree = { children: [authorSlotNode, { type: "heading" }] };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -153,14 +153,14 @@ test("remarkSlidaMdxPages keeps author-side slot elements as content", () => {
   expect(getPageChildren(tree.children[1])).toEqual([authorSlotNode, { type: "heading" }]);
 });
 
-test("remarkSlidaMdxPages keeps user MDX ESM outside generated Page nodes", () => {
+test("remarkDeckupMdxPages keeps user MDX ESM outside generated Page nodes", () => {
   const tree = {
     children: [
       { type: "mdxjsEsm", value: "import Chart from './Chart.astro';" },
       { type: "heading" },
     ],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -195,9 +195,9 @@ import Aside from "./Aside.astro";
   expect(analysis.layouts).toEqual([{ layout: "cover" }, { layout: "two-column" }]);
 });
 
-test("remarkSlidaMdxPages leaves non-selected files untouched", () => {
+test("remarkDeckupMdxPages leaves non-selected files untouched", () => {
   const tree = { children: [{ type: "heading" }] };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/other.mdx",
   });
   expect(tree.children).toEqual([{ type: "heading" }]);
@@ -228,7 +228,7 @@ test("countMdxDeckPages rejects empty layout ids", () => {
 
 # One
 `),
-  ).toThrow(/Invalid Slida layout id/);
+  ).toThrow(/Invalid Deckup layout id/);
 });
 
 test("countMdxDeckPages rejects invalid layout ids", () => {
@@ -237,5 +237,5 @@ test("countMdxDeckPages rejects invalid layout ids", () => {
 
 # One
 `),
-  ).toThrow(/Invalid Slida layout id/);
+  ).toThrow(/Invalid Deckup layout id/);
 });

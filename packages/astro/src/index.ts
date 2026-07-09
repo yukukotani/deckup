@@ -1,20 +1,20 @@
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import {
-  VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+  VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
   createGeneratedPageComponentSource,
-  createSlidaVitePluginsForRegistry,
+  createDeckupVitePluginsForRegistry,
   normalizePath,
-  remarkSlidaMdxPages,
+  remarkDeckupMdxPages,
   resolveDeckRegistry,
-  resolveSlidaThemeLayouts,
+  resolveDeckupThemeLayouts,
   uniqueStrings,
-  type SlidaDeckRegistry,
-  type SlidaResolvedDeck,
-  type SlidaResolvedDeckRoute,
-  type SlidaResolvedTheme,
-  type SlidaThemeForDeck,
-} from "@slida/core";
+  type DeckupDeckRegistry,
+  type DeckupResolvedDeck,
+  type DeckupResolvedDeckRoute,
+  type DeckupResolvedTheme,
+  type DeckupThemeForDeck,
+} from "@deckup/core";
 import type { AstroIntegration } from "astro";
 import { readFileSync } from "node:fs";
 import { mkdir, realpath, writeFile } from "node:fs/promises";
@@ -23,7 +23,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 
-export interface SlidaAstroOptions {
+export interface DeckupAstroOptions {
   decks: string | string[];
   base?: string;
   /**
@@ -33,11 +33,11 @@ export interface SlidaAstroOptions {
   theme?: unknown;
 }
 
-const DEFAULT_SLIDA_BASE = "/slides";
-const SLIDA_ASTRO_DECK_LAYOUT_MODULE_ID = "virtual:slida/astro/deck-layout.astro";
-const SLIDA_ASTRO_NAVIGATION_MODULE_ID = "virtual:slida/astro/navigation.ts";
-const resolvedSlidaAstroDeckLayoutModuleId = SLIDA_ASTRO_DECK_LAYOUT_MODULE_ID;
-const resolvedSlidaAstroNavigationModuleId = `\0${SLIDA_ASTRO_NAVIGATION_MODULE_ID}`;
+const DEFAULT_DECKUP_BASE = "/slides";
+const DECKUP_ASTRO_DECK_LAYOUT_MODULE_ID = "virtual:deckup/astro/deck-layout.astro";
+const DECKUP_ASTRO_NAVIGATION_MODULE_ID = "virtual:deckup/astro/navigation.ts";
+const resolvedDeckupAstroDeckLayoutModuleId = DECKUP_ASTRO_DECK_LAYOUT_MODULE_ID;
+const resolvedDeckupAstroNavigationModuleId = `\0${DECKUP_ASTRO_NAVIGATION_MODULE_ID}`;
 const staticPageFilePath = fileURLToPath(
   new URL("../runtime/components/Page.astro", import.meta.url),
 );
@@ -91,13 +91,13 @@ function normalizeAliasEntries(alias: unknown): AliasEntry[] {
   return [];
 }
 
-function hasThemeLayouts(theme: SlidaResolvedTheme | undefined) {
+function hasThemeLayouts(theme: DeckupResolvedTheme | undefined) {
   return (theme?.layouts?.length ?? 0) > 0;
 }
 
-function isCoreCompatibleTheme(value: unknown): value is SlidaResolvedTheme {
+function isCoreCompatibleTheme(value: unknown): value is DeckupResolvedTheme {
   if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<SlidaResolvedTheme>;
+  const candidate = value as Partial<DeckupResolvedTheme>;
   return (
     typeof candidate.name === "string" &&
     (candidate.source === "builtin" || candidate.source === "package") &&
@@ -105,8 +105,8 @@ function isCoreCompatibleTheme(value: unknown): value is SlidaResolvedTheme {
   );
 }
 
-function uniqueThemes(themes: Array<SlidaResolvedTheme | undefined>) {
-  const byName = new Map<string, SlidaResolvedTheme>();
+function uniqueThemes(themes: Array<DeckupResolvedTheme | undefined>) {
+  const byName = new Map<string, DeckupResolvedTheme>();
   for (const theme of themes) {
     if (theme && hasThemeLayouts(theme)) byName.set(theme.name, theme);
   }
@@ -115,16 +115,16 @@ function uniqueThemes(themes: Array<SlidaResolvedTheme | undefined>) {
 
 async function resolveFallbackTheme(projectRoot: string, theme: unknown) {
   if (isCoreCompatibleTheme(theme) && hasThemeLayouts(theme)) return theme;
-  return resolveSlidaThemeLayouts(projectRoot, theme);
+  return resolveDeckupThemeLayouts(projectRoot, theme);
 }
 
 async function resolveEffectiveThemes(
   projectRoot: string,
-  registry: SlidaDeckRegistry,
-  fallbackTheme: SlidaResolvedTheme,
+  registry: DeckupDeckRegistry,
+  fallbackTheme: DeckupResolvedTheme,
 ) {
-  const byRouteId = new Map<string, SlidaResolvedTheme>();
-  const byThemeName = new Map<string, Promise<SlidaResolvedTheme>>();
+  const byRouteId = new Map<string, DeckupResolvedTheme>();
+  const byThemeName = new Map<string, Promise<DeckupResolvedTheme>>();
   await Promise.all(
     registry.decks.map(async (deck) => {
       const deckTheme = deck.metadata?.theme;
@@ -134,43 +134,46 @@ async function resolveEffectiveThemes(
       }
       try {
         const resolved =
-          byThemeName.get(deckTheme) ?? resolveSlidaThemeLayouts(projectRoot, deckTheme);
+          byThemeName.get(deckTheme) ?? resolveDeckupThemeLayouts(projectRoot, deckTheme);
         byThemeName.set(deckTheme, resolved);
         byRouteId.set(deck.routeId, await resolved);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`Invalid Slida theme metadata in ${deck.projectRelativePath}: ${message}`, {
-          cause: error,
-        });
+        throw new Error(
+          `Invalid Deckup theme metadata in ${deck.projectRelativePath}: ${message}`,
+          {
+            cause: error,
+          },
+        );
       }
     }),
   );
   return byRouteId;
 }
 
-async function writeGeneratedPageComponent(projectRoot: string, themes: SlidaResolvedTheme[]) {
+async function writeGeneratedPageComponent(projectRoot: string, themes: DeckupResolvedTheme[]) {
   const resolvedThemes = uniqueThemes(themes);
   if (resolvedThemes.length === 0) return undefined;
 
-  const generatedPageFilePath = join(projectRoot, ".slida", "astro", "generated", "Page.astro");
+  const generatedPageFilePath = join(projectRoot, ".deckup", "astro", "generated", "Page.astro");
   const slotNames = uniqueStrings(resolvedThemes.flatMap((theme) => theme.slotNames ?? [])).sort();
   await mkdir(dirname(generatedPageFilePath), { recursive: true });
   await writeFile(
     generatedPageFilePath,
     createGeneratedPageComponentSource(
       slotNames,
-      VIRTUAL_SLIDA_THEME_LAYOUTS_ID,
+      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
       resolvedThemes[0]?.name,
     ),
   );
   return generatedPageFilePath;
 }
 
-function routeEntryFilePath(projectRoot: string, deck: SlidaResolvedDeckRoute) {
-  return join(projectRoot, ".slida", "astro", "routes", `${deck.routeId}.astro`);
+function routeEntryFilePath(projectRoot: string, deck: DeckupResolvedDeckRoute) {
+  return join(projectRoot, ".deckup", "astro", "routes", `${deck.routeId}.astro`);
 }
 
-async function writeRouteEntryFiles(projectRoot: string, registry: SlidaDeckRegistry) {
+async function writeRouteEntryFiles(projectRoot: string, registry: DeckupDeckRegistry) {
   // Astro's `injectRoute()` expects a file-backed entrypoint; Vite virtual module IDs
   // fail manifest creation before Vite's resolver runs. Keep each route file tiny and
   // delegate all runtime behavior to the per-deck virtual route module.
@@ -181,10 +184,10 @@ async function writeRouteEntryFiles(projectRoot: string, registry: SlidaDeckRegi
       await writeFile(
         entrypoint,
         `---
-import SlidaRoute from ${JSON.stringify(deck.virtualRouteModuleId)};
+import DeckupRoute from ${JSON.stringify(deck.virtualRouteModuleId)};
 ---
 
-<SlidaRoute />
+<DeckupRoute />
 `,
       );
       return { deck, entrypoint };
@@ -193,11 +196,11 @@ import SlidaRoute from ${JSON.stringify(deck.virtualRouteModuleId)};
   return entries;
 }
 
-function routeDeckDirectories(registry: SlidaDeckRegistry) {
+function routeDeckDirectories(registry: DeckupDeckRegistry) {
   return registry.decks.map((deck) => dirname(deck.filePath));
 }
 
-function themeFileSystemAllowEntries(themes: SlidaResolvedTheme[]) {
+function themeFileSystemAllowEntries(themes: DeckupResolvedTheme[]) {
   return uniqueStrings(
     themes
       .flatMap((theme) => [
@@ -210,13 +213,13 @@ function themeFileSystemAllowEntries(themes: SlidaResolvedTheme[]) {
   );
 }
 
-function createMdxIntegration(registry: SlidaDeckRegistry, themeForDeck: SlidaThemeForDeck) {
+function createMdxIntegration(registry: DeckupDeckRegistry, themeForDeck: DeckupThemeForDeck) {
   return mdx({
     processor: unified({
       remarkPlugins: [
         [
-          remarkSlidaMdxPages,
-          { registry, themeForDeck: (deck: SlidaResolvedDeck) => themeForDeck(deck)?.name },
+          remarkDeckupMdxPages,
+          { registry, themeForDeck: (deck: DeckupResolvedDeck) => themeForDeck(deck)?.name },
         ] as never,
       ],
     }),
@@ -234,7 +237,7 @@ interface Props {
   title?: string;
 }
 
-const { slideCount, title = "Slida Deck" } = Astro.props;
+const { slideCount, title = "Deckup Deck" } = Astro.props;
 ---
 
 <!doctype html>
@@ -242,18 +245,18 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="generator" content="Slida" />
+    <meta name="generator" content="Deckup" />
     <title>{title}</title>
   </head>
   <body>
-    <div class="slida-shell" data-slida-shell data-slide-count={slideCount}>
+    <div class="deckup-shell" data-deckup-shell data-slide-count={slideCount}>
       <slot />
     </div>
-    <nav class="slida-navigation slida-status" data-slida-navigation aria-label="Slide navigation">
+    <nav class="deckup-navigation deckup-status" data-deckup-navigation aria-label="Slide navigation">
       <button
         type="button"
-        class="slida-navigation__handle"
-        data-slida-nav-drag-handle
+        class="deckup-navigation__handle"
+        data-deckup-nav-drag-handle
         aria-label="Move navigation menu"
         title="Move navigation menu"
       >
@@ -261,20 +264,20 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
       </button>
       <button
         type="button"
-        class="slida-navigation__button"
-        data-slida-nav-prev
+        class="deckup-navigation__button"
+        data-deckup-nav-prev
         aria-label="Previous slide"
         disabled
       >
         ‹
       </button>
-      <span class="slida-navigation__status" aria-live="polite">
-        <span data-slida-current>1</span>/<span data-slida-total>{Math.max(slideCount, 1)}</span>
+      <span class="deckup-navigation__status" aria-live="polite">
+        <span data-deckup-current>1</span>/<span data-deckup-total>{Math.max(slideCount, 1)}</span>
       </span>
       <button
         type="button"
-        class="slida-navigation__button"
-        data-slida-nav-next
+        class="deckup-navigation__button"
+        data-deckup-nav-next
         aria-label="Next slide"
         disabled={slideCount <= 1}
       >
@@ -282,8 +285,8 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
       </button>
       <button
         type="button"
-        class="slida-navigation__button"
-        data-slida-nav-fullscreen
+        class="deckup-navigation__button"
+        data-deckup-nav-fullscreen
         aria-label="Enter fullscreen"
         aria-pressed="false"
         title="Enter fullscreen"
@@ -292,7 +295,7 @@ const { slideCount, title = "Slida Deck" } = Astro.props;
       </button>
     </nav>
     <script>
-      import "virtual:slida/astro/navigation.ts";
+      import "virtual:deckup/astro/navigation.ts";
     </script>
   </body>
 </html>
@@ -303,37 +306,37 @@ function createNavigationSource() {
   return readFileSync(runtimeNavigationFilePath, "utf8");
 }
 
-function createSlidaAstroDeckLayoutPlugin(): Plugin {
+function createDeckupAstroDeckLayoutPlugin(): Plugin {
   return {
-    name: "slida:astro-deck-layout",
+    name: "deckup:astro-deck-layout",
     resolveId(id) {
-      if (id === SLIDA_ASTRO_DECK_LAYOUT_MODULE_ID) return resolvedSlidaAstroDeckLayoutModuleId;
-      if (id === SLIDA_ASTRO_NAVIGATION_MODULE_ID) return resolvedSlidaAstroNavigationModuleId;
+      if (id === DECKUP_ASTRO_DECK_LAYOUT_MODULE_ID) return resolvedDeckupAstroDeckLayoutModuleId;
+      if (id === DECKUP_ASTRO_NAVIGATION_MODULE_ID) return resolvedDeckupAstroNavigationModuleId;
       return undefined;
     },
     load(id) {
-      if (id === resolvedSlidaAstroDeckLayoutModuleId) return createDeckLayoutSource();
-      if (id === resolvedSlidaAstroNavigationModuleId) return createNavigationSource();
+      if (id === resolvedDeckupAstroDeckLayoutModuleId) return createDeckLayoutSource();
+      if (id === resolvedDeckupAstroNavigationModuleId) return createNavigationSource();
       return undefined;
     },
   };
 }
 
-export default function slida(options: SlidaAstroOptions): AstroIntegration {
+export default function deckup(options: DeckupAstroOptions): AstroIntegration {
   return {
-    name: "@slida/astro",
+    name: "@deckup/astro",
     hooks: {
       async "astro:config:setup"({ config, injectRoute, updateConfig }) {
         const projectRoot = await realpath(fileURLToPath(config.root));
         const registry = await resolveDeckRegistry(
           projectRoot,
           options.decks,
-          options.base ?? DEFAULT_SLIDA_BASE,
+          options.base ?? DEFAULT_DECKUP_BASE,
         );
         const fallbackTheme = await resolveFallbackTheme(projectRoot, options.theme);
         const themeByRouteId = await resolveEffectiveThemes(projectRoot, registry, fallbackTheme);
-        const themeForDeck: SlidaThemeForDeck = (deck) =>
-          themeByRouteId.get((deck as SlidaResolvedDeckRoute).routeId);
+        const themeForDeck: DeckupThemeForDeck = (deck) =>
+          themeByRouteId.get((deck as DeckupResolvedDeckRoute).routeId);
         const effectiveThemes = uniqueThemes([...themeByRouteId.values()]);
         const generatedPageFilePath = await writeGeneratedPageComponent(
           projectRoot,
@@ -353,7 +356,7 @@ export default function slida(options: SlidaAstroOptions): AstroIntegration {
         // surfaces to concrete files.
         const pageAlias = [
           {
-            find: /^@slida\/astro\/page$/,
+            find: /^@deckup\/astro\/page$/,
             replacement: generatedPageFilePath ?? staticPageFilePath,
           },
         ];
@@ -375,10 +378,10 @@ export default function slida(options: SlidaAstroOptions): AstroIntegration {
           integrations: [createMdxIntegration(registry, themeForDeck)],
           vite: {
             plugins: [
-              createSlidaAstroDeckLayoutPlugin(),
-              ...createSlidaVitePluginsForRegistry(registry, themeForDeck, {
+              createDeckupAstroDeckLayoutPlugin(),
+              ...createDeckupVitePluginsForRegistry(registry, themeForDeck, {
                 generatedPageFilePath,
-                deckLayoutModuleId: SLIDA_ASTRO_DECK_LAYOUT_MODULE_ID,
+                deckLayoutModuleId: DECKUP_ASTRO_DECK_LAYOUT_MODULE_ID,
               }),
             ],
             resolve: {

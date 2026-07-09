@@ -225,8 +225,8 @@ test("revealSlidesForPrint temporarily reveals all slides and restores navigatio
   expect(second.hidden).toBe(false);
   expect(second.attributes.get("aria-hidden")).toBe("false");
   expect(second.attributes.has("data-active")).toBe(true);
-  expect(documentElement.attributes.has("data-slida-print")).toBe(true);
-  expect(body.attributes.has("data-slida-print")).toBe(true);
+  expect(documentElement.attributes.has("data-deckup-print")).toBe(true);
+  expect(body.attributes.has("data-deckup-print")).toBe(true);
 
   restore();
   expect(first.hidden).toBe(false);
@@ -235,8 +235,8 @@ test("revealSlidesForPrint temporarily reveals all slides and restores navigatio
   expect(second.hidden).toBe(true);
   expect(second.attributes.has("data-active")).toBe(false);
   expect(second.attributes.get("aria-hidden")).toBe("true");
-  expect(documentElement.attributes.has("data-slida-print")).toBe(false);
-  expect(body.attributes.has("data-slida-print")).toBe(false);
+  expect(documentElement.attributes.has("data-deckup-print")).toBe(false);
+  expect(body.attributes.has("data-deckup-print")).toBe(false);
 });
 
 test("setupDeckNavigation moves through self-wrapped Page sections with ArrowRight and ArrowLeft", () => {
@@ -248,7 +248,7 @@ test("setupDeckNavigation moves through self-wrapped Page sections with ArrowRig
     const current = { textContent: "" };
     const document = fakeNavigationDocument({
       querySelectorAll: () => [first, second],
-      querySelector: (selector: string) => (selector === "[data-slida-current]" ? current : null),
+      querySelector: (selector: string) => (selector === "[data-deckup-current]" ? current : null),
     });
     const location = { hash: "" };
     const windowEvents = fakeEventTarget();
@@ -299,9 +299,9 @@ test("setupDeckNavigation syncs menu buttons with slide state", () => {
   const document = fakeNavigationDocument({
     querySelectorAll: () => [first, second],
     querySelector: (selector: string) => {
-      if (selector === "[data-slida-current]") return current;
-      if (selector === "[data-slida-nav-prev]") return previousButton;
-      if (selector === "[data-slida-nav-next]") return nextButton;
+      if (selector === "[data-deckup-current]") return current;
+      if (selector === "[data-deckup-nav-prev]") return previousButton;
+      if (selector === "[data-deckup-nav-next]") return nextButton;
       return null;
     },
   });
@@ -363,8 +363,8 @@ test("setupDeckNavigation toggles fullscreen and syncs fullscreen button state",
   const document = fakeNavigationDocument({
     querySelectorAll: () => [first, second],
     querySelector: (selector: string) => {
-      if (selector === "[data-slida-current]") return current;
-      if (selector === "[data-slida-nav-fullscreen]") return fullscreenButton;
+      if (selector === "[data-deckup-current]") return current;
+      if (selector === "[data-deckup-nav-fullscreen]") return fullscreenButton;
       return null;
     },
   });
@@ -445,8 +445,8 @@ test("setupDeckNavigation disables fullscreen button when Fullscreen API is unav
   const document = fakeNavigationDocument({
     querySelectorAll: () => [first, second],
     querySelector: (selector: string) => {
-      if (selector === "[data-slida-current]") return current;
-      if (selector === "[data-slida-nav-fullscreen]") return fullscreenButton;
+      if (selector === "[data-deckup-current]") return current;
+      if (selector === "[data-deckup-nav-fullscreen]") return fullscreenButton;
       return null;
     },
   });
@@ -496,8 +496,8 @@ test("setupDeckNavigation ignores repeated fullscreen clicks while a transition 
   const document = fakeNavigationDocument({
     querySelectorAll: () => [first, second],
     querySelector: (selector: string) => {
-      if (selector === "[data-slida-current]") return current;
-      if (selector === "[data-slida-nav-fullscreen]") return fullscreenButton;
+      if (selector === "[data-deckup-current]") return current;
+      if (selector === "[data-deckup-nav-fullscreen]") return fullscreenButton;
       return null;
     },
   });
@@ -579,8 +579,8 @@ test("setupDeckNavigation restores focus and state when fullscreen request rejec
   const document = fakeNavigationDocument({
     querySelectorAll: () => [first, second],
     querySelector: (selector: string) => {
-      if (selector === "[data-slida-current]") return current;
-      if (selector === "[data-slida-nav-fullscreen]") return fullscreenButton;
+      if (selector === "[data-deckup-current]") return current;
+      if (selector === "[data-deckup-nav-fullscreen]") return fullscreenButton;
       return null;
     },
   });
@@ -634,11 +634,11 @@ test("setupDeckNavigation rejects secondary and non-primary drag acquisition", (
   const document = fakeNavigationDocument({
     querySelectorAll: () => [first, second],
     querySelector: (selector: string) => {
-      if (selector === "[data-slida-current]") return current;
-      if (selector === "[data-slida-nav-prev]") return previousButton;
-      if (selector === "[data-slida-nav-next]") return nextButton;
-      if (selector === "[data-slida-navigation]") return navigationMenu;
-      if (selector === "[data-slida-nav-drag-handle]") return dragHandle;
+      if (selector === "[data-deckup-current]") return current;
+      if (selector === "[data-deckup-nav-prev]") return previousButton;
+      if (selector === "[data-deckup-nav-next]") return nextButton;
+      if (selector === "[data-deckup-navigation]") return navigationMenu;
+      if (selector === "[data-deckup-nav-drag-handle]") return dragHandle;
       return null;
     },
   });
@@ -707,11 +707,11 @@ test("setupDeckNavigation drags the menu from the handle within viewport bounds"
   const document = fakeNavigationDocument({
     querySelectorAll: () => [first, second],
     querySelector: (selector: string) => {
-      if (selector === "[data-slida-current]") return current;
-      if (selector === "[data-slida-nav-prev]") return previousButton;
-      if (selector === "[data-slida-nav-next]") return nextButton;
-      if (selector === "[data-slida-navigation]") return navigationMenu;
-      if (selector === "[data-slida-nav-drag-handle]") return dragHandle;
+      if (selector === "[data-deckup-current]") return current;
+      if (selector === "[data-deckup-nav-prev]") return previousButton;
+      if (selector === "[data-deckup-nav-next]") return nextButton;
+      if (selector === "[data-deckup-navigation]") return navigationMenu;
+      if (selector === "[data-deckup-nav-drag-handle]") return dragHandle;
       return null;
     },
   });
@@ -824,11 +824,11 @@ test("setupDeckNavigation keeps keyboard guards and hash sync aligned with menu 
     const document = fakeNavigationDocument({
       querySelectorAll: () => [first, second],
       querySelector: (selector: string) => {
-        if (selector === "[data-slida-current]") return current;
-        if (selector === "[data-slida-nav-prev]") return previousButton;
-        if (selector === "[data-slida-nav-next]") return nextButton;
-        if (selector === "[data-slida-navigation]") return navigationMenu;
-        if (selector === "[data-slida-nav-drag-handle]") return dragHandle;
+        if (selector === "[data-deckup-current]") return current;
+        if (selector === "[data-deckup-nav-prev]") return previousButton;
+        if (selector === "[data-deckup-nav-next]") return nextButton;
+        if (selector === "[data-deckup-navigation]") return navigationMenu;
+        if (selector === "[data-deckup-nav-drag-handle]") return dragHandle;
         return null;
       },
     });

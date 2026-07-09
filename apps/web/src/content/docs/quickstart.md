@@ -1,19 +1,19 @@
 ---
 title: Quickstart
-description: Install Slida from npm, create a small deck, preview it locally, build static HTML, and export a PDF.
+description: Install Deckup from npm, create a small deck, preview it locally, build static HTML, and export a PDF.
 ---
 
 # Quickstart
 
-This guide shows the intended public npm workflow for Slida.
-It assumes `@slida/cli` is available from npm and provides the `slida` binary.
+This guide shows the intended public npm workflow for Deckup.
+It assumes `@deckup/cli` is available from npm and provides the `deckup` binary.
 
 ## Install the CLI
 
-Install Slida in your deck project:
+Install Deckup in your deck project:
 
 ```bash
-npm install -D @slida/cli
+npm install -D @deckup/cli
 ```
 
 Create a `slides/` directory:
@@ -28,10 +28,10 @@ Create `slides/deck.mdx`:
 
 ```mdx
 ---
-title: My first Slida deck
+title: My first Deckup deck
 ---
 
-# My first Slida deck
+# My first Deckup deck
 
 A slide deck authored with MDX.
 
@@ -52,13 +52,13 @@ If you omit a layout declaration, the first page uses the `cover` layout and lat
 Start the local preview server:
 
 ```bash
-npx slida open slides/deck.mdx
+npx deckup open slides/deck.mdx
 ```
 
 Use `--host`, `--port` (or `-p`), and `--open` when you need to change the local server behavior:
 
 ```bash
-npx slida open slides/deck.mdx --port 4321 --open
+npx deckup open slides/deck.mdx --port 4321 --open
 ```
 
 ## Build static HTML
@@ -66,29 +66,29 @@ npx slida open slides/deck.mdx --port 4321 --open
 Build the deck as static HTML and assets by selecting the `html` output format:
 
 ```bash
-npx slida build slides/deck.mdx --format html
+npx deckup build slides/deck.mdx --format html
 ```
 
 The default HTML output directory comes from the deck filename, so `slides/deck.mdx` builds to `deck/`.
 Use `--out` to choose a different directory:
 
 ```bash
-npx slida build slides/deck.mdx --format html --out public-deck
+npx deckup build slides/deck.mdx --format html --out public-deck
 ```
 
 ## Export a PDF
 
-Build the deck as a PDF. PDF is the default `slida build` output format:
+Build the deck as a PDF. PDF is the default `deckup build` output format:
 
 ```bash
-npx slida build slides/deck.mdx
+npx deckup build slides/deck.mdx
 ```
 
 The default PDF filename comes from the deck filename, so `slides/deck.mdx` exports `deck.pdf`.
 Use `--out` to choose a file and `--force` (or `-f`) to overwrite an existing PDF without an interactive prompt:
 
 ```bash
-npx slida build slides/deck.mdx --format pdf --out slides.pdf --force
+npx deckup build slides/deck.mdx --format pdf --out slides.pdf --force
 ```
 
 ## Next steps

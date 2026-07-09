@@ -1,9 +1,9 @@
 {
-  "name": "@slida/cli",
+  "name": "@deckup/cli",
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "slida": "./dist/cli.mjs"
+    "deckup": "./dist/cli.mjs"
   },
   "files": [
     "dist",
@@ -23,9 +23,9 @@
   "dependencies": {
     "@astrojs/markdown-remark": "catalog:",
     "@astrojs/mdx": "catalog:",
+    "@deckup/astro": "workspace:*",
+    "@deckup/core": "workspace:*",
     "@puppeteer/browsers": "catalog:",
-    "@slida/astro": "workspace:*",
-    "@slida/core": "workspace:*",
     "astro": "catalog:",
     "gunshi": "catalog:",
     "jiti": "catalog:",

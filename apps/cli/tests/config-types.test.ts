@@ -2,14 +2,14 @@ import { expect, test } from "vite-plus/test";
 
 import {
   defineConfig,
-  type SlidaBuildCommandOptions,
-  type SlidaRuntimePaths,
-  type SlidaConfig,
-  type SlidaOutputFormat,
-  type SlidaResolvedTheme,
-  type SlidaResolvedThemeLayout,
+  type DeckupBuildCommandOptions,
+  type DeckupRuntimePaths,
+  type DeckupConfig,
+  type DeckupOutputFormat,
+  type DeckupResolvedTheme,
+  type DeckupResolvedThemeLayout,
 } from "../src/index.ts";
-import * as slida from "../src/index.ts";
+import * as deckup from "../src/index.ts";
 
 test("defineConfig returns an object config", () => {
   const config = defineConfig({ port: 3000 });
@@ -27,20 +27,20 @@ const validConfig = defineConfig({
   },
 });
 
-const assignableConfig: SlidaConfig = validConfig;
+const assignableConfig: DeckupConfig = validConfig;
 expect(assignableConfig.port).toBe(3000);
 expect(assignableConfig.theme).toBe("minimal");
 
 const themedConfig = defineConfig({ theme: "bold" });
 expect(themedConfig.theme).toBe("bold");
 
-const packageThemeConfig = defineConfig({ theme: "@acme/slida-layout-theme" });
-expect(packageThemeConfig.theme).toBe("@acme/slida-layout-theme");
+const packageThemeConfig = defineConfig({ theme: "@acme/deckup-layout-theme" });
+expect(packageThemeConfig.theme).toBe("@acme/deckup-layout-theme");
 
-const npmThemeConfig = defineConfig({ theme: "npm:@acme/slida-theme@1.2.3" });
-expect(npmThemeConfig.theme).toBe("npm:@acme/slida-theme@1.2.3");
+const npmThemeConfig = defineConfig({ theme: "npm:@acme/deckup-theme@1.2.3" });
+expect(npmThemeConfig.theme).toBe("npm:@acme/deckup-theme@1.2.3");
 
-const publicResolvedThemeLayout: SlidaResolvedThemeLayout = {
+const publicResolvedThemeLayout: DeckupResolvedThemeLayout = {
   id: "two-column",
   filePath: "/theme/layouts/two-column.astro",
   importPath: "/@fs/theme/layouts/two-column.astro",
@@ -48,10 +48,10 @@ const publicResolvedThemeLayout: SlidaResolvedThemeLayout = {
 };
 expect(publicResolvedThemeLayout.slotNames).toEqual(["left", "right"]);
 
-const publicResolvedTheme: SlidaResolvedTheme = {
-  name: "@acme/slida-layout-theme",
+const publicResolvedTheme: DeckupResolvedTheme = {
+  name: "@acme/deckup-layout-theme",
   filePath: "/theme/package.json",
-  packageName: "@acme/slida-layout-theme",
+  packageName: "@acme/deckup-layout-theme",
   packageRoot: "/theme",
   layoutsDir: "/theme/layouts",
   layouts: [publicResolvedThemeLayout],
@@ -61,18 +61,18 @@ const publicResolvedTheme: SlidaResolvedTheme = {
 expect(publicResolvedTheme.layoutsDir).toBe("/theme/layouts");
 expect(publicResolvedTheme.slotNames).toEqual(["left", "right"]);
 
-const publicRuntimePaths: SlidaRuntimePaths = {
+const publicRuntimePaths: DeckupRuntimePaths = {
   projectRoot: "/deck",
-  runtimeSourceDir: "/deck/node_modules/@slida/cli/runtime",
-  runtimeOutDir: "/deck/.slida/runtime",
-  generatedPageFilePath: "/deck/.slida/runtime/generated/Page.astro",
+  runtimeSourceDir: "/deck/node_modules/@deckup/cli/runtime",
+  runtimeOutDir: "/deck/.deckup/runtime",
+  generatedPageFilePath: "/deck/.deckup/runtime/generated/Page.astro",
 };
 expect(publicRuntimePaths.generatedPageFilePath).toContain("generated/Page.astro");
 
-const publicOutputFormat: SlidaOutputFormat = "pdf";
+const publicOutputFormat: DeckupOutputFormat = "pdf";
 expect(publicOutputFormat).toBe("pdf");
 
-const publicBuildCommandOptions: SlidaBuildCommandOptions = {
+const publicBuildCommandOptions: DeckupBuildCommandOptions = {
   deckFile: "slides/deck.mdx",
   format: publicOutputFormat,
   outDir: "dist",
@@ -82,25 +82,25 @@ const publicBuildCommandOptions: SlidaBuildCommandOptions = {
 };
 expect(publicBuildCommandOptions.format).toBe("pdf");
 
-expect("resolveSlidaTheme" in slida).toBe(false);
-// @ts-expect-error resolveSlidaTheme was intentionally removed; use resolveSlidaThemeLayouts
-void slida.resolveSlidaTheme;
-expect("parseNpmThemeSource" in slida).toBe(false);
-expect("resolveCachedNpmThemePackage" in slida).toBe(false);
-expect("SLIDA_THEME_CACHE_ENV" in slida).toBe(false);
-expect("normalizeDevValues" in slida).toBe(false);
+expect("resolveDeckupTheme" in deckup).toBe(false);
+// @ts-expect-error resolveDeckupTheme was intentionally removed; use resolveDeckupThemeLayouts
+void deckup.resolveDeckupTheme;
+expect("parseNpmThemeSource" in deckup).toBe(false);
+expect("resolveCachedNpmThemePackage" in deckup).toBe(false);
+expect("DECKUP_THEME_CACHE_ENV" in deckup).toBe(false);
+expect("normalizeDevValues" in deckup).toBe(false);
 // @ts-expect-error normalizeDevValues was intentionally replaced by normalizeOpenValues
-void slida.normalizeDevValues;
-expect("normalizeExportValues" in slida).toBe(false);
+void deckup.normalizeDevValues;
+expect("normalizeExportValues" in deckup).toBe(false);
 // @ts-expect-error normalizeExportValues was intentionally removed with the export command surface
-void slida.normalizeExportValues;
+void deckup.normalizeExportValues;
 
 // @ts-expect-error npm theme cache options are internal, not public package types
-type PublicNpmThemeOptions = import("../src/index.ts").SlidaNpmThemeOptions;
+type PublicNpmThemeOptions = import("../src/index.ts").DeckupNpmThemeOptions;
 expect(undefined as unknown as PublicNpmThemeOptions).toBeUndefined();
 
 // @ts-expect-error npm theme download request is internal, not a public package type
-type PublicNpmDownloadRequest = import("../src/index.ts").SlidaNpmThemeDownloadRequest;
+type PublicNpmDownloadRequest = import("../src/index.ts").DeckupNpmThemeDownloadRequest;
 expect(undefined as unknown as PublicNpmDownloadRequest).toBeUndefined();
 
 defineConfig({
@@ -109,77 +109,77 @@ defineConfig({
 });
 
 defineConfig({
-  // @ts-expect-error npm theme cache location is controlled by SLIDA_THEME_CACHE_DIR, not slida.config.*
-  themeCacheDir: ".slida-theme-cache",
+  // @ts-expect-error npm theme cache location is controlled by DECKUP_THEME_CACHE_DIR, not deckup.config.*
+  themeCacheDir: ".deckup-theme-cache",
 });
 
 defineConfig({
-  // @ts-expect-error npm theme cacheDir is an internal resolver option, not slida.config.*
-  cacheDir: ".slida-theme-cache",
+  // @ts-expect-error npm theme cacheDir is an internal resolver option, not deckup.config.*
+  cacheDir: ".deckup-theme-cache",
 });
 
 defineConfig({
-  // @ts-expect-error npm theme confirmation is internal resolver behavior, not slida.config.*
+  // @ts-expect-error npm theme confirmation is internal resolver behavior, not deckup.config.*
   confirmDownload: async () => true,
 });
 
 defineConfig({
-  // @ts-expect-error Deck selection is a CLI/API option, not slida.config.* surface
+  // @ts-expect-error Deck selection is a CLI/API option, not deckup.config.* surface
   deckFile: "slides/deck.astro",
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida owns Astro root
+    // @ts-expect-error Deckup owns Astro root
     root: ".",
   },
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida owns Astro srcDir
-    srcDir: ".slida/runtime",
+    // @ts-expect-error Deckup owns Astro srcDir
+    srcDir: ".deckup/runtime",
   },
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida owns Astro external config loading
+    // @ts-expect-error Deckup owns Astro external config loading
     configFile: "astro.config.ts",
   },
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida owns Astro output mode
+    // @ts-expect-error Deckup owns Astro output mode
     output: "server",
   },
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida exposes preview port as top-level port, not astro.server
+    // @ts-expect-error Deckup exposes preview port as top-level port, not astro.server
     server: { port: 3000 },
   },
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida owns Astro build output directory
+    // @ts-expect-error Deckup owns Astro build output directory
     outDir: "dist",
   },
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida owns Astro log level through CLI/API options
+    // @ts-expect-error Deckup owns Astro log level through CLI/API options
     logLevel: "debug",
   },
 });
 
 defineConfig({
   astro: {
-    // @ts-expect-error Slida keeps the Astro dev toolbar disabled
+    // @ts-expect-error Deckup keeps the Astro dev toolbar disabled
     devToolbar: { enabled: true },
   },
 });

@@ -8,7 +8,7 @@ test("installChromiumWithCacheRepair deletes a corrupt cached Chrome before retr
   const options = {
     browser: Browser.CHROME,
     buildId: "123.0.0.0",
-    cacheDir: "/tmp/slida-browser-cache",
+    cacheDir: "/tmp/deckup-browser-cache",
     platform: BrowserPlatform.MAC_ARM,
   };
 
@@ -17,7 +17,7 @@ test("installChromiumWithCacheRepair deletes a corrupt cached Chrome before retr
       calls.push(`install:${receivedOptions.buildId}`);
       if (calls.length === 1) {
         throw new Error(
-          "The browser folder (/tmp/slida-browser-cache/chrome/mac_arm-123.0.0.0) exists but the executable (/tmp/slida-browser-cache/chrome/mac_arm-123.0.0.0/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing) is missing",
+          "The browser folder (/tmp/deckup-browser-cache/chrome/mac_arm-123.0.0.0) exists but the executable (/tmp/deckup-browser-cache/chrome/mac_arm-123.0.0.0/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing) is missing",
         );
       }
     },
@@ -34,7 +34,7 @@ test("installChromiumWithCacheRepair preserves non-cache-corruption install fail
   const options = {
     browser: Browser.CHROME,
     buildId: "123.0.0.0",
-    cacheDir: "/tmp/slida-browser-cache",
+    cacheDir: "/tmp/deckup-browser-cache",
     platform: BrowserPlatform.MAC_ARM,
   };
 

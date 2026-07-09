@@ -12,7 +12,7 @@ import {
   normalizeLogLevel,
   normalizeOpenValues,
   openCommand,
-  runSlida,
+  runDeckup,
   VERSION,
 } from "../src/commands.ts";
 
@@ -54,7 +54,7 @@ test("normalizeBuildFormat accepts supported output formats and defaults to pdf"
 });
 
 test("normalizeBuildFormat rejects unsupported output formats", () => {
-  expect(() => normalizeBuildFormat("pptx")).toThrow(/Unsupported Slida build format/);
+  expect(() => normalizeBuildFormat("pptx")).toThrow(/Unsupported Deckup build format/);
 });
 
 test("normalizeBuildValues defaults to PDF output and preserves selected deck file", () => {
@@ -142,11 +142,11 @@ test("legacy command exports are removed", () => {
 });
 
 test("entry command advertises open and unified build", async () => {
-  expect(entryCommand.name).toBe("slida");
-  const output = await runSlida([]);
-  expect(output).toContain("slida open <deck-file>");
-  expect(output).toContain("slida build <deck-file>");
+  expect(entryCommand.name).toBe("deckup");
+  const output = await runDeckup([]);
+  expect(output).toContain("deckup open <deck-file>");
+  expect(output).toContain("deckup build <deck-file>");
   expect(output).toContain("--format html");
-  expect(output).not.toContain("slida dev");
-  expect(output).not.toContain("slida export");
+  expect(output).not.toContain("deckup dev");
+  expect(output).not.toContain("deckup export");
 });

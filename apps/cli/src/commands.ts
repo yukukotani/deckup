@@ -1,4 +1,4 @@
-import { resolveDeckFile } from "@slida/core";
+import { resolveDeckFile } from "@deckup/core";
 import { readFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { basename, extname } from "node:path";
@@ -18,11 +18,11 @@ import {
 } from "./astro.ts";
 import { pathExists, resolveProjectRoot } from "./runtime.ts";
 import type {
-  SlidaBuildCommandOptions,
-  SlidaDevOptions,
-  SlidaDevResult,
-  SlidaLogLevel,
-  SlidaOutputFormat,
+  DeckupBuildCommandOptions,
+  DeckupDevOptions,
+  DeckupDevResult,
+  DeckupLogLevel,
+  DeckupOutputFormat,
 } from "./types.ts";
 
 function readCliVersion() {
@@ -46,11 +46,11 @@ const logLevels = [
   "warn",
   "error",
   "silent",
-] as const satisfies readonly SlidaLogLevel[];
+] as const satisfies readonly DeckupLogLevel[];
 
 type CommandValues = Record<string, unknown>;
 
-const buildOutputFormats = ["html", "pdf"] as const satisfies readonly SlidaOutputFormat[];
+const buildOutputFormats = ["html", "pdf"] as const satisfies readonly DeckupOutputFormat[];
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -68,22 +68,22 @@ function booleanValue(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
 }
 
-export function normalizeLogLevel(value: unknown): SlidaLogLevel {
-  return typeof value === "string" && logLevels.includes(value as SlidaLogLevel)
-    ? (value as SlidaLogLevel)
+export function normalizeLogLevel(value: unknown): DeckupLogLevel {
+  return typeof value === "string" && logLevels.includes(value as DeckupLogLevel)
+    ? (value as DeckupLogLevel)
     : "info";
 }
 
-export function normalizeBuildFormat(value: unknown): SlidaOutputFormat {
+export function normalizeBuildFormat(value: unknown): DeckupOutputFormat {
   const format = stringValue(value);
   if (format === undefined) {
     return "pdf";
   }
-  if (buildOutputFormats.includes(format as SlidaOutputFormat)) {
-    return format as SlidaOutputFormat;
+  if (buildOutputFormats.includes(format as DeckupOutputFormat)) {
+    return format as DeckupOutputFormat;
   }
   throw new Error(
-    `Unsupported Slida build format: ${format}. Supported formats: ${buildOutputFormats.join(", ")}.`,
+    `Unsupported Deckup build format: ${format}. Supported formats: ${buildOutputFormats.join(", ")}.`,
   );
 }
 
@@ -96,7 +96,7 @@ function defaultHtmlOutDir(deckFile: string | undefined) {
   return name.length > 0 ? name : DEFAULT_BUILD_OUT_DIR;
 }
 
-export function normalizeOpenValues(values: CommandValues): SlidaDevOptions {
+export function normalizeOpenValues(values: CommandValues): DeckupDevOptions {
   return {
     deckFile: stringValue(values.deckFile),
     host: booleanOrStringValue(values.host) ?? DEFAULT_DEV_HOST,
@@ -106,7 +106,7 @@ export function normalizeOpenValues(values: CommandValues): SlidaDevOptions {
   };
 }
 
-export function normalizeBuildValues(values: CommandValues): SlidaBuildCommandOptions {
+export function normalizeBuildValues(values: CommandValues): DeckupBuildCommandOptions {
   const format = normalizeBuildFormat(values.format);
   const output = stringValue(values.out);
   const deckFile = stringValue(values.deckFile);
@@ -122,7 +122,7 @@ export function normalizeBuildValues(values: CommandValues): SlidaBuildCommandOp
 }
 
 function formatDevUrl(
-  address: SlidaDevResult["address"],
+  address: DeckupDevResult["address"],
   requestedHost: string | boolean | undefined,
 ) {
   const host =
@@ -134,7 +134,7 @@ function formatDevUrl(
   return `http://${host}:${address.port}/`;
 }
 
-async function resolveExportTarget(options: SlidaBuildCommandOptions) {
+async function resolveExportTarget(options: DeckupBuildCommandOptions) {
   const projectRoot = await realpath(resolveProjectRoot(options.root));
   const deck = await resolveDeckFile(projectRoot, options.deckFile);
   return normalizeExportOutFile(projectRoot, deck, options.out);
@@ -150,7 +150,7 @@ async function confirmOverwrite(filePath: string) {
   }
 }
 
-async function assertCanWriteExportTarget(options: SlidaBuildCommandOptions) {
+async function assertCanWriteExportTarget(options: DeckupBuildCommandOptions) {
   const pdfFile = await resolveExportTarget(options);
   if (!(await pathExists(pdfFile)) || options.force) {
     return;
@@ -158,18 +158,18 @@ async function assertCanWriteExportTarget(options: SlidaBuildCommandOptions) {
 
   if (!input.isTTY || !output.isTTY) {
     throw new Error(
-      `Slida build PDF already exists: ${pdfFile}. Re-run with --force to overwrite in non-interactive mode.`,
+      `Deckup build PDF already exists: ${pdfFile}. Re-run with --force to overwrite in non-interactive mode.`,
     );
   }
 
   if (!(await confirmOverwrite(pdfFile))) {
-    throw new Error(`Slida build cancelled. PDF already exists: ${pdfFile}`);
+    throw new Error(`Deckup build cancelled. PDF already exists: ${pdfFile}`);
   }
 }
 
 export const openCommand = define({
   name: "open",
-  description: "Open the Slida Astro preview server.",
+  description: "Open the Deckup Astro preview server.",
   args: {
     deckFile: {
       type: "positional",
@@ -196,13 +196,13 @@ export const openCommand = define({
   async run(ctx) {
     const options = normalizeOpenValues(ctx.values as CommandValues);
     const { address } = await startDevServer(options);
-    return `Slida preview server running at ${formatDevUrl(address, options.host)}`;
+    return `Deckup preview server running at ${formatDevUrl(address, options.host)}`;
   },
 });
 
 export const buildCommand = define({
   name: "build",
-  description: "Build the Slida deck as PDF or static HTML/assets.",
+  description: "Build the Deckup deck as PDF or static HTML/assets.",
   args: {
     deckFile: {
       type: "positional",
@@ -232,27 +232,27 @@ export const buildCommand = define({
     if (options.format === "html") {
       const { force: _force, format: _format, out: _out, ...buildOptions } = options;
       await buildDeck(buildOptions);
-      return `Slida HTML deck built at ${buildOptions.outDir ?? DEFAULT_BUILD_OUT_DIR}`;
+      return `Deckup HTML deck built at ${buildOptions.outDir ?? DEFAULT_BUILD_OUT_DIR}`;
     }
 
     await assertCanWriteExportTarget(options);
     const { force: _force, format: _format, ...exportOptions } = options;
     const result = await exportDeck(exportOptions);
-    return `Slida PDF deck built at ${result.pdfFile}`;
+    return `Deckup PDF deck built at ${result.pdfFile}`;
   },
 });
 
 export const entryCommand = define({
-  name: "slida",
+  name: "deckup",
   description: "Astro-based slide deck tool.",
   run() {
-    return "Run `slida open <deck-file>` to preview slides, or `slida build <deck-file>` to write a PDF by default. Use `slida build <deck-file> --format html` for a static Web deck.";
+    return "Run `deckup open <deck-file>` to preview slides, or `deckup build <deck-file>` to write a PDF by default. Use `deckup build <deck-file> --format html` for a static Web deck.";
   },
 });
 
-export async function runSlida(argv = process.argv.slice(2)) {
+export async function runDeckup(argv = process.argv.slice(2)) {
   return await cli(argv, entryCommand, {
-    name: "slida",
+    name: "deckup",
     version: VERSION,
     subCommands: {
       open: openCommand,

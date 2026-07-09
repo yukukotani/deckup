@@ -21,13 +21,13 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 ## Dependency notes
 
-- **002, 003 require 001**: both refactor `slida-vite-plugins.ts` internals;
+- **002, 003 require 001**: both refactor `deckup-vite-plugins.ts` internals;
   001's characterization tests pin current behavior first (001 also adds the
   `transformCompiledAstroDeckSource` test export that 002's tests use).
 - **004 requires 001–003**: it moves functions inside the same files those
   plans edit; running it last avoids merge churn, and 003 explicitly notes
   how to proceed if 004 landed first (it shouldn't).
-- **005 requires 004**: same two files (`slida-vite-plugins.ts`,
+- **005 requires 004**: same two files (`deckup-vite-plugins.ts`,
   `theme-layouts.ts`); 005's import layout assumes 004's `astro-ast.ts` /
   `utils.ts` split exists.
 - **006 and 007 are independent**: safe to execute at any time, including in
@@ -51,7 +51,7 @@ Audit findings NOT planned, so nobody re-audits them:
   pinned (in Plan 002, because they amplify the compiled-output coupling);
   repinning tooling deps (tailwindcss, vite-plus, etc.) was deliberately
   left to the maintainer.
-- **God-module split of `slida-vite-plugins.ts`** (592 lines): deferred — L
+- **God-module split of `deckup-vite-plugins.ts`** (592 lines): deferred — L
   effort; Plan 004 removes the duplication half of the problem first.
 - **Page markup duplication** (`runtime/components/Page.astro` vs
   `createGeneratedPageComponentSource`): deferred — needs a design decision
@@ -71,8 +71,8 @@ Audit findings NOT planned, so nobody re-audits them:
   `isSelectedFile` suffix matching, comment handling in `findMatchingBrace`,
   full-AST traversal cost (PERF-05)**: rejected as not worth doing — edge
   cases with negligible real-world impact for a local single-deck tool.
-- **Direction findings** (`slida export` PDF — FRD already ready at
-  `.rpiv/artifacts/discover/2026-07-02_16-27-05_slida-export-pdf.md`;
-  `slida init`; theme layout parity; `slida preview`): not planned here —
+- **Direction findings** (`deckup export` PDF — FRD already ready at
+  `.rpiv/artifacts/discover/2026-07-02_16-27-05_deckup-export-pdf.md`;
+  `deckup init`; theme layout parity; `deckup preview`): not planned here —
   the maintainer's `.rpiv` pipeline (discover→research→design→plan) owns
   feature work.

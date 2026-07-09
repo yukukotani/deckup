@@ -4,10 +4,10 @@ import {
   analyzeMdxDeckMetadata,
   analyzeMdxDeckSource,
   countMdxDeckPages,
-  remarkSlidaMdxPages,
+  remarkDeckupMdxPages,
   splitMdxChildrenIntoPages,
   stripMdxFrontmatter,
-} from "../src/slida-mdx-pages.ts";
+} from "../src/deckup-mdx-pages.ts";
 import { createDeckRegistry } from "../src/deck.ts";
 
 const twoPageMdx = `---
@@ -68,11 +68,11 @@ test("splitMdxChildrenIntoPages splits thematicBreak nodes", () => {
   ).toEqual([[{ type: "heading" }], [{ type: "paragraph" }]]);
 });
 
-test("remarkSlidaMdxPages wraps only the selected file in Page nodes", () => {
+test("remarkDeckupMdxPages wraps only the selected file in Page nodes", () => {
   const tree = {
     children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -81,11 +81,11 @@ test("remarkSlidaMdxPages wraps only the selected file in Page nodes", () => {
   expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
 });
 
-test("remarkSlidaMdxPages adds default layout attributes", () => {
+test("remarkDeckupMdxPages adds default layout attributes", () => {
   const tree = {
     children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -93,9 +93,9 @@ test("remarkSlidaMdxPages adds default layout attributes", () => {
   expect(getPageLayout(tree.children[2])).toBe("default");
 });
 
-test("remarkSlidaMdxPages adds theme attributes when themeForDeck returns an effective theme", () => {
+test("remarkDeckupMdxPages adds theme attributes when themeForDeck returns an effective theme", () => {
   const tree = { children: [{ type: "heading" }] };
-  remarkSlidaMdxPages({
+  remarkDeckupMdxPages({
     deckFile: "/project/slides/talk.mdx",
     themeForDeck: () => "minimal",
   })(tree, { path: "/project/slides/talk.mdx" });
@@ -105,7 +105,7 @@ test("remarkSlidaMdxPages adds theme attributes when themeForDeck returns an eff
   );
 });
 
-test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
+test("remarkDeckupMdxPages moves layout declarations to Page attributes", () => {
   const layoutNode = {
     type: "mdxJsxFlowElement",
     name: "layout",
@@ -115,7 +115,7 @@ test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
   const tree = {
     children: [layoutNode, { type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -124,7 +124,7 @@ test("remarkSlidaMdxPages moves layout declarations to Page attributes", () => {
   expect(tree.children[2]).toMatchObject({ children: [{ type: "paragraph" }] });
 });
 
-test("remarkSlidaMdxPages preserves slot attributes on generated Page children", () => {
+test("remarkDeckupMdxPages preserves slot attributes on generated Page children", () => {
   const slottedNode = {
     type: "mdxJsxFlowElement",
     name: "div",
@@ -143,7 +143,7 @@ test("remarkSlidaMdxPages preserves slot attributes on generated Page children",
       slottedNode,
     ],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -151,7 +151,7 @@ test("remarkSlidaMdxPages preserves slot attributes on generated Page children",
   expect(getPageChildren(tree.children[1])).toEqual([{ type: "heading" }, slottedNode]);
 });
 
-test("remarkSlidaMdxPages keeps author-side slot elements as content", () => {
+test("remarkDeckupMdxPages keeps author-side slot elements as content", () => {
   const authorSlotNode = {
     type: "mdxJsxFlowElement",
     name: "slot",
@@ -159,7 +159,7 @@ test("remarkSlidaMdxPages keeps author-side slot elements as content", () => {
     children: [{ type: "paragraph" }],
   };
   const tree = { children: [authorSlotNode, { type: "heading" }] };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -167,14 +167,14 @@ test("remarkSlidaMdxPages keeps author-side slot elements as content", () => {
   expect(getPageChildren(tree.children[1])).toEqual([authorSlotNode, { type: "heading" }]);
 });
 
-test("remarkSlidaMdxPages keeps user MDX ESM outside generated Page nodes", () => {
+test("remarkDeckupMdxPages keeps user MDX ESM outside generated Page nodes", () => {
   const tree = {
     children: [
       { type: "mdxjsEsm", value: "import Chart from './Chart.astro';" },
       { type: "heading" },
     ],
   };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
   });
 
@@ -292,9 +292,9 @@ theme: "bad\q"
   );
 });
 
-test("remarkSlidaMdxPages leaves non-selected files untouched", () => {
+test("remarkDeckupMdxPages leaves non-selected files untouched", () => {
   const tree = { children: [{ type: "heading" }] };
-  remarkSlidaMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
+  remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/other.mdx",
   });
   expect(tree.children).toEqual([{ type: "heading" }]);
@@ -325,7 +325,7 @@ test("countMdxDeckPages rejects empty layout ids", () => {
 
 # One
 `),
-  ).toThrow(/Invalid Slida layout id/);
+  ).toThrow(/Invalid Deckup layout id/);
 });
 
 test("countMdxDeckPages rejects invalid layout ids", () => {
@@ -334,10 +334,10 @@ test("countMdxDeckPages rejects invalid layout ids", () => {
 
 # One
 `),
-  ).toThrow(/Invalid Slida layout id/);
+  ).toThrow(/Invalid Deckup layout id/);
 });
 
-test("remarkSlidaMdxPages selects decks through a multi-deck registry", () => {
+test("remarkDeckupMdxPages selects decks through a multi-deck registry", () => {
   const talkDeck = {
     filePath: "/project/src/slides/talk.mdx",
     projectRelativePath: "src/slides/talk.mdx",
@@ -347,8 +347,8 @@ test("remarkSlidaMdxPages selects decks through a multi-deck registry", () => {
     slug: "talk",
     routePath: "/slides/talk",
     routeId: "slides_talk",
-    virtualDeckModuleId: "virtual:slida/decks/slides_talk",
-    virtualRouteModuleId: "virtual:slida/routes/slides_talk.astro",
+    virtualDeckModuleId: "virtual:deckup/decks/slides_talk",
+    virtualRouteModuleId: "virtual:deckup/routes/slides_talk.astro",
   };
   const guideDeck = {
     ...talkDeck,
@@ -357,21 +357,21 @@ test("remarkSlidaMdxPages selects decks through a multi-deck registry", () => {
     slug: "guide",
     routePath: "/slides/guide",
     routeId: "slides_guide",
-    virtualDeckModuleId: "virtual:slida/decks/slides_guide",
-    virtualRouteModuleId: "virtual:slida/routes/slides_guide.astro",
+    virtualDeckModuleId: "virtual:deckup/decks/slides_guide",
+    virtualRouteModuleId: "virtual:deckup/routes/slides_guide.astro",
   };
   const registry = createDeckRegistry("/project", "/slides", [talkDeck, guideDeck]);
   const tree = {
     children: [{ type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
 
-  remarkSlidaMdxPages({ registry })(tree, {
+  remarkDeckupMdxPages({ registry })(tree, {
     path: "/project/src/slides/guide.mdx",
   });
 
   expect(tree.children[0]).toMatchObject({
     type: "mdxjsEsm",
-    value: 'import Page from "@slida/astro/page";',
+    value: 'import Page from "@deckup/astro/page";',
   });
   expect(tree.children[1]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
   expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });

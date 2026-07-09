@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 
-import { inferDeckFormat, resolveDeckFile, SUPPORTED_DECK_EXTENSIONS } from "@slida/core";
+import { inferDeckFormat, resolveDeckFile, SUPPORTED_DECK_EXTENSIONS } from "@deckup/core";
 
 async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
-  const projectRoot = await mkdtemp(join(tmpdir(), "slida-deck-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-deck-"));
   try {
     await run(projectRoot);
   } finally {
@@ -24,7 +24,7 @@ test("inferDeckFormat accepts Astro and MDX deck files", () => {
 });
 
 test("inferDeckFormat rejects unsupported deck extensions", () => {
-  expect(() => inferDeckFormat("slides/talk.md")).toThrow(/Unsupported Slida deck file extension/);
+  expect(() => inferDeckFormat("slides/talk.md")).toThrow(/Unsupported Deckup deck file extension/);
 });
 
 test("resolveDeckFile resolves a project-relative deck file", async () => {
@@ -44,7 +44,7 @@ test("resolveDeckFile resolves a project-relative deck file", async () => {
 test("resolveDeckFile rejects a missing deck argument", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(resolveDeckFile(projectRoot, undefined)).rejects.toThrow(
-      /Missing Slida deck file/,
+      /Missing Deckup deck file/,
     );
   });
 });
@@ -52,14 +52,14 @@ test("resolveDeckFile rejects a missing deck argument", async () => {
 test("resolveDeckFile rejects a missing deck file", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(resolveDeckFile(projectRoot, "slides/missing.astro")).rejects.toThrow(
-      /Slida deck file not found/,
+      /Deckup deck file not found/,
     );
   });
 });
 
 test("resolveDeckFile rejects deck files outside the project root", async () => {
   await withProjectRoot(async (projectRoot) => {
-    const outsideRoot = await mkdtemp(join(tmpdir(), "slida-outside-"));
+    const outsideRoot = await mkdtemp(join(tmpdir(), "deckup-outside-"));
     try {
       const outsideDeck = join(outsideRoot, "talk.astro");
       await writeFile(outsideDeck, "---\n---\n");

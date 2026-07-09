@@ -1,13 +1,13 @@
 {
-  "name": "slida",
+  "name": "deckup",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "vp run example#dev",
-    "dev:web": "vp run @slida/web#dev",
-    "deploy:web": "vp run @slida/web#deploy",
+    "dev:web": "vp run @deckup/web#dev",
+    "deploy:web": "vp run @deckup/web#deploy",
     "prepare": "vp config"
   },
   "devDependencies": {

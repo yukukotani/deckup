@@ -1,6 +1,6 @@
 export {
-  BUILTIN_SLIDA_THEME_PACKAGES,
-  BUILTIN_SLIDA_THEMES,
-  DEFAULT_SLIDA_THEME,
-  resolveSlidaThemeLayouts,
-} from "@slida/core";
+  BUILTIN_DECKUP_THEME_PACKAGES,
+  BUILTIN_DECKUP_THEMES,
+  DEFAULT_DECKUP_THEME,
+  resolveDeckupThemeLayouts,
+} from "@deckup/core";

@@ -59,7 +59,7 @@ packages:
 
 The globs do NOT need editing — removing the directories is sufficient.
 
-- Verified importers: `rg "@slida/utils|from \"utils\"|apps/website"` across
+- Verified importers: `rg "@deckup/utils|from \"utils\"|apps/website"` across
   the repo (excluding node_modules/lockfile) → zero source references.
   `package.json` scripts reference only `example#dev`; `vp run -r` picks up
   packages dynamically.
@@ -97,7 +97,7 @@ The globs do NOT need editing — removing the directories is sufficient.
 ### Step 1: Re-verify nothing references the two packages
 
 **Verify**:
-`rg -n "website|@slida/utils" --glob '!node_modules' --glob '!pnpm-lock.yaml' --glob '!plans' --glob '!.rpiv' package.json apps example packages tools 2>/dev/null`
+`rg -n "website|@deckup/utils" --glob '!node_modules' --glob '!pnpm-lock.yaml' --glob '!plans' --glob '!.rpiv' package.json apps example packages tools 2>/dev/null`
 → matches only inside `apps/website/` itself (its own package.json/README),
 nothing elsewhere. If any OTHER file matches, STOP.
 

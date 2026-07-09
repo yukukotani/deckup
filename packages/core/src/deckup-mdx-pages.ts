@@ -3,11 +3,11 @@ import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 
-import { resolveSlidaLayout } from "./layout.ts";
-import type { SlidaDeckMetadata, SlidaDeckRegistry, SlidaResolvedDeck } from "./types.ts";
+import { resolveDeckupLayout } from "./layout.ts";
+import type { DeckupDeckMetadata, DeckupDeckRegistry, DeckupResolvedDeck } from "./types.ts";
 import { normalizeIdPath } from "./utils.ts";
 
-const pageComponentExport = "@slida/astro/page";
+const pageComponentExport = "@deckup/astro/page";
 
 type MdxJsxAttribute = {
   type?: string;
@@ -28,15 +28,15 @@ type MdastRoot = {
   children: MdastNode[];
 };
 
-type SlidaMdxPage = {
+type DeckupMdxPage = {
   children: MdastNode[];
   layout: string;
 };
 
-type SlidaMdxDeckAnalysis = {
+type DeckupMdxDeckAnalysis = {
   pageCount: number;
   layouts: Array<{ layout: string }>;
-  metadata: SlidaDeckMetadata;
+  metadata: DeckupDeckMetadata;
 };
 
 type VFileLike = {
@@ -44,10 +44,10 @@ type VFileLike = {
   history?: string[];
 };
 
-export interface SlidaMdxPagesOptions {
+export interface DeckupMdxPagesOptions {
   deckFile?: string;
-  registry?: SlidaDeckRegistry;
-  themeForDeck?: (deck: SlidaResolvedDeck) => string | undefined;
+  registry?: DeckupDeckRegistry;
+  themeForDeck?: (deck: DeckupResolvedDeck) => string | undefined;
 }
 
 function isSelectedFile(file: VFileLike, deckFile: string) {
@@ -62,8 +62,8 @@ function isSelectedFile(file: VFileLike, deckFile: string) {
 
 function resolveSelectedMdxDeck(
   file: VFileLike,
-  options: SlidaMdxPagesOptions,
-): SlidaResolvedDeck | undefined {
+  options: DeckupMdxPagesOptions,
+): DeckupResolvedDeck | undefined {
   const registryDeck = options.registry?.matchMdxFile(file);
   if (registryDeck) return registryDeck;
   if (options.deckFile && isSelectedFile(file, options.deckFile)) {
@@ -104,7 +104,7 @@ function getLayoutIdAttribute(node: MdastNode, context: string) {
   return idAttribute.value;
 }
 
-function resolveMdxPage(page: MdastNode[], pageIndex: number, filePath: string): SlidaMdxPage {
+function resolveMdxPage(page: MdastNode[], pageIndex: number, filePath: string): DeckupMdxPage {
   const context = `${filePath} page ${pageIndex + 1}`;
   const layoutNodes = page.filter(isLayoutNode);
   if (layoutNodes.length > 1) {
@@ -114,7 +114,7 @@ function resolveMdxPage(page: MdastNode[], pageIndex: number, filePath: string):
   const explicitLayout = layoutNodes[0] ? getLayoutIdAttribute(layoutNodes[0], context) : undefined;
   return {
     children: page.filter((child) => !isLayoutNode(child)),
-    layout: resolveSlidaLayout(explicitLayout, pageIndex, context),
+    layout: resolveDeckupLayout(explicitLayout, pageIndex, context),
   };
 }
 
@@ -128,7 +128,7 @@ function getRenderableMdxNodes(children: MdastRoot["children"]) {
   return children.filter((child) => child.type !== "mdxjsEsm");
 }
 
-function createPageNode(page: SlidaMdxPage, themeName?: string): MdastNode {
+function createPageNode(page: DeckupMdxPage, themeName?: string): MdastNode {
   const attributes: MdxJsxAttribute[] = [
     { type: "mdxJsxAttribute", name: "layout", value: page.layout },
   ];
@@ -165,8 +165,8 @@ export function splitMdxChildrenIntoPages(children: MdastNode[]) {
   return pages;
 }
 
-export function remarkSlidaMdxPages(options: SlidaMdxPagesOptions = {}) {
-  return function transformSlidaMdxPages(tree: MdastRoot, file: VFileLike) {
+export function remarkDeckupMdxPages(options: DeckupMdxPagesOptions = {}) {
+  return function transformDeckupMdxPages(tree: MdastRoot, file: VFileLike) {
     const deck = resolveSelectedMdxDeck(file, options);
     if (!deck) return;
 
@@ -182,7 +182,7 @@ export function remarkSlidaMdxPages(options: SlidaMdxPagesOptions = {}) {
   };
 }
 
-function emptyDeckMetadata(): SlidaDeckMetadata {
+function emptyDeckMetadata(): DeckupDeckMetadata {
   return {};
 }
 
@@ -230,7 +230,7 @@ function parseYamlStringScalar(value: string, context: string) {
   return trimmed;
 }
 
-export function analyzeMdxDeckMetadata(source: string, filePath = "MDX deck"): SlidaDeckMetadata {
+export function analyzeMdxDeckMetadata(source: string, filePath = "MDX deck"): DeckupDeckMetadata {
   const frontmatter = extractMdxFrontmatterBlock(source);
   if (frontmatter === undefined) return emptyDeckMetadata();
 
@@ -239,7 +239,7 @@ export function analyzeMdxDeckMetadata(source: string, filePath = "MDX deck"): S
     const match = /^theme\s*:\s*(.*)$/.exec(line.trim());
     if (!match) continue;
     if (theme !== undefined) {
-      throw new Error(`Duplicate Slida theme metadata in ${filePath}.`);
+      throw new Error(`Duplicate Deckup theme metadata in ${filePath}.`);
     }
     theme = parseYamlStringScalar(
       match[1],
@@ -263,7 +263,7 @@ function parseMdxBody(source: string): MdastRoot {
   return unified().use(remarkParse).use(remarkMdx).parse(stripMdxFrontmatter(source)) as MdastRoot;
 }
 
-export function analyzeMdxDeckSource(source: string, filePath = "MDX deck"): SlidaMdxDeckAnalysis {
+export function analyzeMdxDeckSource(source: string, filePath = "MDX deck"): DeckupMdxDeckAnalysis {
   const renderableNodes = getRenderableMdxNodes(parseMdxBody(source).children);
   const pages = resolveMdxPages(renderableNodes, filePath);
   return {

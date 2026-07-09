@@ -1,13 +1,13 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import slida from "@slida/astro";
+import deckup from "@deckup/astro";
 
 export default defineConfig({
-  site: "https://slida.yuku.dev",
+  site: "https://deckup.yuku.dev",
   integrations: [
-    slida({ decks: "src/slides/*.{astro,mdx}", base: "/slides" }),
+    deckup({ decks: "src/slides/*.{astro,mdx}", base: "/slides" }),
     starlight({
-      title: "Slida",
+      title: "Deckup",
       sidebar: [
         {
           label: "Start Here",
