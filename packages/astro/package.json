@@ -1,7 +1,11 @@
 {
   "name": "@deckup/astro",
   "version": "0.0.0",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yukukotani/deckup.git",
+    "directory": "packages/astro"
+  },
   "files": [
     "dist",
     "runtime"
@@ -11,6 +15,10 @@
     ".": "./dist/index.mjs",
     "./page": "./runtime/components/Page.astro",
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "build": "vp pack",

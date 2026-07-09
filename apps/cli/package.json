@@ -1,7 +1,11 @@
 {
   "name": "@deckup/cli",
   "version": "0.0.0",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yukukotani/deckup.git",
+    "directory": "apps/cli"
+  },
   "bin": {
     "deckup": "./dist/cli.mjs"
   },
@@ -13,6 +17,10 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "build": "vp pack",

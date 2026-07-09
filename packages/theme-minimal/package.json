@@ -1,7 +1,11 @@
 {
   "name": "@deckup/theme-minimal",
   "version": "0.0.0",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yukukotani/deckup.git",
+    "directory": "packages/theme-minimal"
+  },
   "files": [
     "layouts"
   ],
@@ -11,6 +15,7 @@
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   }
 }
