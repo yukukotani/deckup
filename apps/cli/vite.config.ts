@@ -16,5 +16,13 @@ export default defineConfig({
       typeCheck: true,
     },
   },
+  run: {
+    tasks: {
+      build: {
+        command: "vp pack",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+      },
+    },
+  },
   fmt: {},
 });

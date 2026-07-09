@@ -5,7 +5,7 @@ export default defineConfig({
     tasks: {
       build: {
         command: "astro build",
-        dependsOn: ["@deckup/core#build", "@deckup/astro#build"],
+        dependsOn: [{ task: "build", from: "dependencies" }],
       },
     },
   },
