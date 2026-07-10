@@ -60,8 +60,7 @@ function taskBlock(source: string, taskName: string) {
 }
 
 const cliPackageJson = readPackageJson("../package.json");
-const cliRunnerPackageJson = readPackageJson("../../../tools/cli/package.json");
-const cliRunnerViteConfigSource = readText("../../../tools/cli/vite.config.ts");
+const cliViteConfigSource = readText("../vite.config.ts");
 const rootPackageJson = readPackageJson("../../../package.json");
 const rootViteConfigSource = readText("../../../vite.config.ts");
 const astroPackageJson = readPackageJson("../../../packages/astro/package.json");
@@ -80,15 +79,12 @@ test("workspace root and published CLI package names do not collide", () => {
   expect(cliPackageJson.name).toBe("deckup");
 });
 
-test("cli dev task runs the source CLI with the development condition", () => {
-  expect(cliRunnerPackageJson.name).toBe("cli");
-  expect(cliRunnerPackageJson.private).toBe(true);
-
+test("cli task runs the source CLI with the development condition", () => {
   const aliasBlock = taskBlock(rootViteConfigSource, "cli");
-  expect(aliasBlock).toContain('command: "vp run cli#dev"');
+  expect(aliasBlock).toContain('command: "vp run deckup#cli"');
   expect(aliasBlock).toContain("cache: false");
 
-  const block = taskBlock(cliRunnerViteConfigSource, "dev");
+  const block = taskBlock(cliViteConfigSource, "cli");
   expect(block).toContain(
     'command: "cd ../.. && node --conditions=development apps/cli/src/cli.ts"',
   );

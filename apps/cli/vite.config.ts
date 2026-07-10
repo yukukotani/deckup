@@ -22,6 +22,10 @@ export default defineConfig({
         command: "vp pack",
         dependsOn: [{ task: "build", from: "dependencies" }],
       },
+      cli: {
+        command: "cd ../.. && node --conditions=development apps/cli/src/cli.ts",
+        cache: false,
+      },
     },
   },
   fmt: {},

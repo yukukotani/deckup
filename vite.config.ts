@@ -16,7 +16,7 @@ export default defineConfig({
     cache: true,
     tasks: {
       cli: {
-        command: "vp run cli#dev",
+        command: "vp run deckup#cli",
         cache: false,
       },
     },
