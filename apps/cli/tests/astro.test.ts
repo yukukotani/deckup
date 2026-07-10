@@ -40,9 +40,9 @@ async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
 }
 
 async function linkCliPackage(projectRoot: string) {
-  const scopeDir = join(projectRoot, "node_modules", "@deckup");
-  await mkdir(scopeDir, { recursive: true });
-  await symlink(cliPackageRoot, join(scopeDir, "cli"), "dir");
+  const nodeModulesDir = join(projectRoot, "node_modules");
+  await mkdir(nodeModulesDir, { recursive: true });
+  await symlink(cliPackageRoot, join(nodeModulesDir, "deckup"), "dir");
 }
 
 async function localBrowserExecutablePath() {
@@ -166,7 +166,7 @@ test("createAstroInlineConfig disables external config and wires runtime dirs", 
   const config = createAstroInlineConfig(
     {
       projectRoot: root,
-      runtimeSourceDir: join(root, "node_modules/@deckup/cli/runtime"),
+      runtimeSourceDir: join(root, "node_modules/deckup/runtime"),
       runtimeOutDir: join(root, ".deckup/runtime"),
     },
     { outDir: "public-deck", logLevel: "warn" },

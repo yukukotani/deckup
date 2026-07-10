@@ -43,7 +43,7 @@ async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
 function testPaths(projectRoot = resolve("/tmp/deckup-project")): DeckupRuntimePaths {
   return {
     projectRoot,
-    runtimeSourceDir: join(projectRoot, "node_modules/@deckup/cli/runtime"),
+    runtimeSourceDir: join(projectRoot, "node_modules/deckup/runtime"),
     runtimeOutDir: join(projectRoot, ".deckup/runtime"),
   };
 }
@@ -1024,7 +1024,7 @@ test("no config does not install Tailwind as a built-in Vite plugin", () => {
   expect(config.vite?.plugins).toEqual([]);
 });
 
-test("generated Page paths do not alias @deckup/astro/page without layout themes", () => {
+test("generated Page paths do not alias deckup/page without layout themes", () => {
   const paths = {
     ...testPaths(),
     generatedPageFilePath: "/tmp/deckup-project/.deckup/runtime/generated/Page.astro",
@@ -1032,7 +1032,7 @@ test("generated Page paths do not alias @deckup/astro/page without layout themes
   const config = createAstroInlineConfig(paths);
 
   expect(config.vite?.resolve?.alias).not.toEqual(
-    expect.arrayContaining([expect.objectContaining({ find: /^@deckup\/cli\/page$/ })]),
+    expect.arrayContaining([expect.objectContaining({ find: /^deckup\/page$/ })]),
   );
 });
 

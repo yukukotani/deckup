@@ -5,8 +5,8 @@
   "type": "module",
   "devDependencies": {
     "@deckup/astro": "workspace:*",
-    "@deckup/cli": "workspace:*",
     "@tailwindcss/vite": "catalog:",
+    "deckup": "workspace:*",
     "tailwindcss": "catalog:",
     "vite-plus": "catalog:"
   }

@@ -26,7 +26,7 @@ Use `defineConfig()` for TypeScript help:
 ```ts
 import { fileURLToPath } from "node:url";
 
-import { defineConfig } from "@deckup/cli";
+import { defineConfig } from "deckup";
 
 export default defineConfig({
   port: 4321,

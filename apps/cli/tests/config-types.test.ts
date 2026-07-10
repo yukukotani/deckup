@@ -63,7 +63,7 @@ expect(publicResolvedTheme.slotNames).toEqual(["left", "right"]);
 
 const publicRuntimePaths: DeckupRuntimePaths = {
   projectRoot: "/deck",
-  runtimeSourceDir: "/deck/node_modules/@deckup/cli/runtime",
+  runtimeSourceDir: "/deck/node_modules/deckup/runtime",
   runtimeOutDir: "/deck/.deckup/runtime",
   generatedPageFilePath: "/deck/.deckup/runtime/generated/Page.astro",
 };

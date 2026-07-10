@@ -7,7 +7,7 @@ Astro-native slide deck tooling for authoring `.astro` and `.mdx` slides.
 Select a theme in `deckup.config.ts` with the top-level `theme` option:
 
 ```ts
-import { defineConfig } from "@deckup/cli";
+import { defineConfig } from "deckup";
 
 export default defineConfig({
   theme: "google-basic",

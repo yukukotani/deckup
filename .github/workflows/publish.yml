@@ -37,5 +37,5 @@ jobs:
           --filter @deckup/theme-google-basic
           --filter @deckup/core
           --filter @deckup/astro
-          --filter @deckup/cli
+          --filter deckup
           -r publish --access public --no-git-checks

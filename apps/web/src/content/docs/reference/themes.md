@@ -9,7 +9,7 @@ Themes provide Astro layout components for Deckup pages.
 The top-level `theme` field in `deckup.config.*` sets the fallback theme for decks that do not declare their own theme.
 
 ```ts
-import { defineConfig } from "@deckup/cli";
+import { defineConfig } from "deckup";
 
 export default defineConfig({
   theme: "google-basic",

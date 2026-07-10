@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
 
 type PackageJson = {
+  name?: string;
+  private?: boolean;
   bin?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -58,6 +60,7 @@ function taskBlock(source: string, taskName: string) {
 }
 
 const cliPackageJson = readPackageJson("../package.json");
+const rootPackageJson = readPackageJson("../../../package.json");
 const astroPackageJson = readPackageJson("../../../packages/astro/package.json");
 const corePackageJson = readPackageJson("../../../packages/core/package.json");
 const exampleViteConfigSource = readText("../../../example/vite.config.ts");
@@ -67,6 +70,12 @@ const cliTsConfig = readJson<TsConfig>("../tsconfig.json");
 const astroTsConfig = readJson<TsConfig>("../../../packages/astro/tsconfig.json");
 const coreTsConfig = readJson<TsConfig>("../../../packages/core/tsconfig.json");
 const webTsConfig = readJson<TsConfig>("../../../apps/web/tsconfig.json");
+
+test("workspace root and published CLI package names do not collide", () => {
+  expect(rootPackageJson.name).toBe("root");
+  expect(rootPackageJson.private).toBe(true);
+  expect(cliPackageJson.name).toBe("deckup");
+});
 
 test("Deckup package main exports prefer source only for the development condition", () => {
   expectDevelopmentMainExport(cliPackageJson);

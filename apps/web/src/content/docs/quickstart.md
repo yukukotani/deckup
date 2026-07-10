@@ -6,14 +6,14 @@ description: Install Deckup from npm, create a small deck, preview it locally, b
 # Quickstart
 
 This guide shows the intended public npm workflow for Deckup.
-It assumes `@deckup/cli` is available from npm and provides the `deckup` binary.
+It assumes `deckup` is available from npm and provides the `deckup` binary.
 
 ## Install the CLI
 
 Install Deckup in your deck project:
 
 ```bash
-npm install -D @deckup/cli
+npm install -D deckup
 ```
 
 Create a `slides/` directory:
