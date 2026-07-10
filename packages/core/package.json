@@ -33,7 +33,6 @@
   "dependencies": {
     "@astrojs/compiler-rs": "^0.2.3",
     "@deckup/theme-apple-basic": "workspace:*",
-    "@deckup/theme-bold": "workspace:*",
     "@deckup/theme-default": "workspace:*",
     "@deckup/theme-google-basic": "workspace:*",
     "@deckup/theme-minimal": "workspace:*",

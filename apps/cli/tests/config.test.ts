@@ -382,7 +382,6 @@ test("resolveDeckupThemeLayouts resolves every built-in theme from layout compon
         "statement",
         "two-column",
       ],
-      bold: ["cover", "default"],
       "google-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],
       "apple-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],
     } as const;
@@ -522,7 +521,7 @@ test("resolveDeckupThemeLayouts rejects empty themes", async () => {
 test("resolveDeckupThemeLayouts rejects missing npm themes with built-in guidance", async () => {
   await withProjectRoot(async (projectRoot) => {
     await expect(resolveDeckupThemeLayouts(projectRoot, "missing-theme")).rejects.toThrow(
-      /Built-in themes: default, minimal, bold, google-basic, apple-basic/,
+      /Built-in themes: default, minimal, google-basic, apple-basic/,
     );
   });
 });
@@ -774,14 +773,17 @@ test("resolveCachedNpmThemePackage fails uncached non-interactive downloads with
 test("createDeckupAstroConfig resolves config theme before Astro starts", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
-    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { theme: 'bold' };\n");
+    await writeFile(
+      join(projectRoot, "deckup.config.ts"),
+      "export default { theme: 'google-basic' };\n",
+    );
 
     const { deckupTheme } = await createDeckupAstroConfig({
       root: projectRoot,
       deckFile: "slides/deck.astro",
     });
 
-    expect(deckupTheme).toMatchObject({ name: "bold", source: "builtin" });
+    expect(deckupTheme).toMatchObject({ name: "google-basic", source: "builtin" });
   });
 });
 
@@ -797,7 +799,10 @@ const theme = "minimal";
 <Page><h1>Deck</h1></Page>
 `,
     );
-    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { theme: 'bold' };\n");
+    await writeFile(
+      join(projectRoot, "deckup.config.ts"),
+      "export default { theme: 'google-basic' };\n",
+    );
 
     const { deck, deckupTheme } = await createDeckupAstroConfig({
       root: projectRoot,
@@ -821,7 +826,10 @@ const theme = "missing-theme";
 <Page><h1>Deck</h1></Page>
 `,
     );
-    await writeFile(join(projectRoot, "deckup.config.ts"), "export default { theme: 'bold' };\n");
+    await writeFile(
+      join(projectRoot, "deckup.config.ts"),
+      "export default { theme: 'default' };\n",
+    );
 
     await expect(
       createDeckupAstroConfig({ root: projectRoot, deckFile: "slides/deck.astro" }),
@@ -1108,20 +1116,20 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
     },
     deck,
     {
-      name: "bold",
-      filePath: "/tmp/deckup-theme-bold/package.json",
-      layoutsDir: "/tmp/deckup-theme-bold/layouts",
+      name: "minimal",
+      filePath: "/tmp/deckup-theme-minimal/package.json",
+      layoutsDir: "/tmp/deckup-theme-minimal/layouts",
       layouts: [
         {
           id: "cover",
-          filePath: "/tmp/deckup-theme-bold/layouts/cover.astro",
-          importPath: "/@fs/tmp/deckup-theme-bold/layouts/cover.astro",
+          filePath: "/tmp/deckup-theme-minimal/layouts/cover.astro",
+          importPath: "/@fs/tmp/deckup-theme-minimal/layouts/cover.astro",
           slotNames: [],
         },
         {
           id: "default",
-          filePath: "/tmp/deckup-theme-bold/layouts/default.astro",
-          importPath: "/@fs/tmp/deckup-theme-bold/layouts/default.astro",
+          filePath: "/tmp/deckup-theme-minimal/layouts/default.astro",
+          importPath: "/@fs/tmp/deckup-theme-minimal/layouts/default.astro",
           slotNames: [],
         },
       ],
@@ -1153,8 +1161,8 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
       paths.projectRoot,
       paths.runtimeOutDir,
       dirname(deck.filePath),
-      "/tmp/deckup-theme-bold",
-      "/tmp/deckup-theme-bold/layouts",
+      "/tmp/deckup-theme-minimal",
+      "/tmp/deckup-theme-minimal/layouts",
       join(paths.projectRoot, "content"),
     ]),
   );

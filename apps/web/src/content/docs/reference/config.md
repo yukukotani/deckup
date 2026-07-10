@@ -94,7 +94,7 @@ In Astro decks, use a static top-level constant in the frontmatter script:
 
 ```astro
 ---
-const theme = "bold";
+const theme = "minimal";
 ---
 ```
 

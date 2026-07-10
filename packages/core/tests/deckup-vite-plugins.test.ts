@@ -578,9 +578,12 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
   const projectRoot = await mkdtemp(join(tmpdir(), "deckup-registry-themes-"));
   try {
     await mkdir(join(projectRoot, "themes", "minimal", "layouts"), { recursive: true });
-    await mkdir(join(projectRoot, "themes", "bold", "layouts"), { recursive: true });
+    await mkdir(join(projectRoot, "themes", "google-basic", "layouts"), { recursive: true });
     await writeFile(join(projectRoot, "themes", "minimal", "layouts", "cover.astro"), "<slot />\n");
-    await writeFile(join(projectRoot, "themes", "bold", "layouts", "default.astro"), "<slot />\n");
+    await writeFile(
+      join(projectRoot, "themes", "google-basic", "layouts", "default.astro"),
+      "<slot />\n",
+    );
     const introDeck = {
       filePath: join(projectRoot, "src/slides/intro.astro"),
       projectRelativePath: "src/slides/intro.astro",
@@ -598,7 +601,7 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
       ...introDeck,
       filePath: join(projectRoot, "src/slides/guide.astro"),
       projectRelativePath: "src/slides/guide.astro",
-      metadata: { theme: "bold" },
+      metadata: { theme: "google-basic" },
       slug: "guide",
       routePath: "/slides/guide",
       routeId: "slides_guide",
@@ -623,17 +626,17 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
       slotNames: [],
       source: "builtin" as const,
     };
-    const boldTheme = {
-      name: "bold",
-      filePath: join(projectRoot, "themes/bold/package.json"),
-      packageName: "@deckup/theme-bold",
-      packageRoot: join(projectRoot, "themes/bold"),
-      layoutsDir: join(projectRoot, "themes/bold/layouts"),
+    const googleBasicTheme = {
+      name: "google-basic",
+      filePath: join(projectRoot, "themes/google-basic/package.json"),
+      packageName: "@deckup/theme-google-basic",
+      packageRoot: join(projectRoot, "themes/google-basic"),
+      layoutsDir: join(projectRoot, "themes/google-basic/layouts"),
       layouts: [
         {
           id: "default",
-          filePath: join(projectRoot, "themes/bold/layouts/default.astro"),
-          importPath: "/@fs/themes/bold/layouts/default.astro",
+          filePath: join(projectRoot, "themes/google-basic/layouts/default.astro"),
+          importPath: "/@fs/themes/google-basic/layouts/default.astro",
           slotNames: [],
         },
       ],
@@ -642,7 +645,8 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
     };
     const plugins = createDeckupVitePluginsForRegistry(
       registry,
-      (deck) => (deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : boldTheme),
+      (deck) =>
+        deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : googleBasicTheme,
       { generatedPageFilePath: join(projectRoot, ".deckup", "Page.astro") },
     );
     const layoutsPlugin = plugins.find((plugin) => plugin.name === "deckup:virtual-theme-layouts");
@@ -659,7 +663,7 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
     const source = await load?.call({ addWatchFile() {} }, resolved as string);
 
     expect(source).toContain('"minimal"');
-    expect(source).toContain('"bold"');
+    expect(source).toContain('"google-basic"');
     expect(source).toContain('"cover"');
     expect(source).toContain('"default"');
   } finally {
@@ -672,9 +676,12 @@ test("registry Astro validation uses the matched deck effective theme", async ()
   try {
     await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
     await mkdir(join(projectRoot, "themes", "minimal", "layouts"), { recursive: true });
-    await mkdir(join(projectRoot, "themes", "bold", "layouts"), { recursive: true });
+    await mkdir(join(projectRoot, "themes", "google-basic", "layouts"), { recursive: true });
     await writeFile(join(projectRoot, "themes", "minimal", "layouts", "cover.astro"), "<slot />\n");
-    await writeFile(join(projectRoot, "themes", "bold", "layouts", "default.astro"), "<slot />\n");
+    await writeFile(
+      join(projectRoot, "themes", "google-basic", "layouts", "default.astro"),
+      "<slot />\n",
+    );
     await writeFile(
       join(projectRoot, "src", "slides", "intro.astro"),
       `---
@@ -732,16 +739,16 @@ import Page from "@deckup/astro/page";
       slotNames: [],
       source: "builtin" as const,
     };
-    const boldTheme = {
-      name: "bold",
-      filePath: join(projectRoot, "themes/bold/package.json"),
-      packageRoot: join(projectRoot, "themes/bold"),
-      layoutsDir: join(projectRoot, "themes/bold/layouts"),
+    const googleBasicTheme = {
+      name: "google-basic",
+      filePath: join(projectRoot, "themes/google-basic/package.json"),
+      packageRoot: join(projectRoot, "themes/google-basic"),
+      layoutsDir: join(projectRoot, "themes/google-basic/layouts"),
       layouts: [
         {
           id: "default",
-          filePath: join(projectRoot, "themes/bold/layouts/default.astro"),
-          importPath: "/@fs/themes/bold/layouts/default.astro",
+          filePath: join(projectRoot, "themes/google-basic/layouts/default.astro"),
+          importPath: "/@fs/themes/google-basic/layouts/default.astro",
           slotNames: [],
         },
       ],
@@ -749,7 +756,7 @@ import Page from "@deckup/astro/page";
       source: "builtin" as const,
     };
     const validation = createDeckupVitePluginsForRegistry(registry, (deck) =>
-      deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : boldTheme,
+      deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : googleBasicTheme,
     ).find((plugin) => plugin.name === "deckup:astro-deck-validation");
     const load = validation?.load as
       | ((this: unknown, id: string) => Promise<string | undefined>)
@@ -757,7 +764,7 @@ import Page from "@deckup/astro/page";
 
     await expect(load?.call({}, introDeck.filePath)).resolves.toContain('theme="minimal"');
     await expect(load?.call({}, guideDeck.filePath)).rejects.toThrow(
-      /Deckup theme "bold" does not provide layout "cover" required by src\/slides\/guide\.astro/,
+      /Deckup theme "google-basic" does not provide layout "cover" required by src\/slides\/guide\.astro/,
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });

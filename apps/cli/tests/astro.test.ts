@@ -314,7 +314,7 @@ async function readBuiltCss(projectRoot: string, html: string, outDir = "dist") 
   return cssParts.join("\n");
 }
 
-const builtInViewerThemes = ["default", "minimal", "bold", "google-basic", "apple-basic"] as const;
+const builtInViewerThemes = ["default", "minimal", "google-basic", "apple-basic"] as const;
 
 async function writeThemeLayoutPackage(projectRoot: string, packageName: string) {
   const packageDir = join(projectRoot, "node_modules", ...packageName.split("/"));

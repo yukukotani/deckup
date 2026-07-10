@@ -43,7 +43,7 @@ async function writeHostFixture(projectRoot: string) {
     join(projectRoot, "source", "slides", "intro.astro"),
     `---
 import Page from "@deckup/astro/page";
-const theme = "bold";
+const theme = "default";
 ---
 
 <Page title="Intro"><h1>Intro Astro Deck</h1></Page>
@@ -150,7 +150,7 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(countLayouts(intro, "cover")).toBe(1);
     expect(countLayouts(intro, "default")).toBe(1);
     expect(intro).toContain('data-slide-count="2"');
-    expect(intro).toContain('data-deckup-theme="bold"');
+    expect(intro).toContain('data-deckup-theme="default"');
     expect(intro).not.toContain('data-deckup-theme="minimal"');
     const introCss = await readBuiltCss(projectRoot, intro);
     expect(intro).toContain("data-deckup-shell");
@@ -169,7 +169,7 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(countLayouts(guide, "default")).toBe(1);
     expect(guide).toContain('data-slide-count="2"');
     expect(guide).toContain('data-deckup-theme="minimal"');
-    expect(guide).not.toContain('data-deckup-theme="bold"');
+    expect(guide).not.toContain('data-deckup-theme="default"');
     expect(guide).toContain("Guide MDX Deck");
     expect(guide).toContain("Guide Details");
 

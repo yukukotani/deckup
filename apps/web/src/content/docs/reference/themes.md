@@ -22,7 +22,6 @@ Deckup includes these built-in theme names:
 
 - `default`
 - `minimal`
-- `bold`
 - `google-basic`
 - `apple-basic`
 
@@ -54,7 +53,7 @@ In Astro decks, declare a static top-level constant in the frontmatter script:
 ```astro
 ---
 import Page from "@deckup/astro/page";
-const theme = "bold";
+const theme = "apple-basic";
 ---
 
 <Page title="Launch">

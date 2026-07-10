@@ -10,7 +10,6 @@ export const DEFAULT_DECKUP_THEME = "default";
 export const BUILTIN_DECKUP_THEME_PACKAGES = {
   default: "@deckup/theme-default",
   minimal: "@deckup/theme-minimal",
-  bold: "@deckup/theme-bold",
   "google-basic": "@deckup/theme-google-basic",
   "apple-basic": "@deckup/theme-apple-basic",
 } as const;

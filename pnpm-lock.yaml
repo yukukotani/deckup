@@ -388,9 +388,6 @@ importers:
       '@deckup/theme-apple-basic':
         specifier: workspace:*
         version: link:../theme-apple-basic
-      '@deckup/theme-bold':
-        specifier: workspace:*
-        version: link:../theme-bold
       '@deckup/theme-default':
         specifier: workspace:*
         version: link:../theme-default
@@ -442,8 +439,6 @@ importers:
         version: 0.2.2(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0))(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0)
 
   packages/theme-apple-basic: {}
-
-  packages/theme-bold: {}
 
   packages/theme-default: {}
 

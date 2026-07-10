@@ -34,8 +34,8 @@ const assignableConfig: DeckupConfig = validConfig;
 expect(assignableConfig.port).toBe(3000);
 expect(assignableConfig.theme).toBe("minimal");
 
-const themedConfig = defineConfig({ theme: "bold" });
-expect(themedConfig.theme).toBe("bold");
+const themedConfig = defineConfig({ theme: "google-basic" });
+expect(themedConfig.theme).toBe("google-basic");
 
 const packageThemeConfig = defineConfig({ theme: "@acme/deckup-layout-theme" });
 expect(packageThemeConfig.theme).toBe("@acme/deckup-layout-theme");

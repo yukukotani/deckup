@@ -14,9 +14,9 @@ export default defineConfig({
 });
 ```
 
-Deckup ships five first-party themes: `default`, `minimal`, `bold`, `google-basic`, and `apple-basic`.
+Deckup ships four first-party themes: `default`, `minimal`, `google-basic`, and `apple-basic`.
 Omitting `theme` uses `default`.
-First-party themes are regular npm packages in this workspace (`@deckup/theme-default`, `@deckup/theme-minimal`, `@deckup/theme-bold`, `@deckup/theme-google-basic`, and `@deckup/theme-apple-basic`), while slide authors use the short names above.
+First-party themes are regular npm packages in this workspace (`@deckup/theme-default`, `@deckup/theme-minimal`, `@deckup/theme-google-basic`, and `@deckup/theme-apple-basic`), while slide authors use the short names above.
 
 Themes provide Astro layout components instead of a package-root CSS file.
 A slide selects a layout with the existing metadata-only `<layout id="..." />` child, and Deckup injects the slide body into the selected layout's slots.

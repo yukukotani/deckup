@@ -31,7 +31,6 @@ jobs:
         run: >-
           pnpm
           --filter @deckup/theme-default
-          --filter @deckup/theme-bold
           --filter @deckup/theme-minimal
           --filter @deckup/theme-apple-basic
           --filter @deckup/theme-google-basic

@@ -32,11 +32,11 @@ In Astro decks, declare a top-level `theme` constant in the frontmatter script:
 ```astro
 ---
 import Page from "@deckup/astro/page";
-const theme = "bold";
+const theme = "google-basic";
 ---
 
-<Page title="Bold deck">
-  <h1>Bold deck</h1>
+<Page title="Google-style deck">
+  <h1>Google-style deck</h1>
 </Page>
 ```
 
