@@ -643,11 +643,23 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
       slotNames: [],
       source: "builtin" as const,
     };
+    expect(() =>
+      createDeckupVitePluginsForRegistry(
+        registry,
+        (deck) =>
+          deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : googleBasicTheme,
+        { generatedPageFilePath: join(projectRoot, ".deckup", "Page.astro") },
+      ),
+    ).toThrow(/requires generatedPageFilePathForTheme/);
     const plugins = createDeckupVitePluginsForRegistry(
       registry,
       (deck) =>
         deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : googleBasicTheme,
-      { generatedPageFilePath: join(projectRoot, ".deckup", "Page.astro") },
+      {
+        generatedPageFilePath: join(projectRoot, ".deckup", "Page.astro"),
+        generatedPageFilePathForTheme: (themeName) =>
+          join(projectRoot, ".deckup", `Page.${themeName}.astro`),
+      },
     );
     const layoutsPlugin = plugins.find((plugin) => plugin.name === "deckup:virtual-theme-layouts");
     const resolveId = layoutsPlugin?.resolveId as
@@ -666,6 +678,23 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
     expect(source).toContain('"google-basic"');
     expect(source).toContain('"cover"');
     expect(source).toContain('"default"');
+
+    const minimalResolved = await resolveId?.call({}, "virtual:deckup/theme-layouts?theme=minimal");
+    const minimalSource = await load?.call({ addWatchFile() {} }, minimalResolved as string);
+    expect(minimalSource).toContain('"minimal"');
+    expect(minimalSource).toContain('"cover"');
+    expect(minimalSource).not.toContain('"google-basic"');
+    expect(minimalSource).not.toContain('"default"');
+
+    const googleResolved = await resolveId?.call(
+      {},
+      "virtual:deckup/theme-layouts?theme=google-basic",
+    );
+    const googleSource = await load?.call({ addWatchFile() {} }, googleResolved as string);
+    expect(googleSource).toContain('"google-basic"');
+    expect(googleSource).toContain('"default"');
+    expect(googleSource).not.toContain('"minimal"');
+    expect(googleSource).not.toContain('"cover"');
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
@@ -685,7 +714,7 @@ test("registry Astro validation uses the matched deck effective theme", async ()
     await writeFile(
       join(projectRoot, "src", "slides", "intro.astro"),
       `---
-import Page from "@deckup/astro/page";
+import /* keep */ Page from "@deckup/astro/page";
 ---
 
 <Page><layout id="cover" /><h1>Intro</h1></Page>
@@ -755,14 +784,24 @@ import Page from "@deckup/astro/page";
       slotNames: [],
       source: "builtin" as const,
     };
-    const validation = createDeckupVitePluginsForRegistry(registry, (deck) =>
-      deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : googleBasicTheme,
+    const validation = createDeckupVitePluginsForRegistry(
+      registry,
+      (deck) =>
+        deck.projectRelativePath === "src/slides/intro.astro" ? minimalTheme : googleBasicTheme,
+      {
+        generatedPageFilePathForTheme: (themeName) =>
+          join(projectRoot, ".deckup", `Page.${themeName}.astro`),
+      },
     ).find((plugin) => plugin.name === "deckup:astro-deck-validation");
     const load = validation?.load as
       | ((this: unknown, id: string) => Promise<string | undefined>)
       | undefined;
 
-    await expect(load?.call({}, introDeck.filePath)).resolves.toContain('theme="minimal"');
+    const introSource = await load?.call({}, introDeck.filePath);
+    expect(introSource).toContain('theme="minimal"');
+    expect(introSource).toContain("import /* keep */ Page from");
+    expect(introSource).toContain("/.deckup/Page.minimal.astro");
+    expect(introSource).not.toContain('from "@deckup/astro/page"');
     await expect(load?.call({}, guideDeck.filePath)).rejects.toThrow(
       /Deckup theme "google-basic" does not provide layout "cover" required by src\/slides\/guide\.astro/,
     );

@@ -22,7 +22,7 @@ export type AstroNode = {
 };
 export type AstroImportDeclaration = {
   type?: "ImportDeclaration";
-  source?: { value?: unknown };
+  source?: { value?: unknown; start?: number; end?: number };
   specifiers?: Array<{ type?: string; local?: { name?: string } }>;
 };
 export type AstroLiteral = { type?: string; value?: unknown; raw?: string };

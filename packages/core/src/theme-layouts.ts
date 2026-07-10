@@ -6,10 +6,28 @@ import { parse } from "@astrojs/compiler-rs";
 
 import { findAstroRoot, getAttribute, isJsxElementNamed, type AstroNode } from "./astro-ast.ts";
 import { assertValidDeckupLayoutId } from "./layout.ts";
-import type { DeckupResolvedThemeLayout } from "./types.ts";
+import type { DeckupResolvedTheme, DeckupResolvedThemeLayout } from "./types.ts";
 import { normalizePath } from "./utils.ts";
 
 export const VIRTUAL_DECKUP_THEME_LAYOUTS_ID = "virtual:deckup/theme-layouts";
+
+export function createThemeLayoutsModuleId(themeName?: string) {
+  return themeName === undefined
+    ? VIRTUAL_DECKUP_THEME_LAYOUTS_ID
+    : `${VIRTUAL_DECKUP_THEME_LAYOUTS_ID}?theme=${encodeURIComponent(themeName)}`;
+}
+
+export function parseThemeLayoutsModuleId(id: string) {
+  const unresolvedId = id.startsWith("\0") ? id.slice(1) : id;
+  if (unresolvedId === VIRTUAL_DECKUP_THEME_LAYOUTS_ID) return { themeName: undefined };
+  const prefix = `${VIRTUAL_DECKUP_THEME_LAYOUTS_ID}?theme=`;
+  if (!unresolvedId.startsWith(prefix)) return undefined;
+  try {
+    return { themeName: decodeURIComponent(unresolvedId.slice(prefix.length)) };
+  } catch {
+    return undefined;
+  }
+}
 
 export function toViteFsImportPath(filePath: string) {
   return `/@fs/${normalizePath(filePath)}`;
@@ -140,9 +158,12 @@ export async function discoverThemeLayouts(
 }
 
 export function createThemeLayoutDiscoveryCache() {
-  let cached:
-    | { layoutsDir: string; fingerprint: string; layouts: DeckupResolvedThemeLayout[] }
-    | undefined;
+  type CacheEntry = {
+    fingerprint: string;
+    layouts?: DeckupResolvedThemeLayout[];
+    pending?: Promise<DeckupResolvedThemeLayout[]>;
+  };
+  const cache = new Map<string, CacheEntry>();
 
   return async function discoverCached(themeName: string, layoutsDir: string) {
     let fingerprint: string | undefined;
@@ -151,16 +172,24 @@ export function createThemeLayoutDiscoveryCache() {
     } catch {
       // Fall through: let discoverThemeLayouts produce its canonical error.
     }
-    if (
-      fingerprint !== undefined &&
-      cached?.layoutsDir === layoutsDir &&
-      cached.fingerprint === fingerprint
-    ) {
-      return cached.layouts;
+    if (fingerprint === undefined) return discoverThemeLayouts(themeName, layoutsDir);
+
+    const cached = cache.get(layoutsDir);
+    if (cached?.fingerprint === fingerprint) {
+      if (cached.layouts) return cached.layouts;
+      if (cached.pending) return cached.pending;
     }
-    const layouts = await discoverThemeLayouts(themeName, layoutsDir);
-    cached = fingerprint !== undefined ? { layoutsDir, fingerprint, layouts } : undefined;
-    return layouts;
+
+    const pending = discoverThemeLayouts(themeName, layoutsDir);
+    cache.set(layoutsDir, { fingerprint, pending });
+    try {
+      const layouts = await pending;
+      cache.set(layoutsDir, { fingerprint, layouts });
+      return layouts;
+    } catch (error) {
+      if (cache.get(layoutsDir)?.pending === pending) cache.delete(layoutsDir);
+      throw error;
+    }
   };
 }
 
@@ -217,4 +246,12 @@ if (!Layout) {
   </Layout>
 </section>
 `;
+}
+
+export function createGeneratedThemePageComponentSource(theme: DeckupResolvedTheme) {
+  return createGeneratedPageComponentSource(
+    theme.slotNames ?? [],
+    createThemeLayoutsModuleId(theme.name),
+    theme.name,
+  );
 }

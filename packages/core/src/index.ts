@@ -38,9 +38,12 @@ export {
 export {
   VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
   createGeneratedPageComponentSource,
+  createGeneratedThemePageComponentSource,
+  createThemeLayoutsModuleId,
   createThemeLayoutDiscoveryCache,
   discoverThemeLayouts,
   extractAstroSlotNames,
+  parseThemeLayoutsModuleId,
   toViteFsImportPath,
 } from "./theme-layouts.ts";
 export {

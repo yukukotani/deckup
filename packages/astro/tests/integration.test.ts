@@ -1,5 +1,5 @@
 import { build, type AstroIntegration } from "astro";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createRequire } from "node:module";
@@ -67,6 +67,26 @@ theme: minimal
 `,
   );
   await writeFile(
+    join(projectRoot, "source", "slides", "google.astro"),
+    `---
+import Page from "@deckup/astro/page";
+const theme = "google-basic";
+---
+
+<Page title="Google"><layout id="cover" /><h1>Google Astro Deck</h1></Page>
+`,
+  );
+  await writeFile(
+    join(projectRoot, "source", "slides", "apple.astro"),
+    `---
+import Page from "@deckup/astro/page";
+const theme = "apple-basic";
+---
+
+<Page title="Apple"><layout id="cover" /><h1>Apple Astro Deck</h1></Page>
+`,
+  );
+  await writeFile(
     join(projectRoot, "source", "pages", "docs.mdx"),
     `---
 title: Host Docs
@@ -84,20 +104,17 @@ async function readBuiltCss(projectRoot: string, html: string) {
     html.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g),
     (match) => match[1],
   );
-  const assetsDir = join(projectRoot, "dist", "_astro");
-
-  try {
-    const entries = await readdir(assetsDir, { withFileTypes: true });
-    cssParts.push(
-      ...(await Promise.all(
-        entries
-          .filter((entry) => entry.isFile() && entry.name.endsWith(".css"))
-          .map((entry) => readFile(join(assetsDir, entry.name), "utf8")),
-      )),
-    );
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
+  const linkedCss = Array.from(
+    html.matchAll(/<link[^>]+href="([^"]+\.css)"[^>]*>/g),
+    (match) => match[1],
+  );
+  cssParts.push(
+    ...(await Promise.all(
+      linkedCss.map((href) =>
+        readFile(join(projectRoot, "dist", href.replace(/^\/+/, "")), "utf8"),
+      ),
+    )),
+  );
 
   return cssParts.join("\n");
 }
@@ -156,6 +173,10 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(intro).toContain("data-deckup-shell");
     expect(intro).toContain("data-deckup-navigation");
     expect(introCss).toContain(".deckup-navigation");
+    expect(introCss).toContain("#f7f8fc");
+    expect(introCss).not.toContain("#f3f4f6");
+    expect(introCss).not.toContain("--gb-blue");
+    expect(introCss).not.toContain("--ab-text");
     expect(introCss).not.toContain("astro-dev-toolbar");
     expect(intro).toContain("Intro Astro Deck");
     expect(intro).toContain("Astro Details");
@@ -172,6 +193,35 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(guide).not.toContain('data-deckup-theme="default"');
     expect(guide).toContain("Guide MDX Deck");
     expect(guide).toContain("Guide Details");
+    const guideCss = await readBuiltCss(projectRoot, guide);
+    expect(guideCss).toContain("#f3f4f6");
+    expect(guideCss).not.toContain("#f7f8fc");
+    expect(guideCss).not.toContain("--gb-blue");
+    expect(guideCss).not.toContain("--ab-text");
+
+    const google = await readFile(
+      join(projectRoot, "dist", "slides", "google", "index.html"),
+      "utf8",
+    );
+    expect(google).toContain('data-deckup-theme="google-basic"');
+    expect(google).toContain("Google Astro Deck");
+    const googleCss = await readBuiltCss(projectRoot, google);
+    expect(googleCss).toContain("--gb-blue");
+    expect(googleCss).not.toContain("#f7f8fc");
+    expect(googleCss).not.toContain("#f3f4f6");
+    expect(googleCss).not.toContain("--ab-text");
+
+    const apple = await readFile(
+      join(projectRoot, "dist", "slides", "apple", "index.html"),
+      "utf8",
+    );
+    expect(apple).toContain('data-deckup-theme="apple-basic"');
+    expect(apple).toContain("Apple Astro Deck");
+    const appleCss = await readBuiltCss(projectRoot, apple);
+    expect(appleCss).toContain("--ab-text");
+    expect(appleCss).not.toContain("#f7f8fc");
+    expect(appleCss).not.toContain("#f3f4f6");
+    expect(appleCss).not.toContain("--gb-blue");
 
     const docs = await readFile(join(projectRoot, "dist", "docs", "index.html"), "utf8");
     expect(docs).toContain("Host Docs");

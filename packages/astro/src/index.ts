@@ -1,13 +1,13 @@
 import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import {
-  VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
-  createGeneratedPageComponentSource,
+  createGeneratedThemePageComponentSource,
   createDeckupVitePluginsForRegistry,
   normalizePath,
   remarkDeckupMdxPages,
   resolveDeckRegistry,
   resolveDeckupThemeLayouts,
+  toViteFsImportPath,
   uniqueStrings,
   type DeckupDeckRegistry,
   type DeckupResolvedDeck,
@@ -148,22 +148,20 @@ async function resolveEffectiveThemes(
   return byRouteId;
 }
 
-async function writeGeneratedPageComponent(projectRoot: string, themes: DeckupResolvedTheme[]) {
+async function writeGeneratedPageComponents(projectRoot: string, themes: DeckupResolvedTheme[]) {
   const resolvedThemes = uniqueThemes(themes);
-  if (resolvedThemes.length === 0) return undefined;
-
-  const generatedPageFilePath = join(projectRoot, ".deckup", "astro", "generated", "Page.astro");
-  const slotNames = uniqueStrings(resolvedThemes.flatMap((theme) => theme.slotNames ?? [])).sort();
-  await mkdir(dirname(generatedPageFilePath), { recursive: true });
-  await writeFile(
-    generatedPageFilePath,
-    createGeneratedPageComponentSource(
-      slotNames,
-      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
-      resolvedThemes[0]?.name,
-    ),
+  const entries = resolvedThemes.map((theme, index) => ({
+    theme,
+    filePath: join(projectRoot, ".deckup", "astro", "generated", `Page.${index}.astro`),
+  }));
+  const byThemeName = new Map(entries.map(({ theme, filePath }) => [theme.name, filePath]));
+  if (entries.length > 0) await mkdir(dirname(entries[0].filePath), { recursive: true });
+  await Promise.all(
+    entries.map(async ({ theme, filePath }) => {
+      await writeFile(filePath, createGeneratedThemePageComponentSource(theme));
+    }),
   );
-  return generatedPageFilePath;
+  return byThemeName;
 }
 
 function routeEntryFilePath(projectRoot: string, deck: DeckupResolvedDeckRoute) {
@@ -210,13 +208,25 @@ function themeFileSystemAllowEntries(themes: DeckupResolvedTheme[]) {
   );
 }
 
-function createMdxIntegration(registry: DeckupDeckRegistry, themeForDeck: DeckupThemeForDeck) {
+function createMdxIntegration(
+  registry: DeckupDeckRegistry,
+  themeForDeck: DeckupThemeForDeck,
+  generatedPages: Map<string, string>,
+) {
   return mdx({
     processor: unified({
       remarkPlugins: [
         [
           remarkDeckupMdxPages,
-          { registry, themeForDeck: (deck: DeckupResolvedDeck) => themeForDeck(deck)?.name },
+          {
+            registry,
+            themeForDeck: (deck: DeckupResolvedDeck) => themeForDeck(deck)?.name,
+            pageComponentForDeck: (deck: DeckupResolvedDeck) => {
+              const themeName = themeForDeck(deck)?.name;
+              const filePath = themeName ? generatedPages.get(themeName) : undefined;
+              return filePath ? toViteFsImportPath(filePath) : undefined;
+            },
+          },
         ] as never,
       ],
     }),
@@ -335,10 +345,10 @@ export default function deckup(options: DeckupAstroOptions): AstroIntegration {
         const themeForDeck: DeckupThemeForDeck = (deck) =>
           themeByRouteId.get((deck as DeckupResolvedDeckRoute).routeId);
         const effectiveThemes = uniqueThemes([...themeByRouteId.values()]);
-        const generatedPageFilePath = await writeGeneratedPageComponent(
-          projectRoot,
-          effectiveThemes,
-        );
+        const generatedPages = await writeGeneratedPageComponents(projectRoot, effectiveThemes);
+        const generatedPageFilePath =
+          generatedPages.get(fallbackTheme.name) ??
+          (generatedPages.values().next().value as string | undefined);
         const routeEntries = await writeRouteEntryFiles(projectRoot, registry);
 
         for (const { deck, entrypoint } of routeEntries) {
@@ -366,18 +376,19 @@ export default function deckup(options: DeckupAstroOptions): AstroIntegration {
           dirname(runtimeNavigationFilePath),
           ...routeDeckDirectories(registry),
           ...themeFileSystemAllowEntries(effectiveThemes),
-          ...(generatedPageFilePath ? [dirname(generatedPageFilePath)] : []),
+          ...[...generatedPages.values()].map((filePath) => dirname(filePath)),
           ...routeEntries.map(({ entrypoint }) => dirname(entrypoint)),
           ...existingFsAllow,
         ]).map(normalizePath);
 
         updateConfig({
-          integrations: [createMdxIntegration(registry, themeForDeck)],
+          integrations: [createMdxIntegration(registry, themeForDeck, generatedPages)],
           vite: {
             plugins: [
               createDeckupAstroDeckLayoutPlugin(),
               ...createDeckupVitePluginsForRegistry(registry, themeForDeck, {
                 generatedPageFilePath,
+                generatedPageFilePathForTheme: (themeName) => generatedPages.get(themeName),
                 deckLayoutModuleId: DECKUP_ASTRO_DECK_LAYOUT_MODULE_ID,
               }),
             ],

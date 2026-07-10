@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { parse } from "@astrojs/compiler-rs";
@@ -10,6 +10,7 @@ import {
   findAstroRoot,
   getAttribute,
   isJsxElementNamed,
+  type AstroImportDeclaration,
   type AstroNode,
   type AstroRoot,
 } from "./astro-ast.ts";
@@ -18,8 +19,12 @@ import { createRuntimePageSource } from "./runtime-page.ts";
 import { analyzeMdxDeckSource } from "./deckup-mdx-pages.ts";
 import {
   VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
+  createThemeLayoutsModuleId,
   createThemeLayoutDiscoveryCache,
   createGeneratedPageComponentSource,
+  createGeneratedThemePageComponentSource,
+  parseThemeLayoutsModuleId,
+  toViteFsImportPath,
 } from "./theme-layouts.ts";
 import type {
   RawAstroCodeHighlightOptions,
@@ -37,7 +42,6 @@ function resolvedVirtualId(id: string) {
   return `\0${id}`;
 }
 
-const resolvedVirtualDeckupThemeLayoutsId = resolvedVirtualId(VIRTUAL_DECKUP_THEME_LAYOUTS_ID);
 const pageComponentExport = "@deckup/astro/page";
 // Coupling point to Astro's compiled output. The Astro compiler emits
 // `$$renderComponent($$result, "Page", Page, { ...props }, ...)` for each
@@ -59,6 +63,7 @@ type AstroDeckAnalysis = {
   layouts: AstroPageLayout[];
   pages: AstroNode[];
   metadata: DeckupDeckMetadata;
+  pageImportSpan: { start: number; end: number };
 };
 type StaticAstroCodeBlock = {
   code: string;
@@ -67,11 +72,12 @@ type StaticAstroCodeBlock = {
 };
 export interface DeckupVitePluginOptions {
   generatedPageFilePath?: string;
+  generatedPageFilePathForTheme?: (themeName: string) => string | undefined;
   codeHighlight?: RawAstroCodeHighlightOptions;
   deckLayoutModuleId?: string;
 }
 type DiscoverThemeLayouts = ReturnType<typeof createThemeLayoutDiscoveryCache>;
-type GeneratedPageMemo = { lastSource: string | undefined };
+type GeneratedPageMemo = Map<string, string>;
 export type DeckupThemeForDeck = (deck: DeckupResolvedDeck) => DeckupResolvedTheme | undefined;
 type DeckupThemeLookup = DeckupResolvedTheme | DeckupThemeForDeck | undefined;
 
@@ -235,18 +241,16 @@ function hasAttribute(node: AstroNode, name: string) {
   return getAttribute(node, name) !== undefined;
 }
 
-function hasDefaultPageImport(ast: AstroRoot) {
-  return (
-    ast.frontmatter?.program?.body?.some((node) => {
-      if (node.type !== "ImportDeclaration" || node.source?.value !== pageComponentExport) {
-        return false;
-      }
-      return node.specifiers?.some(
-        (specifier) =>
-          specifier.type === "ImportDefaultSpecifier" && specifier.local?.name === "Page",
-      );
-    }) ?? false
-  );
+function findDefaultPageImport(ast: AstroRoot): AstroImportDeclaration | undefined {
+  return ast.frontmatter?.program?.body?.find((node) => {
+    if (node.type !== "ImportDeclaration" || node.source?.value !== pageComponentExport) {
+      return false;
+    }
+    return node.specifiers?.some(
+      (specifier) =>
+        specifier.type === "ImportDefaultSpecifier" && specifier.local?.name === "Page",
+    );
+  }) as AstroImportDeclaration | undefined;
 }
 
 function sanitizeStaticCodeTextForAstroParse(source: string) {
@@ -314,7 +318,7 @@ export function createSourceIndexConverter(source: string) {
 
 function getRequiredSpan(
   toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
-  node: AstroNode,
+  node: { start?: number; end?: number },
   context: string,
 ) {
   if (typeof node.start !== "number" || typeof node.end !== "number") {
@@ -525,7 +529,8 @@ function analyzeAstroDeckSource(
 ): AstroDeckAnalysis {
   const ast = parseAstroDeck(source, filePath);
   const metadata = extractStaticAstroDeckMetadata(ast, filePath);
-  if (!hasDefaultPageImport(ast)) {
+  const pageImport = findDefaultPageImport(ast);
+  if (!pageImport) {
     throw new Error(
       `Astro deck must import Page from ${JSON.stringify(pageComponentExport)}: ${filePath}`,
     );
@@ -538,8 +543,10 @@ function analyzeAstroDeckSource(
   if (pages.length === 0) {
     throw new Error(`Astro deck must contain at least one top-level <Page>: ${filePath}`);
   }
+  const toSourceIndex = createSourceIndexConverter(source);
+  const pageImportSpan = getRequiredSpan(toSourceIndex, pageImport.source ?? {}, filePath);
   const { edits, layouts } = analyzeAstroLayouts(source, pages, filePath, themeName);
-  return { pageCount: pages.length, edits, layouts, pages, metadata };
+  return { pageCount: pages.length, edits, layouts, pages, metadata, pageImportSpan };
 }
 
 export function countAstroDeckPages(source: string, filePath = "<deck>") {
@@ -594,6 +601,7 @@ async function transformAstroDeckSourceForBuild(
   filePath: string,
   codeHighlight: RawAstroCodeHighlightOptions | undefined,
   themeName?: string,
+  pageComponentImport?: string,
 ) {
   const analysis = analyzeAstroDeckSource(source, filePath, themeName);
   const codeEdits = await createAstroCodeHighlightEdits(
@@ -602,10 +610,19 @@ async function transformAstroDeckSourceForBuild(
     filePath,
     codeHighlight,
   );
+  const pageImportEdits = pageComponentImport
+    ? [
+        {
+          ...analysis.pageImportSpan,
+          value: JSON.stringify(pageComponentImport),
+        },
+      ]
+    : [];
+  const code = escapeRawCodeTextBraces(
+    applySourceEdits(source, [...analysis.edits, ...codeEdits, ...pageImportEdits]),
+  );
   return {
-    code: markTransformedAstroSource(
-      escapeRawCodeTextBraces(applySourceEdits(source, [...analysis.edits, ...codeEdits])),
-    ),
+    code: markTransformedAstroSource(code),
     layouts: analysis.layouts,
   };
 }
@@ -691,9 +708,8 @@ function hasThemeLayouts(theme?: DeckupResolvedTheme) {
   return (theme?.layouts?.length ?? 0) > 0;
 }
 
-function createThemeModuleImport(theme?: DeckupResolvedTheme) {
-  if (hasThemeLayouts(theme)) return `import ${JSON.stringify(VIRTUAL_DECKUP_THEME_LAYOUTS_ID)};`;
-  return undefined;
+function createThemeModuleImport(theme: DeckupResolvedTheme | undefined, moduleId: string) {
+  return hasThemeLayouts(theme) ? `import ${JSON.stringify(moduleId)};` : undefined;
 }
 
 function assertPluginTheme(theme?: DeckupResolvedTheme) {
@@ -752,18 +768,42 @@ async function writeFreshGeneratedPage(
   generatedPageMemo: GeneratedPageMemo,
   defaultThemeName?: string,
 ) {
+  async function writeIfChanged(filePath: string, source: string) {
+    if (source === generatedPageMemo.get(filePath)) return;
+    try {
+      if ((await readFile(filePath, "utf8")) === source) {
+        generatedPageMemo.set(filePath, source);
+        return;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, source);
+    generatedPageMemo.set(filePath, source);
+  }
+
   const resolvedThemes = uniqueResolvedThemes(themes);
-  if (resolvedThemes.length === 0 || !options.generatedPageFilePath) return;
+  if (resolvedThemes.length === 0) return;
+  if (options.generatedPageFilePathForTheme) {
+    await Promise.all(
+      resolvedThemes.map(async (theme) => {
+        const filePath = options.generatedPageFilePathForTheme?.(theme.name);
+        if (!filePath) return;
+        const source = createGeneratedThemePageComponentSource(theme);
+        await writeIfChanged(filePath, source);
+      }),
+    );
+    return;
+  }
+  if (!options.generatedPageFilePath) return;
   const slotNames = uniqueStrings(resolvedThemes.flatMap((theme) => theme.slotNames ?? [])).sort();
   const source = createGeneratedPageComponentSource(
     slotNames,
     VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
     defaultThemeName,
   );
-  if (source === generatedPageMemo.lastSource) return;
-  await mkdir(dirname(options.generatedPageFilePath), { recursive: true });
-  await writeFile(options.generatedPageFilePath, source);
-  generatedPageMemo.lastSource = source;
+  await writeIfChanged(options.generatedPageFilePath, source);
 }
 
 async function refreshThemeRuntimes(
@@ -864,18 +904,27 @@ function createVirtualThemeLayoutsPlugin(
   discoverCached: DiscoverThemeLayouts,
   generatedPageMemo: GeneratedPageMemo,
 ): Plugin {
+  const availableThemes = themesForRuntime(theme, registry?.decks);
+
   return {
     name: "deckup:virtual-theme-layouts",
     resolveId(id) {
-      return id === VIRTUAL_DECKUP_THEME_LAYOUTS_ID
-        ? resolvedVirtualDeckupThemeLayoutsId
-        : undefined;
+      const parsed = parseThemeLayoutsModuleId(id);
+      if (!parsed) return undefined;
+      return id.startsWith("\0") ? id : resolvedVirtualId(id);
     },
     async load(id) {
-      if (id !== resolvedVirtualDeckupThemeLayoutsId) return undefined;
+      const parsed = parseThemeLayoutsModuleId(id);
+      if (!parsed) return undefined;
       const keyedByTheme = registry !== undefined;
+      const selectedThemes = parsed.themeName
+        ? availableThemes.filter((candidate) => candidate.name === parsed.themeName)
+        : availableThemes;
+      if (parsed.themeName && selectedThemes.length === 0) {
+        throw new Error(`Deckup theme ${JSON.stringify(parsed.themeName)} is not registered.`);
+      }
       const runtimeThemes = await refreshThemeRuntimes(
-        themesForRuntime(theme, registry?.decks),
+        selectedThemes,
         options,
         discoverCached,
         generatedPageMemo,
@@ -890,13 +939,17 @@ function createVirtualThemeLayoutsPlugin(
   };
 }
 
-function createAstroDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedTheme) {
+function createAstroDeckModule(
+  deck: DeckupResolvedDeck,
+  theme: DeckupResolvedTheme | undefined,
+  themeLayoutsModuleId: string,
+) {
   const source = readFileSync(deck.filePath, "utf8");
   const analysis = analyzeAstroDeckSource(source, deck.filePath);
   validateThemeLayoutIds(deck, theme, analysis.layouts);
   const deckImport = `/${deck.projectRelativePath}`;
   return [
-    createThemeModuleImport(theme),
+    createThemeModuleImport(theme, themeLayoutsModuleId),
     `import Deck from ${JSON.stringify(deckImport)};`,
     "export default Deck;",
     `export const deck = ${JSON.stringify({
@@ -911,13 +964,17 @@ function createAstroDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedT
     .join("\n");
 }
 
-function createMdxDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedTheme) {
+function createMdxDeckModule(
+  deck: DeckupResolvedDeck,
+  theme: DeckupResolvedTheme | undefined,
+  themeLayoutsModuleId: string,
+) {
   const source = readFileSync(deck.filePath, "utf8");
   const analysis = analyzeMdxDeckSource(source, deck.filePath);
   validateThemeLayoutIds(deck, theme, analysis.layouts);
   const deckImport = `/${deck.projectRelativePath}`;
   return [
-    createThemeModuleImport(theme),
+    createThemeModuleImport(theme, themeLayoutsModuleId),
     `import Deck, { frontmatter } from ${JSON.stringify(deckImport)};`,
     "export default Deck;",
     `export const deck = ${JSON.stringify({
@@ -932,9 +989,13 @@ function createMdxDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedThe
     .join("\n");
 }
 
-function createDeckModule(deck: DeckupResolvedDeck, theme?: DeckupResolvedTheme) {
-  if (deck.format === "astro") return createAstroDeckModule(deck, theme);
-  return createMdxDeckModule(deck, theme);
+function createDeckModule(
+  deck: DeckupResolvedDeck,
+  theme: DeckupResolvedTheme | undefined,
+  themeLayoutsModuleId: string,
+) {
+  if (deck.format === "astro") return createAstroDeckModule(deck, theme, themeLayoutsModuleId);
+  return createMdxDeckModule(deck, theme, themeLayoutsModuleId);
 }
 
 function createVirtualRoutePlugin(
@@ -966,6 +1027,7 @@ function createRegistryVirtualDeckPlugin(
   registry: DeckupDeckRegistry,
   theme: DeckupThemeLookup,
   discoverCached: DiscoverThemeLayouts,
+  options: DeckupVitePluginOptions,
 ): Plugin {
   const deckIds = new Map(registry.decks.map((deck) => [deck.virtualDeckModuleId, deck]));
   const resolvedDeckIds = new Map(
@@ -987,7 +1049,10 @@ function createRegistryVirtualDeckPlugin(
       this.addWatchFile(deck.filePath);
       if (runtimeTheme?.filePath) this.addWatchFile(runtimeTheme.filePath);
       addThemeLayoutWatchFiles(this, runtimeTheme);
-      return createDeckModule(deck, runtimeTheme);
+      const themeLayoutsModuleId = options.generatedPageFilePathForTheme
+        ? createThemeLayoutsModuleId(runtimeTheme?.name)
+        : VIRTUAL_DECKUP_THEME_LAYOUTS_ID;
+      return createDeckModule(deck, runtimeTheme, themeLayoutsModuleId);
     },
   };
 }
@@ -998,6 +1063,12 @@ function createRegistryAstroDeckValidationPlugin(
   discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
   options: DeckupVitePluginOptions = {},
 ): Plugin {
+  function pageComponentImport(runtimeTheme?: DeckupResolvedTheme) {
+    if (!runtimeTheme) return undefined;
+    const filePath = options.generatedPageFilePathForTheme?.(runtimeTheme.name);
+    return filePath ? toViteFsImportPath(filePath) : undefined;
+  }
+
   function matchAstroDeck(id: string): DeckupResolvedDeckRoute | undefined {
     const normalizedId = normalizeIdPath(id.split("?", 1)[0]);
     if (
@@ -1027,6 +1098,7 @@ function createRegistryAstroDeckValidationPlugin(
         deck.filePath,
         options.codeHighlight,
         runtimeTheme?.name,
+        pageComponentImport(runtimeTheme),
       );
       validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
       return result.code;
@@ -1045,6 +1117,7 @@ function createRegistryAstroDeckValidationPlugin(
           deck.filePath,
           options.codeHighlight,
           runtimeTheme?.name,
+          pageComponentImport(runtimeTheme),
         );
         validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
         return result.code;
@@ -1063,14 +1136,23 @@ export function createDeckupVitePluginsForRegistry(
   theme?: DeckupThemeLookup,
   options: DeckupVitePluginOptions = {},
 ): Plugin[] {
-  for (const resolvedTheme of themesForRuntime(theme, registry.decks))
-    assertPluginTheme(resolvedTheme);
+  const runtimeThemes = themesForRuntime(theme, registry.decks);
+  for (const resolvedTheme of runtimeThemes) assertPluginTheme(resolvedTheme);
+  if (
+    runtimeThemes.length > 1 &&
+    options.generatedPageFilePath &&
+    !options.generatedPageFilePathForTheme
+  ) {
+    throw new Error(
+      "Deckup requires generatedPageFilePathForTheme when a registry uses multiple themes.",
+    );
+  }
   const discoverCached = createThemeLayoutDiscoveryCache();
-  const generatedPageMemo = { lastSource: undefined as string | undefined };
+  const generatedPageMemo: GeneratedPageMemo = new Map();
   return [
     createVirtualThemeLayoutsPlugin(theme, registry, options, discoverCached, generatedPageMemo),
     createVirtualRoutePlugin(registry, options),
-    createRegistryVirtualDeckPlugin(registry, theme, discoverCached),
+    createRegistryVirtualDeckPlugin(registry, theme, discoverCached, options),
     createRegistryAstroDeckValidationPlugin(registry, theme, discoverCached, options),
   ];
 }

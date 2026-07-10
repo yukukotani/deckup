@@ -48,6 +48,7 @@ export interface DeckupMdxPagesOptions {
   deckFile?: string;
   registry?: DeckupDeckRegistry;
   themeForDeck?: (deck: DeckupResolvedDeck) => string | undefined;
+  pageComponentForDeck?: (deck: DeckupResolvedDeck) => string | undefined;
 }
 
 function isSelectedFile(file: VFileLike, deckFile: string) {
@@ -76,8 +77,8 @@ function resolveSelectedMdxDeck(
   return undefined;
 }
 
-function createPageImportNode(): MdastNode {
-  const value = `import Page from ${JSON.stringify(pageComponentExport)};`;
+function createPageImportNode(componentExport = pageComponentExport): MdastNode {
+  const value = `import Page from ${JSON.stringify(componentExport)};`;
   return {
     type: "mdxjsEsm",
     value,
@@ -171,11 +172,12 @@ export function remarkDeckupMdxPages(options: DeckupMdxPagesOptions = {}) {
     if (!deck) return;
 
     const themeName = options.themeForDeck?.(deck);
+    const pageComponent = options.pageComponentForDeck?.(deck);
     const esmNodes = tree.children.filter((child) => child.type === "mdxjsEsm");
     const renderableNodes = getRenderableMdxNodes(tree.children);
     const pages = resolveMdxPages(renderableNodes, deck.filePath);
     tree.children = [
-      createPageImportNode(),
+      createPageImportNode(pageComponent),
       ...esmNodes,
       ...pages.map((page) => createPageNode(page, themeName)),
     ];

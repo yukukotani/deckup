@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 
-import { createThemeLayoutDiscoveryCache, discoverThemeLayouts } from "../src/theme-layouts.ts";
+import {
+  createThemeLayoutDiscoveryCache,
+  createThemeLayoutsModuleId,
+  discoverThemeLayouts,
+  parseThemeLayoutsModuleId,
+} from "../src/theme-layouts.ts";
 
 async function withLayoutsDir(run: (layoutsDir: string) => Promise<void>) {
   const projectRoot = await mkdtemp(join(tmpdir(), "deckup-layouts-"));
@@ -102,4 +107,35 @@ test("createThemeLayoutDiscoveryCache invalidates after file addition", async ()
     expect(second).not.toBe(first);
     expect(second.map((layout) => layout.id)).toEqual(["cover", "two-column"]);
   });
+});
+
+test("createThemeLayoutDiscoveryCache retains entries for multiple themes", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-layout-cache-"));
+  try {
+    const firstDir = join(projectRoot, "first");
+    const secondDir = join(projectRoot, "second");
+    await mkdir(firstDir, { recursive: true });
+    await mkdir(secondDir, { recursive: true });
+    await writeLayout(firstDir, "cover.astro", "<slot />");
+    await writeLayout(secondDir, "cover.astro", "<slot />");
+    const discoverCached = createThemeLayoutDiscoveryCache();
+
+    const first = await discoverCached("first", firstDir);
+    await discoverCached("second", secondDir);
+    const firstAgain = await discoverCached("first", firstDir);
+
+    expect(firstAgain).toBe(first);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+test("theme layout module IDs round-trip encoded theme names", () => {
+  const id = createThemeLayoutsModuleId("npm:@scope/theme@1.0.0");
+
+  expect(parseThemeLayoutsModuleId(id)).toEqual({ themeName: "npm:@scope/theme@1.0.0" });
+  expect(parseThemeLayoutsModuleId(`\0${id}`)).toEqual({
+    themeName: "npm:@scope/theme@1.0.0",
+  });
+  expect(parseThemeLayoutsModuleId("virtual:deckup/theme-layouts?theme=%zz")).toBeUndefined();
 });

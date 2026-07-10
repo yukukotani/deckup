@@ -376,3 +376,30 @@ test("remarkDeckupMdxPages selects decks through a multi-deck registry", () => {
   expect(tree.children[1]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
   expect(tree.children[2]).toMatchObject({ type: "mdxJsxFlowElement", name: "Page" });
 });
+
+test("remarkDeckupMdxPages selects a deck-specific Page component", () => {
+  const deck = {
+    filePath: "/project/src/slides/talk.mdx",
+    projectRelativePath: "src/slides/talk.mdx",
+    format: "mdx" as const,
+    sourceGlob: "src/slides/*.mdx",
+    globBase: "src/slides",
+    slug: "talk",
+    routePath: "/slides/talk",
+    routeId: "slides_talk",
+    virtualDeckModuleId: "virtual:deckup/decks/slides_talk",
+    virtualRouteModuleId: "virtual:deckup/routes/slides_talk.astro",
+  };
+  const registry = createDeckRegistry("/project", "/slides", [deck]);
+  const tree = { children: [{ type: "heading" }] };
+
+  remarkDeckupMdxPages({
+    registry,
+    pageComponentForDeck: () => "/@fs/project/.deckup/Page.minimal.astro",
+  })(tree, { path: deck.filePath });
+
+  expect(tree.children[0]).toMatchObject({
+    type: "mdxjsEsm",
+    value: 'import Page from "/@fs/project/.deckup/Page.minimal.astro";',
+  });
+});
