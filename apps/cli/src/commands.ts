@@ -299,9 +299,15 @@ export async function runDeckup(argv = process.argv.slice(2)) {
   return await cli(argv, entryCommand, {
     name: "deckup",
     version: VERSION,
+    renderHeader: null,
     subCommands: {
       open: openCommand,
       build: buildCommand,
+    },
+    onAfterCommand(ctx, result) {
+      if (result && !ctx.values.help && !ctx.values.version) {
+        console.log(result);
+      }
     },
   });
 }

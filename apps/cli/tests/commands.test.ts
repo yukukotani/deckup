@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +25,16 @@ test("VERSION matches the package.json version", () => {
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
   ) as { version: string };
   expect(VERSION).toBe(packageJson.version);
+});
+
+test("CLI prints headerless help exactly once", () => {
+  const cliFile = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
+  const output = execFileSync(process.execPath, ["--conditions=development", cliFile, "--help"], {
+    encoding: "utf8",
+  });
+
+  expect(output.match(/^USAGE:$/gm)).toHaveLength(1);
+  expect(output).not.toMatch(/^deckup \(deckup v[^)]+\)$/m);
 });
 
 test("normalizeLogLevel accepts known Astro log levels", () => {
