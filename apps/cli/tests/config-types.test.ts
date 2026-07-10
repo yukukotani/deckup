@@ -2,10 +2,13 @@ import { expect, test } from "vite-plus/test";
 
 import {
   defineConfig,
+  exportDeckPng,
   type DeckupBuildCommandOptions,
   type DeckupRuntimePaths,
   type DeckupConfig,
   type DeckupOutputFormat,
+  type DeckupPngExportOptions,
+  type DeckupPngExportResult,
   type DeckupResolvedTheme,
   type DeckupResolvedThemeLayout,
 } from "../src/index.ts";
@@ -72,6 +75,9 @@ expect(publicRuntimePaths.generatedPageFilePath).toContain("generated/Page.astro
 const publicOutputFormat: DeckupOutputFormat = "pdf";
 expect(publicOutputFormat).toBe("pdf");
 
+const publicPngOutputFormat: DeckupOutputFormat = "png";
+expect(publicPngOutputFormat).toBe("png");
+
 const publicBuildCommandOptions: DeckupBuildCommandOptions = {
   deckFile: "slides/deck.mdx",
   format: publicOutputFormat,
@@ -81,6 +87,25 @@ const publicBuildCommandOptions: DeckupBuildCommandOptions = {
   logLevel: "info",
 };
 expect(publicBuildCommandOptions.format).toBe("pdf");
+
+const publicPngExportOptions: DeckupPngExportOptions = {
+  deckFile: "slides/deck.mdx",
+  outDir: "dist",
+  out: "deck-images",
+  slides: "1,3-5",
+  browserExecutablePath: "/browser/chromium",
+};
+expect(publicPngExportOptions.slides).toBe("1,3-5");
+
+const publicPngExportResult: DeckupPngExportResult = {
+  outDir: "/project/dist",
+  htmlFile: "/project/dist/index.html",
+  pngDir: "/project/deck-images",
+  pngFiles: ["/project/deck-images/slide-001.png"],
+  url: "http://127.0.0.1:4321/",
+};
+expect(publicPngExportResult.pngFiles).toHaveLength(1);
+expect(typeof exportDeckPng).toBe("function");
 
 expect("resolveDeckupTheme" in deckup).toBe(false);
 // @ts-expect-error resolveDeckupTheme was intentionally removed; use resolveDeckupThemeLayouts

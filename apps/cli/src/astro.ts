@@ -2,6 +2,8 @@ import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import {
   VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
+  countAstroDeckPages,
+  countMdxDeckPages,
   createGeneratedPageComponentSource,
   createSingleDeckRegistry,
   remarkDeckupMdxPages,
@@ -15,7 +17,7 @@ import {
 } from "@deckup/core";
 import { build, dev, type AstroInlineConfig } from "astro";
 import { createReadStream } from "node:fs";
-import { mkdir, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
@@ -24,13 +26,24 @@ import { resolveChromiumExecutablePath } from "./browser.ts";
 import { loadDeckupConfig, resolveDeckupConfig } from "./config.ts";
 import { resolveProjectRoot, resolveRuntimeSourceDir } from "./runtime.ts";
 import { createDeckupCliIntegration } from "./integration.ts";
+import {
+  PNG_SLIDE_HEIGHT,
+  PNG_SLIDE_WIDTH,
+  assertSafePngOutputDirectory,
+  normalizePngOutputDir,
+  parsePngSlideSelection,
+  resolvePngFiles,
+} from "./png.ts";
 import type {
+  DeckupBrowserOptions,
   DeckupBuildOptions,
   DeckupConfig,
   DeckupDevOptions,
   DeckupDevResult,
   DeckupExportOptions,
   DeckupExportResult,
+  DeckupPngExportOptions,
+  DeckupPngExportResult,
   DeckupResolvedConfig,
 } from "./types.ts";
 
@@ -44,6 +57,66 @@ export const DEFAULT_EXPORT_SEARCH_VALUE = "pdf";
 export const PDF_SLIDE_WIDTH = "16in";
 export const PDF_SLIDE_HEIGHT = "9in";
 const DEFAULT_CODE_HIGHLIGHT_THEME = "github-dark";
+
+const pngSlideSelector = "[data-deckup-slide]";
+const pngCaptureStyle = `
+[data-deckup-shell] {
+  width: ${PNG_SLIDE_WIDTH}px !important;
+  height: ${PNG_SLIDE_HEIGHT}px !important;
+  border: 0 !important;
+}
+[data-deckup-navigation] {
+  display: none !important;
+}
+`;
+
+/** @internal Test seam; not exported from the package index. */
+export interface DeckupPngLocator {
+  nth(index: number): DeckupPngLocator;
+  boundingBox(): Promise<{ width: number; height: number } | null>;
+  screenshot(options: {
+    path: string;
+    type: "png";
+    animations: "disabled";
+    caret: "hide";
+    scale: "css";
+  }): Promise<Buffer>;
+}
+
+/** @internal Test seam; not exported from the package index. */
+export interface DeckupPngPage {
+  goto(url: string, options: { waitUntil: "networkidle" }): Promise<unknown>;
+  addStyleTag(options: { content: string }): Promise<unknown>;
+  evaluate<Result, Argument>(
+    pageFunction: (argument: Argument) => Result | Promise<Result>,
+    argument: Argument,
+  ): Promise<Result>;
+  waitForFunction<Argument>(
+    pageFunction: (argument: Argument) => boolean,
+    argument: Argument,
+    options: { polling: "raf" },
+  ): Promise<unknown>;
+  locator(selector: string): DeckupPngLocator;
+}
+
+/** @internal Test seam; not exported from the package index. */
+export interface DeckupPngBrowser {
+  newPage(options: {
+    viewport: { width: number; height: number };
+    deviceScaleFactor: number;
+  }): Promise<DeckupPngPage>;
+  close(): Promise<void>;
+}
+
+/** @internal Test seam; not exported from the package index. */
+export interface DeckupPngExportOperations {
+  createDeckupAstroConfig: typeof createDeckupAstroConfig;
+  build: typeof build;
+  readDeckSource(filePath: string): Promise<string>;
+  removePngOutputDirectory(outputDir: string): Promise<void>;
+  serveStaticExportOutDir(outDir: string): Promise<{ url: string; close(): Promise<void> }>;
+  launchBrowser(options: DeckupBrowserOptions): Promise<DeckupPngBrowser>;
+}
 
 type DeckupMarkdownConfig = NonNullable<AstroInlineConfig["markdown"]>;
 
@@ -487,4 +560,174 @@ export async function exportDeck(options: DeckupExportOptions = {}): Promise<Dec
   }
 
   return { outDir, htmlFile, pdfFile, url: url.href };
+}
+
+function countPngDeckPages(deck: DeckupResolvedDeck, source: string) {
+  return deck.format === "astro"
+    ? countAstroDeckPages(source, deck.filePath)
+    : countMdxDeckPages(source);
+}
+
+function assertPngSlideDimensions(
+  slideNumber: number,
+  box: { width: number; height: number } | null,
+) {
+  if (box?.width !== PNG_SLIDE_WIDTH || box.height !== PNG_SLIDE_HEIGHT) {
+    const actual = box ? `${box.width}x${box.height}` : "missing";
+    throw new Error(
+      `Deckup PNG slide ${slideNumber} must render at ${PNG_SLIDE_WIDTH}x${PNG_SLIDE_HEIGHT}; received ${actual}.`,
+    );
+  }
+}
+
+async function capturePngSlide(page: DeckupPngPage, slideNumber: number, pngFile: string) {
+  await page.evaluate((nextSlideNumber) => {
+    const nextHash = `#${nextSlideNumber}`;
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, slideNumber);
+
+  await page.waitForFunction(
+    (nextSlideNumber) => {
+      const slides = Array.from(document.querySelectorAll<HTMLElement>("[data-deckup-slide]"));
+      const activeSlides = slides.filter((slide) => slide.hasAttribute("data-active"));
+      const target = slides[nextSlideNumber - 1];
+      return (
+        window.location.hash === `#${nextSlideNumber}` &&
+        activeSlides.length === 1 &&
+        activeSlides[0] === target &&
+        target?.hidden === false &&
+        target.getAttribute("aria-hidden") === "false"
+      );
+    },
+    slideNumber,
+    { polling: "raf" },
+  );
+  await page.waitForFunction(
+    (nextSlideNumber) => {
+      const target =
+        document.querySelectorAll<HTMLElement>("[data-deckup-slide]")[nextSlideNumber - 1];
+      if (!target) return false;
+      const imagesReady = Array.from(target.querySelectorAll<HTMLImageElement>("img")).every(
+        (image) => image.complete && image.naturalWidth > 0,
+      );
+      const mediaReady = Array.from(
+        target.querySelectorAll<HTMLMediaElement>("video, audio"),
+      ).every((media) => media.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA);
+      return imagesReady && mediaReady;
+    },
+    slideNumber,
+    { polling: "raf" },
+  );
+  await page.evaluate(async () => {
+    await document.fonts?.ready;
+    await new Promise<void>((resolvePaint) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolvePaint()));
+    });
+  }, undefined);
+
+  const slide = page.locator(pngSlideSelector).nth(slideNumber - 1);
+  assertPngSlideDimensions(slideNumber, await slide.boundingBox());
+  await slide.screenshot({
+    path: pngFile,
+    type: "png",
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+}
+
+const defaultPngExportOperations: DeckupPngExportOperations = {
+  createDeckupAstroConfig,
+  build,
+  readDeckSource: (filePath) => readFile(filePath, "utf8"),
+  removePngOutputDirectory: (outputDir) => rm(outputDir, { force: true, recursive: true }),
+  serveStaticExportOutDir,
+  async launchBrowser(options) {
+    const { chromium } = await import("playwright-core");
+    return (await chromium.launch({
+      executablePath: await resolveChromiumExecutablePath({
+        executablePath: options.browserExecutablePath,
+        cacheDir: options.browserCacheDir,
+      }),
+      headless: true,
+    })) as unknown as DeckupPngBrowser;
+  },
+};
+
+/** @internal Exported for deterministic lifecycle tests; package consumers use exportDeckPng(). */
+export async function exportDeckPngWithOperations(
+  options: DeckupPngExportOptions,
+  operations: DeckupPngExportOperations,
+): Promise<DeckupPngExportResult> {
+  const { astroConfig, deck, paths } = await operations.createDeckupAstroConfig(options);
+  if (!deck) {
+    throw new Error("Missing resolved Deckup deck for PNG export.");
+  }
+
+  const source = await operations.readDeckSource(deck.filePath);
+  const slideNumbers = parsePngSlideSelection(options.slides, countPngDeckPages(deck, source));
+  const outDir = normalizeBuildOutDir(paths.projectRoot, options.outDir);
+  const htmlFile = join(outDir, "index.html");
+  const pngDir = normalizePngOutputDir(paths.projectRoot, deck, options.out);
+  const pngFiles = resolvePngFiles(pngDir, slideNumbers);
+  await assertSafePngOutputDirectory({
+    projectRoot: paths.projectRoot,
+    deckFile: deck.filePath,
+    stagingDir: outDir,
+    outputDir: pngDir,
+  });
+
+  await operations.build(astroConfig);
+  await assertSafePngOutputDirectory({
+    projectRoot: paths.projectRoot,
+    deckFile: deck.filePath,
+    stagingDir: outDir,
+    outputDir: pngDir,
+  });
+  await operations.removePngOutputDirectory(pngDir);
+
+  try {
+    await mkdir(pngDir, { recursive: true });
+    const staticServer = await operations.serveStaticExportOutDir(outDir);
+    const url = new URL(staticServer.url);
+
+    try {
+      const browser = await operations.launchBrowser(options);
+      try {
+        const page = await browser.newPage({
+          viewport: { width: PNG_SLIDE_WIDTH, height: PNG_SLIDE_HEIGHT },
+          deviceScaleFactor: 1,
+        });
+        await page.goto(url.href, { waitUntil: "networkidle" });
+        await page.addStyleTag({ content: pngCaptureStyle });
+        for (const [index, slideNumber] of slideNumbers.entries()) {
+          await capturePngSlide(page, slideNumber, pngFiles[index]);
+        }
+      } finally {
+        await browser.close();
+      }
+    } finally {
+      await staticServer.close();
+    }
+
+    return { outDir, htmlFile, pngDir, pngFiles, url: url.href };
+  } catch (error) {
+    try {
+      await operations.removePngOutputDirectory(pngDir);
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        `Deckup PNG export failed and could not clean partial output: ${pngDir}`,
+      );
+    }
+    throw error;
+  }
+}
+
+export async function exportDeckPng(
+  options: DeckupPngExportOptions = {},
+): Promise<DeckupPngExportResult> {
+  return exportDeckPngWithOperations(options, defaultPngExportOperations);
 }

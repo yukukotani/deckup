@@ -9,8 +9,9 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inflateSync } from "node:zlib";
 import { expect, test } from "vite-plus/test";
 
 import {
@@ -18,8 +19,11 @@ import {
   createAstroInlineConfig,
   DEFAULT_BUILD_OUT_DIR,
   exportDeck,
+  exportDeckPng,
+  exportDeckPngWithOperations,
   normalizeBuildOutDir,
   normalizeExportOutFile,
+  type DeckupPngExportOperations,
 } from "../src/astro.ts";
 import {
   pathExists,
@@ -27,6 +31,215 @@ import {
   resolveProjectRoot,
   resolveRuntimeSourceDir,
 } from "../src/runtime.ts";
+
+function paethPredictor(left: number, above: number, upperLeft: number) {
+  const prediction = left + above - upperLeft;
+  const leftDistance = Math.abs(prediction - left);
+  const aboveDistance = Math.abs(prediction - above);
+  const upperLeftDistance = Math.abs(prediction - upperLeft);
+  if (leftDistance <= aboveDistance && leftDistance <= upperLeftDistance) return left;
+  return aboveDistance <= upperLeftDistance ? above : upperLeft;
+}
+
+function decodePng(buffer: Buffer) {
+  expect(buffer.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  let interlace = 0;
+  const imageData: Buffer[] = [];
+
+  for (let offset = 8; offset < buffer.length; ) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+      interlace = data[12];
+    } else if (type === "IDAT") {
+      imageData.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+    offset += length + 12;
+  }
+
+  if (bitDepth !== 8 || (colorType !== 2 && colorType !== 6) || interlace !== 0) {
+    throw new Error(
+      `Unsupported test PNG format: depth=${bitDepth}, color=${colorType}, interlace=${interlace}`,
+    );
+  }
+  const channels = colorType === 6 ? 4 : 3;
+  const stride = width * channels;
+  const inflated = inflateSync(Buffer.concat(imageData));
+  const pixels = Buffer.alloc(stride * height);
+  let sourceOffset = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = inflated[sourceOffset];
+    sourceOffset += 1;
+    const rowOffset = y * stride;
+    for (let x = 0; x < stride; x += 1) {
+      const raw = inflated[sourceOffset];
+      sourceOffset += 1;
+      const left = x >= channels ? pixels[rowOffset + x - channels] : 0;
+      const above = y > 0 ? pixels[rowOffset - stride + x] : 0;
+      const upperLeft = y > 0 && x >= channels ? pixels[rowOffset - stride + x - channels] : 0;
+      const predictor =
+        filter === 0
+          ? 0
+          : filter === 1
+            ? left
+            : filter === 2
+              ? above
+              : filter === 3
+                ? Math.floor((left + above) / 2)
+                : filter === 4
+                  ? paethPredictor(left, above, upperLeft)
+                  : undefined;
+      if (predictor === undefined) throw new Error(`Unsupported PNG filter: ${filter}`);
+      pixels[rowOffset + x] = (raw + predictor) & 0xff;
+    }
+  }
+
+  return {
+    width,
+    height,
+    pixel(x: number, y: number) {
+      const offset = y * stride + x * channels;
+      return [
+        pixels[offset],
+        pixels[offset + 1],
+        pixels[offset + 2],
+        channels === 4 ? pixels[offset + 3] : 255,
+      ];
+    },
+  };
+}
+
+function createSilentWavDataUrl() {
+  const sampleRate = 8_000;
+  const sampleCount = 800;
+  const bytesPerSample = 2;
+  const dataSize = sampleCount * bytesPerSample;
+  const wav = Buffer.alloc(44 + dataSize);
+  wav.write("RIFF", 0, "ascii");
+  wav.writeUInt32LE(36 + dataSize, 4);
+  wav.write("WAVE", 8, "ascii");
+  wav.write("fmt ", 12, "ascii");
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * bytesPerSample, 28);
+  wav.writeUInt16LE(bytesPerSample, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36, "ascii");
+  wav.writeUInt32LE(dataSize, 40);
+  return `data:audio/wav;base64,${wav.toString("base64")}`;
+}
+
+type PngOperationState = {
+  builds: number;
+  launches: number;
+  pages: number;
+  browserCloses: number;
+  serverCloses: number;
+  screenshots: string[];
+  selectedSlides: number[];
+};
+
+function createPngOperations(
+  fixture: { projectRoot: string; deckFile: string },
+  source: string,
+  failAtScreenshot?: number,
+) {
+  const state: PngOperationState = {
+    builds: 0,
+    launches: 0,
+    pages: 0,
+    browserCloses: 0,
+    serverCloses: 0,
+    screenshots: [],
+    selectedSlides: [],
+  };
+  const createLocator = (slideIndex = 0) => ({
+    nth(index: number) {
+      return createLocator(index);
+    },
+    async boundingBox() {
+      return { width: 1600, height: 900 };
+    },
+    async screenshot(options: { path: string }) {
+      state.screenshots.push(options.path);
+      await writeFile(options.path, `slide:${slideIndex + 1}`);
+      if (state.screenshots.length === failAtScreenshot) {
+        throw new Error("capture failed");
+      }
+      return Buffer.from("png");
+    },
+  });
+  const operations = {
+    async createDeckupAstroConfig() {
+      return {
+        paths: {
+          projectRoot: fixture.projectRoot,
+          runtimeSourceDir: join(fixture.projectRoot, "runtime"),
+          runtimeOutDir: join(fixture.projectRoot, ".deckup"),
+        },
+        deck: {
+          filePath: fixture.deckFile,
+          projectRelativePath: "slides/deck.astro",
+          format: "astro" as const,
+        },
+        astroConfig: {} as never,
+      };
+    },
+    async build() {
+      state.builds += 1;
+    },
+    async readDeckSource() {
+      return source;
+    },
+    async removePngOutputDirectory(outputDir: string) {
+      await rm(outputDir, { force: true, recursive: true });
+    },
+    async serveStaticExportOutDir() {
+      return {
+        url: "http://127.0.0.1:4321/",
+        async close() {
+          state.serverCloses += 1;
+        },
+      };
+    },
+    async launchBrowser() {
+      state.launches += 1;
+      return {
+        async newPage() {
+          state.pages += 1;
+          return {
+            async goto() {},
+            async addStyleTag() {},
+            async evaluate(_pageFunction: unknown, argument: unknown) {
+              if (typeof argument === "number") state.selectedSlides.push(argument);
+            },
+            async waitForFunction() {},
+            locator() {
+              return createLocator();
+            },
+          };
+        },
+        async close() {
+          state.browserCloses += 1;
+        },
+      };
+    },
+  } as unknown as DeckupPngExportOperations;
+  return { operations, state };
+}
 
 const cliPackageRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -801,6 +1014,288 @@ import Page from "@deckup/astro/page";
     );
   });
 });
+
+test("exportDeckPng builds once and reuses one browser and page for ordered selected slides", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    const deckFile = join(projectRoot, "slides", "deck.astro");
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(deckFile, "<Page /><Page /><Page /><Page />\n");
+    const { operations, state } = createPngOperations(
+      { projectRoot, deckFile },
+      "<Page /><Page /><Page /><Page />\n",
+    );
+    const result = await exportDeckPngWithOperations(
+      { root: projectRoot, deckFile: "slides/deck.astro", out: "images", slides: "3,1,3-4" },
+      operations,
+    );
+    expect(state).toMatchObject({
+      builds: 1,
+      launches: 1,
+      pages: 1,
+      browserCloses: 1,
+      serverCloses: 1,
+      selectedSlides: [1, 3, 4],
+    });
+    expect(result.pngFiles.map((file) => basename(file))).toEqual([
+      "slide-001.png",
+      "slide-003.png",
+      "slide-004.png",
+    ]);
+    expect(state.screenshots).toEqual(result.pngFiles);
+  });
+});
+
+test("exportDeckPng validates the complete selection before build or output cleanup", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    const deckFile = join(projectRoot, "slides", "deck.astro");
+    const pngDir = join(projectRoot, "images");
+    const sentinel = join(pngDir, "sentinel.txt");
+    await mkdir(join(projectRoot, "slides"));
+    await mkdir(pngDir);
+    await writeFile(deckFile, "<Page /><Page />\n");
+    await writeFile(sentinel, "keep");
+    const { operations, state } = createPngOperations(
+      { projectRoot, deckFile },
+      "<Page /><Page />\n",
+    );
+    await expect(
+      exportDeckPngWithOperations(
+        { root: projectRoot, deckFile: "slides/deck.astro", out: "images", slides: "0,99" },
+        operations,
+      ),
+    ).rejects.toThrow(/slide selection/);
+    expect(state.builds).toBe(0);
+    await expect(readFile(sentinel, "utf8")).resolves.toBe("keep");
+  });
+});
+
+test("exportDeckPng revalidates a symlinked output immediately before deletion", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    const deckFile = join(projectRoot, "slides", "deck.astro");
+    const externalRoot = await mkdtemp(join(tmpdir(), "deckup-png-race-"));
+    const safeTarget = join(externalRoot, "safe-target");
+    const outputLink = join(externalRoot, "output-link");
+    const projectSentinel = join(projectRoot, "sentinel.txt");
+    await mkdir(join(projectRoot, "slides"));
+    await mkdir(safeTarget);
+    await writeFile(deckFile, "<Page />\n");
+    await writeFile(projectSentinel, "keep");
+    await symlink(safeTarget, outputLink, "dir");
+    const { operations, state } = createPngOperations({ projectRoot, deckFile }, "<Page />\n");
+    operations.build = async () => {
+      state.builds += 1;
+      await rm(outputLink, { force: true, recursive: true });
+      await symlink(projectRoot, outputLink, "dir");
+    };
+
+    try {
+      await expect(
+        exportDeckPngWithOperations(
+          { root: projectRoot, deckFile: "slides/deck.astro", out: outputLink },
+          operations,
+        ),
+      ).rejects.toThrow(/project root/);
+      expect(state).toMatchObject({ builds: 1, launches: 0, pages: 0 });
+      await expect(readFile(projectSentinel, "utf8")).resolves.toBe("keep");
+    } finally {
+      await rm(externalRoot, { force: true, recursive: true });
+    }
+  });
+});
+
+test("exportDeckPng removes partial output and closes browser and server after capture failure", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    const deckFile = join(projectRoot, "slides", "deck.astro");
+    const pngDir = join(projectRoot, "images");
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(deckFile, "<Page /><Page />\n");
+    const { operations, state } = createPngOperations(
+      { projectRoot, deckFile },
+      "<Page /><Page />\n",
+      2,
+    );
+    await expect(
+      exportDeckPngWithOperations(
+        { root: projectRoot, deckFile: "slides/deck.astro", out: "images" },
+        operations,
+      ),
+    ).rejects.toThrow(/capture failed/);
+    expect(state).toMatchObject({ browserCloses: 1, serverCloses: 1 });
+    await expect(pathExists(pngDir)).resolves.toBe(false);
+  });
+});
+
+test("exportDeckPng reports both capture and partial-output cleanup failures", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    const deckFile = join(projectRoot, "slides", "deck.astro");
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(deckFile, "<Page />\n");
+    const { operations, state } = createPngOperations({ projectRoot, deckFile }, "<Page />\n", 1);
+    let removeCalls = 0;
+    operations.removePngOutputDirectory = async (outputDir) => {
+      removeCalls += 1;
+      if (removeCalls === 2) throw new Error("cleanup failed");
+      await rm(outputDir, { force: true, recursive: true });
+    };
+
+    let receivedError: unknown;
+    try {
+      await exportDeckPngWithOperations(
+        { root: projectRoot, deckFile: "slides/deck.astro", out: "images" },
+        operations,
+      );
+    } catch (error) {
+      receivedError = error;
+    }
+    expect(receivedError).toBeInstanceOf(AggregateError);
+    expect((receivedError as AggregateError).errors).toEqual([
+      expect.objectContaining({ message: "capture failed" }),
+      expect.objectContaining({ message: "cleanup failed" }),
+    ]);
+    expect(state).toMatchObject({ browserCloses: 1, serverCloses: 1 });
+  });
+});
+
+test("exportDeckPng writes all and selected slides as 1600x900 slide-only PNGs", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="First" class="png-first"><h1>PNG FIRST</h1></Page>
+<Page title="Second" class="png-second">
+  <style is:global>
+    body { background: #ff0000 !important; }
+    .deckup-shell { border: 10px solid #00ff00 !important; }
+    .deckup-navigation { width: 100vw; height: 200px; bottom: 0; background: #ff00ff !important; }
+    .png-first { background: #abcdef !important; }
+    .png-second { background: #123456 !important; }
+  </style>
+  <h1>PNG SECOND</h1>
+</Page>
+`,
+    );
+    const browserExecutablePath = await localBrowserExecutablePath();
+    const resolvedProjectRoot = await realpath(projectRoot);
+    const allPngDir = join(resolvedProjectRoot, "images-all");
+    await mkdir(allPngDir);
+    await writeFile(join(allPngDir, "sentinel.txt"), "remove");
+    const allResult = await exportDeckPng({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      out: "images-all",
+      browserExecutablePath,
+      logLevel: "silent",
+    });
+    expect(allResult.pngFiles).toEqual([
+      join(allPngDir, "slide-001.png"),
+      join(allPngDir, "slide-002.png"),
+    ]);
+    expect((await readdir(allPngDir)).sort()).toEqual(["slide-001.png", "slide-002.png"]);
+
+    const selectedPngDir = join(resolvedProjectRoot, "images-selected");
+    const selectedResult = await exportDeckPng({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      out: "images-selected",
+      slides: "2",
+      browserExecutablePath,
+      logLevel: "silent",
+    });
+    expect(selectedResult.pngFiles).toEqual([join(selectedPngDir, "slide-002.png")]);
+    expect(await readdir(selectedPngDir)).toEqual(["slide-002.png"]);
+
+    for (const pngFile of [allResult.pngFiles[1], selectedResult.pngFiles[0]]) {
+      const image = decodePng(await readFile(pngFile));
+      expect([image.width, image.height]).toEqual([1600, 900]);
+      expect(image.pixel(0, 0)).toEqual([0x12, 0x34, 0x56, 0xff]);
+      expect(image.pixel(1599, 899)).toEqual([0x12, 0x34, 0x56, 0xff]);
+      expect(image.pixel(800, 850)).toEqual([0x12, 0x34, 0x56, 0xff]);
+    }
+    await expect(pathExists(join(projectRoot, "dist", "index.html"))).resolves.toBe(true);
+  });
+}, 120_000);
+
+test("exportDeckPng waits for active-slide image and media readiness before capture", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    const silentWavDataUrl = createSilentWavDataUrl();
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Initial"><h1>INITIAL</h1></Page>
+<Page title="Delayed image" class="png-delayed-image">
+  <style is:global>
+    .png-delayed-image { background: #ff0000 !important; }
+    #delayed-image { position: absolute; inset: 0; width: 1600px; height: 900px; }
+    .png-delayed-media { background: #ff0000 !important; }
+    #media-ready-indicator { position: absolute; inset: 0; background: #ff0000; }
+  </style>
+  <img id="delayed-image" alt="" />
+</Page>
+<Page title="Delayed media" class="png-delayed-media">
+  <audio id="delayed-media"></audio>
+  <div id="media-ready-indicator"></div>
+  <script is:inline>
+    const scheduledReadiness = new Set();
+    const scheduleReadiness = () => {
+      if (window.location.hash === "#2" && !scheduledReadiness.has("image")) {
+        scheduledReadiness.add("image");
+        window.setTimeout(() => {
+          const image = document.querySelector("#delayed-image");
+          if (image instanceof HTMLImageElement) {
+            image.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Crect width='1600' height='900' fill='%232468ac'/%3E%3C/svg%3E";
+          }
+        }, 250);
+      }
+      if (window.location.hash === "#3" && !scheduledReadiness.has("media")) {
+        scheduledReadiness.add("media");
+        window.setTimeout(() => {
+          const media = document.querySelector("#delayed-media");
+          const indicator = document.querySelector("#media-ready-indicator");
+          if (media instanceof HTMLMediaElement && indicator instanceof HTMLElement) {
+            media.addEventListener("loadeddata", () => {
+              indicator.style.background = "#357a38";
+            }, { once: true });
+            media.src = ${JSON.stringify(silentWavDataUrl)};
+            media.load();
+          }
+        }, 250);
+      }
+    };
+    window.addEventListener("hashchange", scheduleReadiness);
+    scheduleReadiness();
+  </script>
+</Page>
+`,
+    );
+
+    const result = await exportDeckPng({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      out: "readiness-images",
+      slides: "2,3",
+      browserExecutablePath: await localBrowserExecutablePath(),
+      logLevel: "silent",
+    });
+
+    const imageSlide = decodePng(await readFile(result.pngFiles[0]));
+    expect(imageSlide.pixel(800, 450)).toEqual([0x24, 0x68, 0xac, 0xff]);
+    const mediaSlide = decodePng(await readFile(result.pngFiles[1]));
+    expect(mediaSlide.pixel(800, 450)).toEqual([0x35, 0x7a, 0x38, 0xff]);
+  });
+}, 120_000);
 
 test("exportDeck builds a deck and writes a PDF", async () => {
   await withProjectRoot(async (projectRoot) => {

@@ -47,6 +47,7 @@ export {
   DEFAULT_EXPORT_SEARCH_PARAM,
   DEFAULT_EXPORT_SEARCH_VALUE,
   exportDeck,
+  exportDeckPng,
   normalizeBuildOutDir,
   normalizeExportOutFile,
   startDevServer,
@@ -93,6 +94,7 @@ export type {
 export type {
   DeckupAstroConfig,
   DeckupBaseOptions,
+  DeckupBrowserOptions,
   DeckupBuildCommandOptions,
   DeckupBuildOptions,
   DeckupConfig,
@@ -103,5 +105,7 @@ export type {
   DeckupLoadedConfig,
   DeckupLogLevel,
   DeckupOutputFormat,
+  DeckupPngExportOptions,
+  DeckupPngExportResult,
   DeckupResolvedConfig,
 } from "./types.ts";

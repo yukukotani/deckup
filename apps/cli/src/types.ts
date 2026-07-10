@@ -22,7 +22,7 @@ export type DeckupAstroConfig = Omit<
   AstroInlineConfig,
   "root" | "srcDir" | "configFile" | "output" | "server" | "outDir" | "logLevel" | "devToolbar"
 >;
-export type DeckupOutputFormat = "html" | "pdf";
+export type DeckupOutputFormat = "html" | "pdf" | "png";
 
 export interface DeckupConfig {
   port?: number;
@@ -51,21 +51,38 @@ export interface DeckupBuildOptions extends DeckupBaseOptions {
   outDir?: string;
 }
 
-export interface DeckupExportOptions extends DeckupBuildOptions {
-  out?: string;
+export interface DeckupBrowserOptions {
   browserExecutablePath?: string;
   browserCacheDir?: string;
+}
+
+export interface DeckupExportOptions extends DeckupBuildOptions, DeckupBrowserOptions {
+  out?: string;
+}
+
+export interface DeckupPngExportOptions extends DeckupBuildOptions, DeckupBrowserOptions {
+  out?: string;
+  slides?: string;
 }
 
 export interface DeckupBuildCommandOptions extends DeckupExportOptions {
   format: DeckupOutputFormat;
   force: boolean;
+  slides?: string;
 }
 
 export interface DeckupExportResult {
   outDir: string;
   htmlFile: string;
   pdfFile: string;
+  url: string;
+}
+
+export interface DeckupPngExportResult {
+  outDir: string;
+  htmlFile: string;
+  pngDir: string;
+  pngFiles: string[];
   url: string;
 }
 

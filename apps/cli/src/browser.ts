@@ -83,7 +83,7 @@ export async function resolveChromiumExecutablePath(options: DeckupChromiumOptio
 
   const platform = detectBrowserPlatform();
   if (!platform) {
-    throw new Error("Unsupported platform for Deckup PDF export Chromium download.");
+    throw new Error("Unsupported platform for Deckup browser export Chromium download.");
   }
 
   const cacheDir = resolveBrowserCacheDir(options.cacheDir);
@@ -101,7 +101,7 @@ export async function resolveChromiumExecutablePath(options: DeckupChromiumOptio
 
   if (!(await pathExists(executablePath))) {
     throw new Error(
-      `Downloaded Deckup PDF export Chromium executable is missing: ${executablePath}`,
+      `Downloaded Deckup browser export Chromium executable is missing: ${executablePath}`,
     );
   }
 

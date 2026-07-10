@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Install Deckup from npm, create a small deck, preview it locally, build static HTML, and export a PDF.
+description: Install Deckup, author and preview a deck, build HTML/PDF, and render slide PNGs for visual review.
 ---
 
 # Quickstart
@@ -75,6 +75,27 @@ Use `--out` to choose a different directory:
 ```bash
 npx deckup build slides/deck.mdx --format html --out public-deck
 ```
+
+## Render PNGs for visual review
+
+Render every slide as a fixed 1600×900 PNG:
+
+```bash
+npx deckup build slides/deck.mdx --format png
+```
+
+The default PNG output directory is also `deck/`.
+A successful PNG build prints absolute image paths such as `/path/to/project/deck/slide-001.png`, one per line, and the files contain only the slide body without the viewer navigation or border.
+Use `--slides` for one-based numbers, comma-separated lists, and inclusive ranges, and use `--out` to choose a directory:
+
+```bash
+npx deckup build slides/deck.mdx --format png --slides 1,3-5 --out /tmp/deckup-png
+```
+
+Deckup de-duplicates the selection and renders it in deck order.
+It validates the complete selection and rejects dangerous output paths before changing the PNG directory.
+After a valid build, it replaces the chosen directory in full, so do not point `--out` at a directory containing files you want to keep.
+`--force` is unnecessary for PNG and has no effect.
 
 ## Export a PDF
 

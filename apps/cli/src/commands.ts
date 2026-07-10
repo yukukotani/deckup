@@ -13,6 +13,7 @@ import {
   DEFAULT_BUILD_OUT_DIR,
   DEFAULT_DEV_HOST,
   exportDeck,
+  exportDeckPng,
   normalizeExportOutFile,
   startDevServer,
 } from "./astro.ts";
@@ -50,10 +51,14 @@ const logLevels = [
 
 type CommandValues = Record<string, unknown>;
 
-const buildOutputFormats = ["html", "pdf"] as const satisfies readonly DeckupOutputFormat[];
+const buildOutputFormats = ["html", "pdf", "png"] as const satisfies readonly DeckupOutputFormat[];
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function optionalStringValue(value: unknown) {
+  return typeof value === "string" ? value : undefined;
 }
 
 function numberValue(value: unknown) {
@@ -110,13 +115,18 @@ export function normalizeBuildValues(values: CommandValues): DeckupBuildCommandO
   const format = normalizeBuildFormat(values.format);
   const output = stringValue(values.out);
   const deckFile = stringValue(values.deckFile);
+  const slides = optionalStringValue(values.slides);
+  if (slides !== undefined && format !== "png") {
+    throw new Error("Deckup build --slides is only supported with --format png.");
+  }
 
   return {
     deckFile,
     format,
     outDir: format === "html" ? (output ?? defaultHtmlOutDir(deckFile)) : DEFAULT_BUILD_OUT_DIR,
-    out: format === "pdf" ? output : undefined,
+    out: format === "pdf" || format === "png" ? output : undefined,
     force: booleanValue(values.force) ?? false,
+    slides,
     logLevel: normalizeLogLevel(values.logLevel),
   };
 }
@@ -167,6 +177,44 @@ async function assertCanWriteExportTarget(options: DeckupBuildCommandOptions) {
   }
 }
 
+/** @internal Test seam; not exported from the package index. */
+export interface DeckupBuildCommandOperations {
+  buildDeck: typeof buildDeck;
+  exportDeck: typeof exportDeck;
+  exportDeckPng: typeof exportDeckPng;
+  assertCanWriteExportTarget: typeof assertCanWriteExportTarget;
+}
+
+const defaultBuildCommandOperations: DeckupBuildCommandOperations = {
+  buildDeck,
+  exportDeck,
+  exportDeckPng,
+  assertCanWriteExportTarget,
+};
+
+/** @internal Exported for deterministic command-dispatch tests. */
+export async function executeBuildCommand(
+  options: DeckupBuildCommandOptions,
+  operations: DeckupBuildCommandOperations = defaultBuildCommandOperations,
+) {
+  if (options.format === "html") {
+    const { force: _force, format: _format, out: _out, slides: _slides, ...buildOptions } = options;
+    await operations.buildDeck(buildOptions);
+    return `Deckup HTML deck built at ${buildOptions.outDir ?? DEFAULT_BUILD_OUT_DIR}`;
+  }
+
+  if (options.format === "png") {
+    const { force: _force, format: _format, ...pngOptions } = options;
+    const result = await operations.exportDeckPng({ ...pngOptions, logLevel: "silent" });
+    return result.pngFiles.join("\n");
+  }
+
+  await operations.assertCanWriteExportTarget(options);
+  const { force: _force, format: _format, slides: _slides, ...exportOptions } = options;
+  const result = await operations.exportDeck(exportOptions);
+  return `Deckup PDF deck built at ${result.pdfFile}`;
+}
+
 export const openCommand = define({
   name: "open",
   description: "Open the Deckup Astro preview server.",
@@ -202,7 +250,7 @@ export const openCommand = define({
 
 export const buildCommand = define({
   name: "build",
-  description: "Build the Deckup deck as PDF or static HTML/assets.",
+  description: "Build the Deckup deck as PNG images, PDF, or static HTML/assets.",
   args: {
     deckFile: {
       type: "positional",
@@ -212,33 +260,30 @@ export const buildCommand = define({
     format: {
       type: "string",
       default: "pdf",
-      description: "Output format: pdf or html.",
+      description: "Output format: png, pdf, or html.",
     },
     out: {
       type: "string",
-      description: "Output directory for html, or PDF output file for pdf.",
+      description: "Output directory for png/html, or PDF output file for pdf.",
+    },
+    slides: {
+      type: "string",
+      description: "PNG slide numbers and inclusive ranges, for example 1,3-5.",
     },
     force: {
       type: "boolean",
       short: "f",
       default: false,
-      description: "Overwrite an existing PDF without prompting.",
+      description: "Overwrite an existing PDF without prompting; ignored for html/png.",
     },
-    logLevel: { type: "string", default: "info", description: "Astro log level." },
+    logLevel: {
+      type: "string",
+      default: "info",
+      description: "Astro log level; PNG builds stay silent so stdout contains only image paths.",
+    },
   },
   async run(ctx) {
-    const options = normalizeBuildValues(ctx.values as CommandValues);
-
-    if (options.format === "html") {
-      const { force: _force, format: _format, out: _out, ...buildOptions } = options;
-      await buildDeck(buildOptions);
-      return `Deckup HTML deck built at ${buildOptions.outDir ?? DEFAULT_BUILD_OUT_DIR}`;
-    }
-
-    await assertCanWriteExportTarget(options);
-    const { force: _force, format: _format, ...exportOptions } = options;
-    const result = await exportDeck(exportOptions);
-    return `Deckup PDF deck built at ${result.pdfFile}`;
+    return executeBuildCommand(normalizeBuildValues(ctx.values as CommandValues));
   },
 });
 
@@ -246,7 +291,7 @@ export const entryCommand = define({
   name: "deckup",
   description: "Astro-based slide deck tool.",
   run() {
-    return "Run `deckup open <deck-file>` to preview slides, or `deckup build <deck-file>` to write a PDF by default. Use `deckup build <deck-file> --format html` for a static Web deck.";
+    return "Run `deckup open <deck-file>` to preview slides, or `deckup build <deck-file>` to write a PDF by default. Use `--format html` for a static Web deck or `--format png --slides 1,3-5` for PNG images.";
   },
 });
 
