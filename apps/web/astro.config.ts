@@ -28,6 +28,7 @@ export default defineConfig({
           items: [
             { label: "CLI", slug: "reference/cli" },
             { label: "Configuration", slug: "reference/config" },
+            { label: "Built-in Themes", slug: "reference/built-in-themes" },
             { label: "Themes", slug: "reference/themes" },
           ],
         },

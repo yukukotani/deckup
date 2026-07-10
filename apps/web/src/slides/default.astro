@@ -1,0 +1,56 @@
+---
+import Page from "@deckup/astro/page";
+const theme = "default";
+---
+
+<Page title="Built-in theme comparison">
+  <layout id="cover" />
+  <h1>Design for every story</h1>
+  <p>A seven-layout Deckup theme comparison</p>
+</Page>
+
+<Page title="Shape the narrative">
+  <layout id="section" />
+  <h1>Shape the narrative</h1>
+</Page>
+
+<Page title="One system, many voices">
+  <layout id="page" />
+  <h1>One system, many voices</h1>
+  <p>Deckup keeps the structure consistent while each theme sets a distinct tone.</p>
+  <ul>
+    <li>Astro-native authoring</li>
+    <li>Purpose-built layouts</li>
+    <li>Portable static output</li>
+  </ul>
+</Page>
+
+<Page title="Clarity in two columns">
+  <layout id="two-column" />
+  <h1>Clarity in two columns</h1>
+  <div slot="left">
+    <h2>Structure</h2>
+    <p>Use the same layout contract across every built-in theme.</p>
+  </div>
+  <div slot="right">
+    <h2>Expression</h2>
+    <p>Let typography, spacing, and color create a different voice.</p>
+  </div>
+</Page>
+
+<Page title="Seven shared layouts">
+  <layout id="number" />
+  <p>7</p>
+  <p>Shared layouts across every built-in theme</p>
+</Page>
+
+<Page title="Theme philosophy">
+  <layout id="quote" />
+  <p>A theme should support the story, not compete with it.</p>
+  <p>— Deckup</p>
+</Page>
+
+<Page title="Same structure, distinct character">
+  <layout id="statement" />
+  <p>Same structure.<br />Distinct character.</p>
+</Page>

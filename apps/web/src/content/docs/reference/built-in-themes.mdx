@@ -1,0 +1,87 @@
+---
+title: Built-in Themes
+description: Compare Deckup's built-in themes and open interactive decks rendered with every shared layout.
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+# Built-in Themes
+
+Deckup includes four first-party themes.
+Each preview is rendered from the same cover slide, and each linked deck contains the seven layouts shared by every built-in theme.
+
+<CardGrid>
+  <Card title="Default">
+    <a href="/slides/default" aria-label="Open the Default theme deck" style="display: block; text-decoration: none;">
+      <img
+        src="/images/themes/default.png"
+        alt="Default theme cover with a serif heading and circular ornament"
+        width="1600"
+        height="900"
+        decoding="async"
+        style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;"
+      />
+      <span style="display: inline-block; margin-top: 0.75rem;">Open interactive deck →</span>
+    </a>
+    <p>Serif headings, cool blue accents, and geometric details.</p>
+  </Card>
+
+<Card title="Minimal">
+  <a
+    href="/slides/minimal"
+    aria-label="Open the Minimal theme deck"
+    style="display: block; text-decoration: none;"
+  >
+    <img
+      src="/images/themes/minimal.png"
+      alt="Minimal theme cover with a monochrome centered heading"
+      width="1600"
+      height="900"
+      loading="lazy"
+      decoding="async"
+      style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;"
+    />
+    <span style="display: inline-block; margin-top: 0.75rem;">Open interactive deck →</span>
+  </a>
+  <p>Monochrome styling with a clear, document-like hierarchy.</p>
+</Card>
+
+<Card title="Google Basic">
+  <a
+    href="/slides/google-basic"
+    aria-label="Open the Google Basic theme deck"
+    style="display: block; text-decoration: none;"
+  >
+    <img
+      src="/images/themes/google-basic.png"
+      alt="Google Basic theme cover with white type on a blue background"
+      width="1600"
+      height="900"
+      loading="lazy"
+      decoding="async"
+      style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;"
+    />
+    <span style="display: inline-block; margin-top: 0.75rem;">Open interactive deck →</span>
+  </a>
+  <p>Bright blue surfaces with a clear structural hierarchy.</p>
+</Card>
+
+  <Card title="Apple Basic">
+    <a href="/slides/apple-basic" aria-label="Open the Apple Basic theme deck" style="display: block; text-decoration: none;">
+      <img
+        src="/images/themes/apple-basic.png"
+        alt="Apple Basic theme cover with large black type on white"
+        width="1600"
+        height="900"
+        loading="lazy"
+        decoding="async"
+        style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;"
+      />
+      <span style="display: inline-block; margin-top: 0.75rem;">Open interactive deck →</span>
+    </a>
+    <p>High-contrast composition led by large, confident typography.</p>
+  </Card>
+</CardGrid>
+
+Use the arrow keys or the on-screen controls to move through a deck.
+For layout IDs, named slots, and third-party package requirements, read the [Theme reference](/reference/themes/).

@@ -25,6 +25,8 @@ Deckup includes these built-in theme names:
 - `google-basic`
 - `apple-basic`
 
+See [Built-in Themes](/reference/built-in-themes/) to compare rendered previews and open the interactive seven-layout decks.
+
 If you omit `theme`, Deckup uses `default`.
 Built-in names resolve to first-party packages such as `@deckup/theme-default` and `@deckup/theme-google-basic`.
 
