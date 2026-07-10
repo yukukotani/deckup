@@ -14,5 +14,11 @@ export default defineConfig({
   },
   run: {
     cache: true,
+    tasks: {
+      cli: {
+        command: "vp run cli#dev",
+        cache: false,
+      },
+    },
   },
 });

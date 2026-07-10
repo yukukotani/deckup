@@ -1,0 +1,8 @@
+{
+  "name": "cli",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

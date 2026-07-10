@@ -451,6 +451,12 @@ importers:
 
   packages/theme-minimal: {}
 
+  tools/cli:
+    devDependencies:
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.2(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.0(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
+
 packages:
 
   '@astrojs/compiler-binding-darwin-arm64@0.2.3':
