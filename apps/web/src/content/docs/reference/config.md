@@ -3,8 +3,6 @@ title: Configuration reference
 description: Supported Deckup config files, public config fields, and Astro config boundaries.
 ---
 
-# Configuration reference
-
 Deckup looks for one config file in the project root.
 If no config file exists, Deckup uses an empty config.
 If multiple config files exist, Deckup stops and asks you to keep only one.

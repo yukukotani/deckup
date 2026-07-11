@@ -3,8 +3,6 @@ title: Deck authoring
 description: Learn how Deckup turns Astro and MDX files into pages, layouts, and themed slide regions.
 ---
 
-# Deck authoring
-
 A Deckup deck is a single `.astro` or `.mdx` file.
 Both formats render pages with the same layout system, but they use different authoring styles.
 

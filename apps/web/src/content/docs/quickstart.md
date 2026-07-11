@@ -3,8 +3,6 @@ title: Quickstart
 description: Install Deckup, author and preview a deck, build HTML/PDF, and render slide PNGs for visual review.
 ---
 
-# Quickstart
-
 This guide shows the intended public npm workflow for Deckup.
 It assumes `deckup` is available from npm and provides the `deckup` binary.
 

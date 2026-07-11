@@ -3,8 +3,6 @@ title: Deckup documentation
 description: Learn how to author Astro-native decks, preview them, build HTML/PDF, and render slide PNGs.
 ---
 
-# Deckup documentation
-
 Deckup is Astro-native slide deck tooling for authoring presentations in `.astro` and `.mdx` files.
 It gives you a small CLI for previewing a deck, building a static web version, exporting a PDF, and rendering selected slides as PNG images for visual review.
 

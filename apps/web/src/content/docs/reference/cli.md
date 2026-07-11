@@ -3,8 +3,6 @@ title: CLI reference
 description: Command syntax and options for deckup open and deckup build output formats.
 ---
 
-# CLI reference
-
 The `deckup` command provides two workflows:
 
 - `deckup open <deck-file>` previews a deck with Astro's dev server.

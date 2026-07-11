@@ -3,8 +3,6 @@ title: Theme reference
 description: Built-in theme names, npm theme package requirements, layout IDs, and named slots.
 ---
 
-# Theme reference
-
 Themes provide Astro layout components for Deckup pages.
 The top-level `theme` field in `deckup.config.*` sets the fallback theme for decks that do not declare their own theme.
 
