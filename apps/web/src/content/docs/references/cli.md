@@ -1,0 +1,81 @@
+---
+title: CLI
+description: Command syntax, output formats, options, and configuration for Deckup.
+---
+
+The `deckup` command accepts `.astro` and `.mdx` deck files.
+Running it without a subcommand prints a reminder to use `deckup open` or `deckup build`.
+
+## `deckup open`
+
+Preview a deck with Astro's development server:
+
+```bash
+deckup open slides/deck.mdx
+```
+
+| Option                       | Default                    | Description                     |
+| ---------------------------- | -------------------------- | ------------------------------- |
+| `--host <host>`              | `127.0.0.1`                | Development server host.        |
+| `--port <port>`, `-p <port>` | Config `port`, then `4321` | Development server port.        |
+| `--open`                     | `false`                    | Open the browser after startup. |
+| `--logLevel <level>`         | `info`                     | Astro log level.                |
+
+## `deckup build`
+
+Build a deck. PDF is the default format:
+
+```bash
+deckup build slides/deck.mdx
+deckup build slides/deck.mdx --format html --out public-deck
+deckup build slides/deck.mdx --format png --slides 1,3-5 --out rendered-slides
+```
+
+| Option                      | Default          | Description                                              |
+| --------------------------- | ---------------- | -------------------------------------------------------- |
+| `--format <html\|pdf\|png>` | `pdf`            | Output static HTML/assets, a PDF, or PNG images.         |
+| `--out <path>`              | Format-dependent | PDF file or HTML/PNG directory.                          |
+| `--slides <selection>`      | All slides       | PNG-only one-based numbers, lists, and inclusive ranges. |
+| `--force`, `-f`             | `false`          | Overwrite an existing PDF without prompting.             |
+| `--logLevel <level>`        | `info`           | Astro log level; PNG output always uses `silent`.        |
+
+### PNG behavior
+
+PNG selections are validated completely, de-duplicated, and rendered in deck order.
+Images are named `slide-NNN.png`, use one-based numbering, and contain only the 1600×900 slide body.
+On success, stdout contains one absolute image path per line.
+
+PNG output replaces the selected directory in full.
+Deckup rejects filesystem roots, the project root, directories containing the source deck, and paths that overlap its internal static build directory.
+
+## Configuration
+
+Deckup loads one config file from the project root.
+Supported names are `deckup.config.ts`, `.js`, `.mjs`, `.mts`, `.cjs`, and `.cts`.
+Use `defineConfig()` for TypeScript support:
+
+```ts
+import { defineConfig } from "deckup";
+
+export default defineConfig({
+  port: 4321,
+  theme: "google-basic",
+  astro: {
+    vite: {
+      resolve: {
+        alias: { "@slides": "/absolute/path/to/slides" },
+      },
+    },
+  },
+});
+```
+
+| Field   | Type                       | Description                                         |
+| ------- | -------------------------- | --------------------------------------------------- |
+| `port`  | `number`                   | Default development server port. CLI `--port` wins. |
+| `theme` | `string`                   | Fallback built-in, installed, or `npm:` theme.      |
+| `astro` | `AstroInlineConfig` subset | Additional supported Astro configuration.           |
+
+Deckup owns `root`, `srcDir`, `configFile`, `output`, `server`, `outDir`, `logLevel`, and `devToolbar`.
+Do not set these through `deckup.config.*`.
+Nested `astro.vite.root` is also ignored.

@@ -1,24 +1,30 @@
 ---
-title: Built-in Themes
-description: Compare Deckup's built-in themes and open interactive decks rendered with every shared layout.
+title: Theme
+description: Select a Deckup theme, compare built-in themes, and resolve installed or registry packages.
 ---
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
-Deckup includes four first-party themes.
-Each preview is rendered from the same cover slide, and each linked deck contains the seven layouts shared by every built-in theme.
+Themes provide Astro layout components for Deckup pages.
+Select a fallback in `deckup.config.*`:
+
+```ts
+import { defineConfig } from "deckup";
+
+export default defineConfig({
+  theme: "google-basic",
+});
+```
+
+Deck-level static metadata overrides the configured fallback.
+If neither is present, Deckup uses `default`.
+
+## Built-in themes
 
 <CardGrid>
   <Card title="Default">
     <a href="/slides/default" aria-label="Open the Default theme deck" style="display: block; text-decoration: none;">
-      <img
-        src="/images/themes/default.png"
-        alt="Default theme cover with a serif heading and circular ornament"
-        width="1600"
-        height="900"
-        decoding="async"
-        style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;"
-      />
+      <img src="/images/themes/default.png" alt="Default theme cover with a serif heading and circular ornament" width="1600" height="900" decoding="async" style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;" />
       <span style="display: inline-block; margin-top: 0.75rem;">Open interactive deck →</span>
     </a>
     <p>Serif headings, cool blue accents, and geometric details.</p>
@@ -66,20 +72,37 @@ Each preview is rendered from the same cover slide, and each linked deck contain
 
   <Card title="Apple Basic">
     <a href="/slides/apple-basic" aria-label="Open the Apple Basic theme deck" style="display: block; text-decoration: none;">
-      <img
-        src="/images/themes/apple-basic.png"
-        alt="Apple Basic theme cover with large black type on white"
-        width="1600"
-        height="900"
-        loading="lazy"
-        decoding="async"
-        style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;"
-      />
+      <img src="/images/themes/apple-basic.png" alt="Apple Basic theme cover with large black type on white" width="1600" height="900" loading="lazy" decoding="async" style="display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--sl-color-gray-5); border-radius: 0.5rem;" />
       <span style="display: inline-block; margin-top: 0.75rem;">Open interactive deck →</span>
     </a>
     <p>High-contrast composition led by large, confident typography.</p>
   </Card>
 </CardGrid>
 
-Use the arrow keys or the on-screen controls to move through a deck.
-For layout IDs, named slots, and third-party package requirements, read the [Theme reference](/reference/themes/).
+Each interactive deck demonstrates the seven layouts shared by the built-in themes.
+
+## Installed package themes
+
+Install a third-party package in the deck project and use its package specifier:
+
+```ts
+export default defineConfig({
+  theme: "@acme/deckup-theme",
+});
+```
+
+## Registry themes
+
+Use `npm:` to let Deckup resolve a package before Astro starts:
+
+```ts
+export default defineConfig({
+  theme: "npm:@acme/deckup-theme@1.2.3",
+});
+```
+
+Both `npm:package` and exact `npm:package@version` specs are supported.
+Deckup caches downloaded packages; set `DECKUP_THEME_CACHE_DIR` to choose another cache directory.
+An uncached download requires confirmation, and non-interactive runs stop with guidance instead of downloading automatically.
+
+To create a reusable package, read [Authoring Themes](/guides/authoring-themes/).

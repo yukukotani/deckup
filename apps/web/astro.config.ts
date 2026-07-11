@@ -4,32 +4,47 @@ import deckup from "@deckup/astro";
 
 export default defineConfig({
   site: "https://deckup.yuku.dev",
+  redirects: {
+    "/quickstart": "/introduction/getting-started",
+    "/introduction/work-with-ai": "/guides/working-with-ai",
+    "/concepts/deck-authoring": "/guides/writing-slides",
+    "/reference/cli": "/references/cli",
+    "/reference/config": "/references/cli",
+    "/reference/built-in-themes": "/references/theme",
+    "/reference/themes": "/guides/authoring-themes",
+  },
   integrations: [
     deckup({ decks: "src/slides/*.{astro,mdx}", base: "/slides" }),
     starlight({
       title: "Deckup",
       sidebar: [
         {
-          label: "Start Here",
+          label: "Introduction",
           items: [
-            { label: "Quickstart", slug: "quickstart" },
-            { label: "Deck authoring", slug: "concepts/deck-authoring" },
+            { label: "Introduction", link: "/" },
+            {
+              label: "Getting Started",
+              slug: "introduction/getting-started",
+            },
           ],
         },
         {
-          label: "Slides",
+          label: "Guides",
           items: [
-            { label: "Intro deck", link: "/slides/intro" },
-            { label: "Guide deck", link: "/slides/guide" },
+            { label: "Writing Slides", slug: "guides/writing-slides" },
+            {
+              label: "Authoring Themes",
+              slug: "guides/authoring-themes",
+            },
+            { label: "Working with AI", slug: "guides/working-with-ai" },
           ],
         },
         {
-          label: "Reference",
+          label: "References",
           items: [
-            { label: "CLI", slug: "reference/cli" },
-            { label: "Configuration", slug: "reference/config" },
-            { label: "Built-in Themes", slug: "reference/built-in-themes" },
-            { label: "Themes", slug: "reference/themes" },
+            { label: "CLI", slug: "references/cli" },
+            { label: "Syntax", slug: "references/syntax" },
+            { label: "Theme", slug: "references/theme" },
           ],
         },
       ],
