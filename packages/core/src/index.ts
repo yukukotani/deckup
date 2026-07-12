@@ -56,7 +56,6 @@ export {
   createSourceIndexConverter,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
-  transformCompiledAstroDeckSource,
   validateAstroDeckSource,
 } from "./deckup-vite-plugins.ts";
 export { DEFAULT_DECK_LAYOUT_MODULE_ID, createRuntimePageSource } from "./runtime-page.ts";

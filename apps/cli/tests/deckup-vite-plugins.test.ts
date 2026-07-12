@@ -6,7 +6,6 @@ import {
   createSourceIndexConverter,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
-  transformCompiledAstroDeckSource,
   validateAstroDeckSource,
 } from "@deckup/core";
 
@@ -17,11 +16,6 @@ import Page from "@deckup/astro/page";
 <Page title="Intro"><h1>Intro</h1></Page>
 <Page title="Details"><PageMeta layout="two-column" /><p>Body</p></Page>
 `;
-
-const compiledTwoPages = [
-  'const html = $$render`${$$renderComponent($$result, "Page", Page, { "title": "Intro" }, { "default": () => $$render`<h1>Intro</h1>` })}',
-  '${$$renderComponent($$result, "Page", Page, {}, { "default": () => $$render`${$$renderComponent($$result, "PageMeta", PageMeta, { "layout": "two-column" })}<p>Body</p>` })}`;',
-].join("\n");
 
 const codeBlockDeck = `---
 import Page from "@deckup/astro/page";
@@ -296,48 +290,6 @@ import Page from "@deckup/astro/page";
   expect(result).toContain('<Page layout="two-column">');
   expect(result).not.toContain("PageMeta");
   expect(result).toContain("絵文字 🚀 と CJK");
-});
-
-test("public compiled transform removes only expected PageMeta calls", () => {
-  const result = transformCompiledAstroDeckSource(
-    compiledTwoPages,
-    [{ layout: "cover" }, { layout: "two-column", hasPageMeta: true }],
-    "<deck>",
-  );
-
-  expect(result).toContain('{ "layout": "cover", "title": "Intro" }');
-  expect(result).toContain('{ "layout": "two-column" }');
-  expect(result).not.toContain("PageMeta");
-});
-
-test("compiled Astro transforms tolerate braces in string props", () => {
-  const source =
-    '$$renderComponent($$result, "Page", Page, { "title": "curly { not a brace }" }, {})';
-  const result = transformCompiledAstroDeckSource(source, [{ layout: "cover" }], "<deck>");
-
-  expect(result).toContain('"layout": "cover"');
-  expect(result).toContain('"title": "curly { not a brace }"');
-});
-
-test("compiled Astro transforms throw when compiled Page count mismatches", () => {
-  expect(() =>
-    transformCompiledAstroDeckSource(compiledTwoPages, [{ layout: "cover" }], "<deck>"),
-  ).toThrow(/compiled Page count 2 does not match analyzed page count 1/);
-});
-
-test("compiled Astro transforms tolerate whitespace in Page render calls", () => {
-  const source = [
-    '$$renderComponent(\n  $$result,\n  "Page",\n  Page,\n  { "title": "Intro" }, {})',
-  ].join("\n");
-  const result = transformCompiledAstroDeckSource(source, [{ layout: "cover" }], "<deck>");
-
-  expect(result).toContain('"layout": "cover"');
-});
-
-test("compiled Astro transforms ignore non-Page render calls", () => {
-  const source = '$$renderComponent($$result, "Other", Other, { "title": "Intro" }, {})';
-
-  expect(transformCompiledAstroDeckSource(source, [], "<deck>")).toBe(source);
 });
 
 test("createSourceIndexConverter maps ASCII byte offsets", () => {

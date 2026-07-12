@@ -1,7 +1,6 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseAst } from "vite-plus";
 import { expect, test } from "vite-plus/test";
 
 import {
@@ -12,7 +11,6 @@ import {
   createSourceIndexConverter,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
-  transformCompiledAstroDeckSource,
   validateAstroDeckSource,
 } from "../src/deckup-vite-plugins.ts";
 import { createDeckRegistry } from "../src/deck.ts";
@@ -24,11 +22,6 @@ import Page from "@deckup/astro/page";
 <Page title="Intro"><h1>Intro</h1></Page>
 <Page title="Details"><!-- page metadata --><PageMeta layout="two-column" /><p>Body</p></Page>
 `;
-
-const compiledTwoPages = [
-  'const html = $$render`${$$renderComponent($$result, "Page", Page, { "title": "Intro" }, { "default": () => $$render`<h1>Intro</h1>` })}',
-  '${$$renderComponent($$result, "Page", Page, {}, { "default": () => $$render`${$$renderComponent($$result, "PageMeta", PageMeta, { "layout": "two-column" })}<p>Body</p>` })}`;',
-].join("\n");
 
 const codeBlockDeck = `---
 import Page from "@deckup/astro/page";
@@ -409,92 +402,6 @@ import Page from "@deckup/astro/page";
   expect(result).toContain("絵文字 🚀 と CJK");
 });
 
-test("compiled Astro transforms inject layout props and remove PageMeta calls", () => {
-  const result = transformCompiledAstroDeckSource(
-    compiledTwoPages,
-    [{ layout: "cover" }, { layout: "two-column", hasPageMeta: true }],
-    "<deck>",
-  );
-
-  expect(result).toContain('{ "layout": "cover", "title": "Intro" }');
-  expect(result).toContain('{ "layout": "two-column" }');
-  expect(result).not.toContain("PageMeta");
-  expect(result).toContain('${""}<p>Body</p>');
-});
-
-test("transformCompiledAstroDeckSource injects theme props when provided", () => {
-  const result = transformCompiledAstroDeckSource(
-    compiledTwoPages,
-    [{ layout: "cover" }, { layout: "two-column", hasPageMeta: true }],
-    "<deck>",
-    "minimal",
-  );
-
-  expect(result).toContain('{ "theme": "minimal", "layout": "cover", "title": "Intro" }');
-  expect(result).toContain('{ "theme": "minimal", "layout": "two-column" }');
-});
-
-test("compiled Astro transforms tolerate braces in string props", () => {
-  const source =
-    '$$renderComponent($$result, "Page", Page, { "title": "curly { not a brace }" }, {})';
-  const result = transformCompiledAstroDeckSource(source, [{ layout: "cover" }], "<deck>");
-
-  expect(result).toContain('"layout": "cover"');
-  expect(result).toContain('"title": "curly { not a brace }"');
-});
-
-test("compiled Astro transforms throw when PageMeta count drifts from source analysis", () => {
-  expect(() =>
-    transformCompiledAstroDeckSource(
-      compiledTwoPages,
-      [{ layout: "cover" }, { layout: "two-column" }],
-      "<deck>",
-    ),
-  ).toThrow(/compiled Page 2 PageMeta count 1 does not match analyzed marker count 0/);
-});
-
-test("compiled Astro transforms ignore PageMeta calls outside Page slots", () => {
-  const source = [
-    '$$renderComponent($$result, "PageMeta", PageMeta, { "layout": "outside" });',
-    '$$renderComponent($$result, "Page", Page, {}, { "default": () => $$render`<p>Body</p>` });',
-  ].join("\n");
-  const result = transformCompiledAstroDeckSource(source, [{ layout: "cover" }], "<deck>");
-  expect(result).toContain('"PageMeta", PageMeta');
-  expect(result).toContain('"layout": "cover"');
-});
-
-test("compiled Astro transforms preserve multibyte spans before PageMeta", () => {
-  const source = `const label = "日本語🎉";\n${compiledTwoPages}`;
-  const result = transformCompiledAstroDeckSource(
-    source,
-    [{ layout: "cover" }, { layout: "two-column", hasPageMeta: true }],
-    "<deck>",
-  );
-  expect(result).toContain('const label = "日本語🎉";');
-  expect(result).not.toContain("PageMeta");
-});
-
-test("compiled Astro transforms throw when compiled Page count mismatches", () => {
-  expect(() =>
-    transformCompiledAstroDeckSource(compiledTwoPages, [{ layout: "cover" }], "<deck>"),
-  ).toThrow(/compiled Page count 2 does not match analyzed page count 1/);
-});
-
-test("compiled Astro transforms tolerate whitespace in Page render calls", () => {
-  const source = [
-    '$$renderComponent(\n  $$result,\n  "Page",\n  Page,\n  { "title": "Intro" }, {})',
-  ].join("\n");
-  const result = transformCompiledAstroDeckSource(source, [{ layout: "cover" }], "<deck>");
-
-  expect(result).toContain('"layout": "cover"');
-});
-
-test("compiled Astro transforms ignore non-Page render calls", () => {
-  const source = '$$renderComponent($$result, "Other", Other, { "title": "Intro" }, {})';
-
-  expect(transformCompiledAstroDeckSource(source, [], "<deck>")).toBe(source);
-});
-
 test("createSourceIndexConverter maps ASCII byte offsets", () => {
   const toSourceIndex = createSourceIndexConverter("abc");
 
@@ -857,58 +764,6 @@ import Page from "@deckup/astro/page";
     await expect(load?.call({}, guideDeck.filePath)).rejects.toThrow(
       /Deckup theme "google-basic" does not provide layout "cover" required by src\/slides\/guide\.astro/,
     );
-  } finally {
-    await rm(projectRoot, { force: true, recursive: true });
-  }
-});
-
-test("registry compiled fallback uses the injected Vite parser with multibyte input", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-compiled-parser-"));
-  try {
-    await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
-    const deckFile = join(projectRoot, "src", "slides", "intro.astro");
-    await writeFile(
-      deckFile,
-      `---
-import Page from "@deckup/astro/page";
----
-<Page><PageMeta layout="section" /><h1>Intro</h1></Page>`,
-    );
-    const deck = {
-      filePath: deckFile,
-      projectRelativePath: "src/slides/intro.astro",
-      format: "astro" as const,
-      sourceGlob: "src/slides/*.astro",
-      globBase: "src/slides",
-      slug: "intro",
-      routePath: "/slides/intro",
-      routeId: "slides_intro",
-      virtualDeckModuleId: "virtual:deckup/decks/slides_intro",
-      virtualRouteModuleId: "virtual:deckup/routes/slides_intro.astro",
-    };
-    const validation = createDeckupVitePluginsForRegistry(
-      createDeckRegistry(projectRoot, "/slides", [deck]),
-    ).find((plugin) => plugin.name === "deckup:astro-deck-validation");
-    const transform = validation?.transform as
-      | ((this: { parse(source: string): unknown }, source: string, id: string) => Promise<string>)
-      | undefined;
-    let parseCalls = 0;
-    const compiled =
-      'const label = "日本語🎉";\n$$renderComponent($$result, "Page", Page, {}, { "default": () => $$render`${$$renderComponent($$result, "PageMeta", PageMeta, { "layout": "section" })}<h1>Intro</h1>` })';
-    const result = await transform?.call(
-      {
-        parse(source) {
-          parseCalls++;
-          return parseAst(source);
-        },
-      },
-      compiled,
-      deckFile,
-    );
-    expect(parseCalls).toBe(1);
-    expect(result).toContain('const label = "日本語🎉";');
-    expect(result).toContain('"layout": "section"');
-    expect(result).not.toContain("PageMeta");
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

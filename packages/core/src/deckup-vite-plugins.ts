@@ -3,7 +3,6 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { parse } from "@astrojs/compiler-rs";
-import { Parser } from "acorn";
 import { bundledLanguages, createHighlighter } from "shiki";
 import type { Plugin } from "vite-plus";
 
@@ -56,21 +55,7 @@ const utf8Encoder = new TextEncoder();
 type ShikiHighlighter = Awaited<ReturnType<typeof createHighlighter>>;
 
 type AstroSourceEdit = { start: number; end: number; value: string };
-type AstroPageLayout = { layout: string; hasPageMeta?: boolean };
-type CompiledAstroNode = {
-  type?: string;
-  start?: number;
-  end?: number;
-  name?: string;
-  value?: unknown;
-  callee?: unknown;
-  arguments?: unknown[];
-  [key: string]: unknown;
-};
-type CompiledPageRecord = {
-  call: CompiledAstroNode;
-  pageMetaCalls: CompiledAstroNode[];
-};
+type AstroPageLayout = { layout: string };
 type AstroDeckAnalysis = {
   pageCount: number;
   edits: AstroSourceEdit[];
@@ -524,7 +509,7 @@ function analyzeAstroLayouts(
   for (const [pageIndex, page] of pages.entries()) {
     const context = `${filePath} page ${pageIndex + 1}`;
     const { layout, pageMeta } = resolveAstroPageLayout(page, pageIndex, filePath);
-    layouts.push({ layout, hasPageMeta: pageMeta !== undefined });
+    layouts.push({ layout });
     const insertAt = getPageAttributeInsertionOffset(source, toSourceIndex, page, context);
     edits.push({
       start: insertAt,
@@ -683,192 +668,6 @@ async function transformAstroDeckSourceForBuild(
     code: markTransformedAstroSource(code),
     layouts: analysis.layouts,
   };
-}
-
-function isCompiledAstroNode(value: unknown): value is CompiledAstroNode {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { type?: unknown }).type === "string"
-  );
-}
-
-function isCompiledIdentifier(value: unknown, name: string) {
-  return isCompiledAstroNode(value) && value.type === "Identifier" && value.name === name;
-}
-
-function isCompiledStringLiteral(value: unknown, expected: string) {
-  return isCompiledAstroNode(value) && value.type === "Literal" && value.value === expected;
-}
-
-function getCompiledCallArguments(node: CompiledAstroNode) {
-  return node.type === "CallExpression" && Array.isArray(node.arguments)
-    ? node.arguments
-    : undefined;
-}
-
-function isCompiledRenderCall(node: CompiledAstroNode, displayName: string, localName: string) {
-  const args = getCompiledCallArguments(node);
-  return (
-    args !== undefined &&
-    isCompiledIdentifier(node.callee, "$$renderComponent") &&
-    isCompiledIdentifier(args[0], "$$result") &&
-    isCompiledStringLiteral(args[1], displayName) &&
-    isCompiledIdentifier(args[2], localName)
-  );
-}
-
-function collectCompiledPageRecords(ast: unknown) {
-  const pages: CompiledPageRecord[] = [];
-
-  function visit(value: unknown, currentPage?: CompiledPageRecord) {
-    if (Array.isArray(value)) {
-      for (const child of value) visit(child, currentPage);
-      return;
-    }
-    if (!isCompiledAstroNode(value)) return;
-
-    if (isCompiledRenderCall(value, "Page", "Page")) {
-      const page: CompiledPageRecord = { call: value, pageMetaCalls: [] };
-      pages.push(page);
-      const args = getCompiledCallArguments(value) as unknown[];
-      visit(value.callee);
-      for (const [index, argument] of args.entries()) {
-        visit(argument, index === 4 ? page : undefined);
-      }
-      return;
-    }
-
-    if (currentPage && isCompiledRenderCall(value, PAGE_META_MARKER_NAME, PAGE_META_MARKER_NAME)) {
-      currentPage.pageMetaCalls.push(value);
-    }
-    for (const [key, child] of Object.entries(value)) {
-      if (key === "loc" || key === "range" || key === "parent") continue;
-      if (child !== value) visit(child, currentPage);
-    }
-  }
-
-  visit(ast);
-  return pages;
-}
-
-function compiledPagesAlreadyHaveLayoutProps(source: string, ast: unknown) {
-  const pages = collectCompiledPageRecords(ast);
-  return (
-    pages.length > 0 &&
-    pages.every((page) => {
-      const props = (getCompiledCallArguments(page.call) as unknown[])[3];
-      if (!isCompiledAstroNode(props) || props.type !== "ObjectExpression") return false;
-      const span = getRequiredCompiledSpan(source, props, "Page props");
-      return /(?:^|[,{])\s*(?:"layout"|'layout'|layout)\s*:/.test(
-        source.slice(span.start, span.end),
-      );
-    })
-  );
-}
-
-function getRequiredCompiledSpan(source: string, node: CompiledAstroNode, context: string) {
-  if (
-    !Number.isInteger(node.start) ||
-    !Number.isInteger(node.end) ||
-    (node.start as number) < 0 ||
-    (node.end as number) < (node.start as number) ||
-    (node.end as number) > source.length
-  ) {
-    throw new Error(`Failed to transform Astro deck: missing compiled source span for ${context}.`);
-  }
-  return { start: node.start as number, end: node.end as number };
-}
-
-function addCompiledLayoutProp(
-  source: string,
-  span: { start: number; end: number },
-  layout: string,
-  themeName?: string,
-) {
-  const body = source.slice(span.start + 1, span.end - 1).trim();
-  const prop = themeName
-    ? ` "theme": ${JSON.stringify(themeName)}, "layout": ${JSON.stringify(layout)}`
-    : ` "layout": ${JSON.stringify(layout)}`;
-  return {
-    start: span.start,
-    end: span.end,
-    value:
-      body.length === 0 ? `{${prop} }` : `{${prop},${source.slice(span.start + 1, span.end - 1)}}`,
-  };
-}
-
-function createCompiledAstroDeckEdits(
-  source: string,
-  ast: unknown,
-  layouts: AstroPageLayout[],
-  filePath: string,
-  themeName?: string,
-) {
-  const pages = collectCompiledPageRecords(ast);
-  if (pages.length !== layouts.length) {
-    throw new Error(
-      `Failed to transform Astro deck ${filePath}: compiled Page count ${pages.length} does not match analyzed page count ${layouts.length}.`,
-    );
-  }
-
-  return pages.flatMap((page, index) => {
-    const props = (getCompiledCallArguments(page.call) as unknown[])[3];
-    if (!isCompiledAstroNode(props) || props.type !== "ObjectExpression") {
-      throw new Error(
-        `Failed to transform Astro deck ${filePath}: compiled Page ${index + 1} props must be an object literal.`,
-      );
-    }
-
-    const expectedPageMetaCount = layouts[index].hasPageMeta ? 1 : 0;
-    if (page.pageMetaCalls.length !== expectedPageMetaCount) {
-      throw new Error(
-        `Failed to transform Astro deck ${filePath}: compiled Page ${index + 1} PageMeta count ${page.pageMetaCalls.length} does not match analyzed marker count ${expectedPageMetaCount}.`,
-      );
-    }
-
-    return [
-      addCompiledLayoutProp(
-        source,
-        getRequiredCompiledSpan(source, props, `Page ${index + 1} props`),
-        layouts[index].layout,
-        themeName,
-      ),
-      ...page.pageMetaCalls.map((call) => ({
-        ...getRequiredCompiledSpan(source, call, `Page ${index + 1} PageMeta`),
-        value: '""',
-      })),
-    ];
-  });
-}
-
-function transformCompiledAstroDeckAst(
-  source: string,
-  ast: unknown,
-  layouts: AstroPageLayout[],
-  filePath: string,
-  themeName?: string,
-) {
-  return applySourceEdits(
-    source,
-    createCompiledAstroDeckEdits(source, ast, layouts, filePath, themeName),
-  );
-}
-
-// Exported for tests only; not part of the public package surface (index.ts).
-export function transformCompiledAstroDeckSource(
-  source: string,
-  layouts: AstroPageLayout[],
-  filePath: string,
-  themeName?: string,
-) {
-  return transformCompiledAstroDeckAst(
-    source,
-    Parser.parse(source, { ecmaVersion: "latest", sourceType: "module" }),
-    layouts,
-    filePath,
-    themeName,
-  );
 }
 
 function hasThemeLayouts(theme?: DeckupResolvedTheme) {
@@ -1278,34 +1077,16 @@ function createRegistryAstroDeckValidationPlugin(
         resolveThemeForDeck(theme, deck),
         discoverCached,
       );
-      if (source.includes("<Page")) {
-        const result = await transformAstroDeckSourceForBuild(
-          source,
-          deck.filePath,
-          options.codeHighlight,
-          runtimeTheme?.name,
-          pageComponentImport(runtimeTheme),
-        );
-        validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
-        return result.code;
-      }
-      if (!source.includes("$$renderComponent")) return undefined;
-      const compiledAst = this.parse(source);
-      // A deck transformed by this plugin's load hook reaches transform again as
-      // compiled JavaScript. Its PageMeta markers are already gone and its Page
-      // props already carry layout values, so only handle genuinely untransformed
-      // compiler output in the fallback below.
-      if (compiledPagesAlreadyHaveLayoutProps(source, compiledAst)) return undefined;
-      const originalSource = readFileSync(deck.filePath, "utf8");
-      const { layouts } = analyzeAstroDeckSource(originalSource, deck.filePath, runtimeTheme?.name);
-      validateThemeLayoutIds(deck, runtimeTheme, layouts);
-      return transformCompiledAstroDeckAst(
+      if (!source.includes("<Page")) return undefined;
+      const result = await transformAstroDeckSourceForBuild(
         source,
-        compiledAst,
-        layouts,
         deck.filePath,
+        options.codeHighlight,
         runtimeTheme?.name,
+        pageComponentImport(runtimeTheme),
       );
+      validateThemeLayoutIds(deck, runtimeTheme, result.layouts);
+      return result.code;
     },
   };
 }

@@ -6,7 +6,6 @@ export {
   createSourceIndexConverter,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
-  transformCompiledAstroDeckSource,
   validateAstroDeckSource,
 } from "@deckup/core";
 export type { DeckupVitePluginOptions } from "@deckup/core";

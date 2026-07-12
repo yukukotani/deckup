@@ -30,7 +30,6 @@ export {
   toViteFsImportPath,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
-  transformCompiledAstroDeckSource,
   uniqueStrings,
   validateAstroDeckSource,
 } from "@deckup/core";
