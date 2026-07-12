@@ -728,7 +728,10 @@ test("resolveCachedNpmThemePackage rejects invalid cached package metadata witho
     await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/other-theme", "1.2.3");
     await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
     const packageJsonPath = join(cacheEntryDir, "package", "package.json");
+    const metadataPath = join(cacheEntryDir, "deckup-npm-theme.json");
     const beforePackageJson = await readFile(packageJsonPath, "utf8");
+    const beforeMetadata = await readFile(metadataPath, "utf8");
+    const beforeEntries = (await readdir(cacheEntryDir)).sort();
 
     const calls: string[] = [];
     await expect(
@@ -746,6 +749,8 @@ test("resolveCachedNpmThemePackage rejects invalid cached package metadata witho
 
     expect(calls).toEqual([]);
     await expect(readFile(packageJsonPath, "utf8")).resolves.toBe(beforePackageJson);
+    await expect(readFile(metadataPath, "utf8")).resolves.toBe(beforeMetadata);
+    await expect(readdir(cacheEntryDir)).resolves.toEqual(beforeEntries);
   });
 });
 
