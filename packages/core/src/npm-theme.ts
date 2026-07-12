@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -71,9 +72,25 @@ export interface NpmThemeInstallOperations {
   extract(spec: string, target: string, options: NpmThemeInstallOptions): Promise<unknown>;
 }
 
+/** Private lock-acquisition timing seam; not part of the public npm theme contract. */
+interface NpmThemeCacheLockClock {
+  now(): number;
+  wait(ms: number): Promise<void>;
+}
+
+/** Private cache lifecycle fault-injection seam; not part of the public npm theme contract. */
+interface NpmThemeCacheLifecycleOperations {
+  removeTempEntry(tempEntryDir: string): Promise<void>;
+  releaseLock(lockDir: string): Promise<void>;
+}
+
 export interface DeckupNpmThemeResolveOptions extends DeckupNpmThemeOptions {
   /** @internal Test seam for avoiding real npm registry/network access. */
   operations?: NpmThemeInstallOperations;
+  /** @internal Test seam for deterministic lock-acquisition timing. */
+  lockClock?: NpmThemeCacheLockClock;
+  /** @internal Test seam for injecting cache lifecycle (temp cleanup / lock release) failures. */
+  lifecycle?: NpmThemeCacheLifecycleOperations;
 }
 
 const exactVersionPattern =
@@ -406,54 +423,80 @@ async function writeCacheMetadata(
 }
 
 const cacheLockPollIntervalMs = 50;
-const cacheLockStaleMs = 10 * 60_000;
+const cacheLockAcquireTimeoutMs = 60_000;
+
+const defaultCacheLockClock: NpmThemeCacheLockClock = {
+  now: () => performance.now(),
+  wait: (ms) => sleep(ms),
+};
+
+const defaultCacheLifecycleOperations: NpmThemeCacheLifecycleOperations = {
+  removeTempEntry: (tempEntryDir) => rm(tempEntryDir, { force: true, recursive: true }),
+  releaseLock: (lockDir) => rm(lockDir, { force: true, recursive: true }),
+};
+
+class NpmThemeCacheLockTimeoutError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "NpmThemeCacheLockTimeoutError";
+  }
+}
+
+async function acquireCacheEntryLock(
+  lockDir: string,
+  locksDir: string,
+  source: DeckupNpmThemeSource,
+  clock: NpmThemeCacheLockClock,
+): Promise<void> {
+  await mkdir(locksDir, { recursive: true });
+
+  const deadline = clock.now() + cacheLockAcquireTimeoutMs;
+  for (;;) {
+    try {
+      await mkdir(lockDir);
+      return;
+    } catch (error) {
+      if (errorCode(error) !== "EEXIST") throw error;
+
+      if (clock.now() >= deadline) {
+        throw new NpmThemeCacheLockTimeoutError(
+          `Deckup timed out after ${cacheLockAcquireTimeoutMs}ms waiting for the npm theme cache lock for ${source.spec} at ${lockDir}. Remove this lock only after confirming no Deckup process is using it.`,
+        );
+      }
+
+      await clock.wait(cacheLockPollIntervalMs);
+    }
+  }
+}
 
 async function withCacheEntryLock<T>(
   cacheDir: string,
   source: DeckupNpmThemeSource,
+  lifecycle: NpmThemeCacheLifecycleOperations,
+  clock: NpmThemeCacheLockClock,
   run: () => Promise<T>,
 ): Promise<T> {
   const locksDir = join(cacheDir, "locks");
   const lockDir = join(locksDir, `${npmThemeCacheKey(source)}.lock`);
-  await mkdir(locksDir, { recursive: true });
+  await acquireCacheEntryLock(lockDir, locksDir, source, clock);
 
-  for (;;) {
+  let result: T;
+  try {
+    result = await run();
+  } catch (primaryError) {
     try {
-      await mkdir(lockDir);
-      break;
-    } catch (error) {
-      if (errorCode(error) !== "EEXIST") throw error;
-
-      const lockStat = await stat(lockDir).catch(() => undefined);
-      if (lockStat && Date.now() - lockStat.mtimeMs > cacheLockStaleMs) {
-        await rm(lockDir, { force: true, recursive: true });
-      } else {
-        await sleep(cacheLockPollIntervalMs);
-      }
+      await lifecycle.releaseLock(lockDir);
+    } catch (releaseError) {
+      throw new AggregateError(
+        [primaryError, releaseError],
+        `Deckup npm theme cache operation for ${source.spec} failed and lock release also failed: ${lockDir}`,
+      );
     }
+    throw primaryError;
   }
 
-  try {
-    return await run();
-  } finally {
-    await releaseCacheEntryLock(lockDir);
-  }
-}
-
-async function cleanupTempEntry(tempEntryDir: string) {
-  try {
-    await rm(tempEntryDir, { force: true, recursive: true });
-  } catch {
-    // Preserve the original manifest/extract/validation/promote error.
-  }
-}
-
-async function releaseCacheEntryLock(lockDir: string) {
-  try {
-    await rm(lockDir, { force: true, recursive: true });
-  } catch {
-    // Preserve the original resolver error; stale lock cleanup is handled by acquire retry.
-  }
+  await lifecycle.releaseLock(lockDir);
+  return result;
 }
 
 async function promoteExtractedPackage(
@@ -462,17 +505,7 @@ async function promoteExtractedPackage(
   source: DeckupNpmThemeSource,
 ) {
   await mkdir(join(cacheEntryDir, ".."), { recursive: true });
-  try {
-    await rename(tempEntryDir, cacheEntryDir);
-  } catch (error) {
-    const code = errorCode(error);
-    if (code === "EEXIST" || code === "ENOTEMPTY") {
-      await cleanupTempEntry(tempEntryDir);
-      return validateCachedNpmThemeEntry(source, cacheEntryDir);
-    }
-    throw error;
-  }
-
+  await rename(tempEntryDir, cacheEntryDir);
   return validateCachedNpmThemeEntry(source, cacheEntryDir);
 }
 
@@ -482,8 +515,10 @@ export async function resolveCachedNpmThemePackage(
 ): Promise<DeckupCachedNpmThemePackage> {
   const cacheDir = resolveNpmThemeCacheDir(options.cacheDir);
   const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+  const lifecycle = options.lifecycle ?? defaultCacheLifecycleOperations;
+  const clock = options.lockClock ?? defaultCacheLockClock;
 
-  return withCacheEntryLock(cacheDir, source, async () => {
+  return withCacheEntryLock(cacheDir, source, lifecycle, clock, async () => {
     if (await pathExists(cacheEntryDir)) {
       await assertDirectory(cacheEntryDir, "Cached Deckup npm theme entry");
       return await validateCachedNpmThemeEntry(source, cacheEntryDir);
@@ -520,9 +555,16 @@ export async function resolveCachedNpmThemePackage(
       await validateCachedNpmThemePackage(source, tempEntryDir);
       await writeCacheMetadata(source, tempEntryDir, manifest);
       return await promoteExtractedPackage(tempEntryDir, cacheEntryDir, source);
-    } catch (error) {
-      await cleanupTempEntry(tempEntryDir);
-      throw error;
+    } catch (primaryError) {
+      try {
+        await lifecycle.removeTempEntry(tempEntryDir);
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [primaryError, cleanupError],
+          `Deckup npm theme download for ${source.spec} failed and temp cleanup also failed: ${tempEntryDir}`,
+        );
+      }
+      throw primaryError;
     }
   });
 }

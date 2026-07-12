@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "vite-plus/test";
@@ -24,6 +24,7 @@ import {
   DECKUP_THEME_CACHE_ENV,
   type NpmThemeInstallOperations,
   type DeckupNpmThemeSource,
+  type DeckupNpmThemeResolveOptions,
 } from "../src/npm-theme.ts";
 import {
   VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
@@ -106,6 +107,12 @@ async function writeThemeLayoutPackage(projectRoot: string, packageName: string)
     join(layoutsDir, "two-column.astro"),
     `<section><slot /><slot name="left" /><slot name="right" /></section>\n`,
   );
+}
+
+function lockDirFor(cacheDir: string, source: DeckupNpmThemeSource) {
+  const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+  const cacheKey = basename(cacheEntryDir);
+  return join(dirname(dirname(cacheEntryDir)), "locks", `${cacheKey}.lock`);
 }
 
 async function withThemeCache(run: (cacheDir: string) => Promise<void>) {
@@ -783,47 +790,146 @@ test("resolveCachedNpmThemePackage serializes same-cache-key downloads", async (
 
     expect(manifestCalls).toBe(1);
     expect(first.packageRoot).toBe(second.packageRoot);
+    expect(second.packageRoot).toBe(
+      await realpath(join(getNpmThemeCacheEntryDir(cacheDir, source), "package")),
+    );
+    await expect(readdir(join(cacheDir, "locks"))).resolves.toEqual([]);
   });
 });
 
-test("resolveCachedNpmThemePackage validates existing cache entry when promotion collides", async () => {
+test("resolveCachedNpmThemePackage times out lock acquisition on a monotonic clock, ignores wall-clock rollback, and never deletes the lock", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+    const lockDir = lockDirFor(cacheDir, source);
+    // Pre-create an old/abandoned lock; this used to be deleted via mtime-based
+    // staleness. It must now cause the waiter to time out instead.
+    await mkdir(dirname(lockDir), { recursive: true });
+    await mkdir(lockDir);
+
+    let monotonicNow = 0;
+    const waitDurations: number[] = [];
+    const lockClock: NonNullable<DeckupNpmThemeResolveOptions["lockClock"]> = {
+      now: () => monotonicNow,
+      wait: async (ms) => {
+        waitDurations.push(ms);
+        monotonicNow += ms;
+      },
+    };
+
+    const originalDateNow = Date.now;
+    Date.now = () => {
+      // Wall-clock rollback during the wait must not affect the monotonic
+      // deadline computed from lockClock.now().
+      return -1_000_000;
+    };
+
+    let receivedError: unknown;
+    try {
+      await resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        lockClock,
+        lifecycle: {
+          removeTempEntry: async () => {
+            throw new Error("must not run temp cleanup: lock was never acquired");
+          },
+          releaseLock: async () => {
+            throw new Error("must not release a lock this waiter never acquired");
+          },
+        },
+        confirmDownload: async () => {
+          throw new Error("must not confirm while the lock is held");
+        },
+        operations: {
+          async manifest() {
+            throw new Error("must not fetch a manifest while the lock is held");
+          },
+          async extract() {
+            throw new Error("must not extract while the lock is held");
+          },
+        },
+      });
+    } catch (error) {
+      receivedError = error;
+    } finally {
+      Date.now = originalDateNow;
+    }
+
+    expect(receivedError).toBeInstanceOf(Error);
+    expect((receivedError as Error).name).toBe("NpmThemeCacheLockTimeoutError");
+    expect((receivedError as Error).message).toContain(source.spec);
+    expect((receivedError as Error).message).toContain("60000");
+    expect((receivedError as Error).message).toContain(lockDir);
+    expect((receivedError as Error).message).toContain(
+      "Remove this lock only after confirming no Deckup process is using it",
+    );
+    expect(waitDurations.length).toBeGreaterThan(0);
+    await expect(stat(lockDir)).resolves.toBeDefined();
+  });
+});
+
+test("resolveCachedNpmThemePackage fails a rename collision and preserves the external entry", async () => {
   await withThemeCache(async (cacheDir) => {
     const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
     const calls: string[] = [];
 
     const operations = fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls);
-    const resolved = await resolveCachedNpmThemePackage(source, {
-      cacheDir,
-      confirmDownload: async () => true,
-      operations: {
-        ...operations,
-        async extract(spec, target, options) {
-          await operations.extract(spec, target, options);
-          await writeCachedThemePackage(
-            join(cacheEntryDir, "package"),
-            "@acme/deckup-theme",
-            "1.2.3",
-          );
-          await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
-          return { from: spec, resolved: spec, integrity: options.integrity };
-        },
-      },
-    });
-
-    expect(resolved.packageRoot).toBe(await realpath(join(cacheEntryDir, "package")));
-    expect(await readdir(join(cacheDir, "tmp"))).toEqual([]);
-  });
-});
-
-test("resolveCachedNpmThemePackage preserves original errors when temp cleanup fails", async () => {
-  await withThemeCache(async (cacheDir) => {
-    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
-
+    let tempEntryDirAtFailure: string | undefined;
     await expect(
       resolveCachedNpmThemePackage(source, {
         cacheDir,
         confirmDownload: async () => true,
+        operations: {
+          ...operations,
+          async extract(spec, target, options) {
+            const result = await operations.extract(spec, target, options);
+            tempEntryDirAtFailure = dirname(target);
+            // Simulate an out-of-band writer that already created the cache
+            // entry (for example, another host or a manual repair) before
+            // promotion runs.
+            await writeCachedThemePackage(
+              join(cacheEntryDir, "package"),
+              "@acme/other-theme",
+              "9.9.9",
+            );
+            await writeCachedThemeMetadata(cacheEntryDir, source, "9.9.9");
+            return result;
+          },
+        },
+      }),
+    ).rejects.toThrow(/ENOTEMPTY|EEXIST/);
+
+    const externalPackageJson = await readFile(
+      join(cacheEntryDir, "package", "package.json"),
+      "utf8",
+    );
+    expect(JSON.parse(externalPackageJson)).toMatchObject({
+      name: "@acme/other-theme",
+      version: "9.9.9",
+    });
+    expect(tempEntryDirAtFailure).toBeDefined();
+    await expect(stat(tempEntryDirAtFailure!)).rejects.toThrow();
+  });
+});
+
+test("resolveCachedNpmThemePackage reports an ordered AggregateError when a primary failure and temp cleanup both fail", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+    const cleanupError = new Error("temp cleanup failed");
+
+    let receivedError: unknown;
+    try {
+      await resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => true,
+        lifecycle: {
+          removeTempEntry: async () => {
+            throw cleanupError;
+          },
+          releaseLock: async (lockDir) => {
+            await rm(lockDir, { force: true, recursive: true });
+          },
+        },
         operations: {
           async manifest() {
             return {
@@ -832,14 +938,91 @@ test("resolveCachedNpmThemePackage preserves original errors when temp cleanup f
               _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
             };
           },
-          async extract(_spec, target) {
-            await rm(target, { force: true, recursive: true });
-            await writeFile(target, "not a directory anymore");
+          async extract() {
             throw new Error("extract failed");
           },
         },
+      });
+    } catch (error) {
+      receivedError = error;
+    }
+
+    expect(receivedError).toBeInstanceOf(AggregateError);
+    expect((receivedError as AggregateError).errors).toEqual([
+      expect.objectContaining({ message: "extract failed" }),
+      cleanupError,
+    ]);
+  });
+});
+
+test("resolveCachedNpmThemePackage reports an ordered AggregateError when a primary failure and lock release both fail", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+    const releaseError = new Error("lock release failed");
+
+    let receivedError: unknown;
+    try {
+      await resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => true,
+        lifecycle: {
+          removeTempEntry: async (tempEntryDir) => {
+            await rm(tempEntryDir, { force: true, recursive: true });
+          },
+          releaseLock: async () => {
+            throw releaseError;
+          },
+        },
+        operations: {
+          async manifest() {
+            return {
+              name: "@acme/deckup-theme",
+              version: "1.2.3",
+              _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
+            };
+          },
+          async extract() {
+            throw new Error("extract failed");
+          },
+        },
+      });
+    } catch (error) {
+      receivedError = error;
+    }
+
+    expect(receivedError).toBeInstanceOf(AggregateError);
+    expect((receivedError as AggregateError).errors).toEqual([
+      expect.objectContaining({ message: "extract failed" }),
+      releaseError,
+    ]);
+  });
+});
+
+test("resolveCachedNpmThemePackage rejects when successful work is followed by a lock release failure", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+    const releaseError = new Error("lock release failed");
+
+    await expect(
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => true,
+        lifecycle: {
+          removeTempEntry: async (tempEntryDir) => {
+            await rm(tempEntryDir, { force: true, recursive: true });
+          },
+          releaseLock: async () => {
+            throw releaseError;
+          },
+        },
+        operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3"),
       }),
-    ).rejects.toThrow("extract failed");
+    ).rejects.toBe(releaseError);
+
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    await expect(readFile(join(cacheEntryDir, "deckup-npm-theme.json"), "utf8")).resolves.toContain(
+      "1.2.3",
+    );
   });
 });
 
