@@ -1,6 +1,5 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { parseNpmThemeSource, resolveCachedNpmThemePackage } from "./npm-theme.ts";
 import { discoverThemeLayouts } from "./theme-layouts.ts";
@@ -18,7 +17,24 @@ export const BUILTIN_DECKUP_THEMES = Object.keys(BUILTIN_DECKUP_THEME_PACKAGES) 
 >;
 
 const coreRequire = createRequire(import.meta.url);
-const coreModuleDir = dirname(fileURLToPath(import.meta.url));
+
+type BuiltinThemePackageJsonResolver = (packageName: string) => string;
+
+function resolveBuiltinThemePackageJsonPath(packageName: string) {
+  return coreRequire.resolve(`${packageName}/package.json`);
+}
+
+let builtinThemePackageJsonResolver: BuiltinThemePackageJsonResolver =
+  resolveBuiltinThemePackageJsonPath;
+
+// Exported for tests only; not part of the public package surface (index.ts).
+// Lets tests force built-in theme resolution failures to exercise the contextual error path
+// without actually breaking the Core -> built-in-theme-package dependency.
+export function setBuiltinThemePackageJsonResolverForTests(
+  resolver: BuiltinThemePackageJsonResolver | undefined,
+) {
+  builtinThemePackageJsonResolver = resolver ?? resolveBuiltinThemePackageJsonPath;
+}
 
 type DeckupBuiltinTheme = (typeof BUILTIN_DECKUP_THEMES)[number];
 
@@ -49,18 +65,20 @@ function normalizeThemeName(theme: unknown) {
   return trimmedThemeName;
 }
 
-function createThemeResolver(projectRoot: string, themeName: string) {
+function createThemeResolver(themeName: string) {
   const isBuiltin = isBuiltinThemeName(themeName);
   const packageName = isBuiltin ? BUILTIN_DECKUP_THEME_PACKAGES[themeName] : themeName;
-  const resolver = isBuiltin ? coreRequire : createRequire(join(projectRoot, "package.json"));
-  return { isBuiltin, packageName, resolver };
+  return { isBuiltin, packageName };
 }
 
 function resolveThemePackageRoot(projectRoot: string, themeName: string): ResolvedThemePackage {
-  const { isBuiltin, packageName, resolver } = createThemeResolver(projectRoot, themeName);
+  const { isBuiltin, packageName } = createThemeResolver(themeName);
+  const resolvePackageJsonPath = isBuiltin
+    ? () => builtinThemePackageJsonResolver(packageName)
+    : () => createRequire(join(projectRoot, "package.json")).resolve(`${packageName}/package.json`);
 
   try {
-    const packageJsonPath = resolver.resolve(`${packageName}/package.json`);
+    const packageJsonPath = resolvePackageJsonPath();
     return {
       filePath: packageJsonPath,
       packageJsonPath,
@@ -69,23 +87,6 @@ function resolveThemePackageRoot(projectRoot: string, themeName: string): Resolv
       source: isBuiltin ? "builtin" : "package",
     } as const;
   } catch (error) {
-    if (isBuiltin) {
-      const workspacePackageJsonPath = join(
-        coreModuleDir,
-        "..",
-        "..",
-        packageName.replace("@deckup/theme-", "theme-"),
-        "package.json",
-      );
-      return {
-        filePath: workspacePackageJsonPath,
-        packageJsonPath: workspacePackageJsonPath,
-        packageName,
-        packageRoot: dirname(workspacePackageJsonPath),
-        source: "builtin",
-      };
-    }
-
     throw new Error(
       `Unable to resolve Deckup theme ${JSON.stringify(themeName)} package metadata from ${projectRoot}. Built-in themes: ${BUILTIN_DECKUP_THEMES.join(", ")}. For npm themes, install the package and export ./package.json plus Astro layout components from layouts/*.astro.`,
       { cause: error },
