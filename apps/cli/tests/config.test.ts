@@ -196,10 +196,8 @@ function fakeNpmThemeOperations(packageName: string, version = "1.0.0", calls: s
       return {
         name: packageName,
         version,
-        dist: {
-          integrity: "sha512-test-integrity",
-          tarball: `https://registry.example.test/${packageName.replace("/", "-")}-${version}.tgz`,
-        },
+        _resolved: `https://registry.example.test/${packageName.replace("/", "-")}-${version}.tgz`,
+        _integrity: "sha512-test-integrity",
       };
     },
     async extract(spec, target, options) {
@@ -209,6 +207,40 @@ function fakeNpmThemeOperations(packageName: string, version = "1.0.0", calls: s
     },
   } satisfies NpmThemeInstallOperations;
 }
+
+test("resolveCachedNpmThemePackage forwards manifest._resolved and _integrity unchanged to extract", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+    const extractCalls: Array<{ spec: string; integrity?: string }> = [];
+
+    await resolveCachedNpmThemePackage(source, {
+      cacheDir,
+      confirmDownload: async () => true,
+      operations: {
+        async manifest() {
+          return {
+            name: "@acme/deckup-theme",
+            version: "1.2.3",
+            _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
+            _integrity: "sha512-forwarded-integrity",
+          };
+        },
+        async extract(spec, target, options) {
+          extractCalls.push({ spec, integrity: options.integrity });
+          await writeCachedThemePackage(target, "@acme/deckup-theme", "1.2.3");
+          return { from: spec, resolved: spec, integrity: options.integrity };
+        },
+      },
+    });
+
+    expect(extractCalls).toEqual([
+      {
+        spec: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
+        integrity: "sha512-forwarded-integrity",
+      },
+    ]);
+  });
+});
 
 async function withNonInteractiveStdio(run: () => Promise<void>) {
   const restorers: Array<() => void> = [];
@@ -751,7 +783,11 @@ test("resolveCachedNpmThemePackage preserves original errors when temp cleanup f
         confirmDownload: async () => true,
         operations: {
           async manifest() {
-            return { name: "@acme/deckup-theme", version: "1.2.3" };
+            return {
+              name: "@acme/deckup-theme",
+              version: "1.2.3",
+              _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
+            };
           },
           async extract(_spec, target) {
             await rm(target, { force: true, recursive: true });

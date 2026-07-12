@@ -57,14 +57,8 @@ export interface DeckupCachedNpmThemePackage {
 export interface NpmThemePackageManifest {
   name: string;
   version: string;
-  integrity?: string;
+  _resolved: string;
   _integrity?: string;
-  resolved?: string;
-  _resolved?: string;
-  dist?: {
-    integrity?: string;
-    tarball?: string;
-  };
 }
 
 export interface NpmThemeInstallOptions {
@@ -206,14 +200,6 @@ async function loadDefaultNpmThemeInstallOperations(): Promise<NpmThemeInstallOp
 
 function metadataPath(cacheEntryDir: string) {
   return join(cacheEntryDir, cacheMetadataFileName);
-}
-
-function manifestIntegrity(manifest: NpmThemePackageManifest) {
-  return manifest.integrity ?? manifest._integrity ?? manifest.dist?.integrity;
-}
-
-function manifestResolved(manifest: NpmThemePackageManifest) {
-  return manifest.resolved ?? manifest._resolved ?? manifest.dist?.tarball;
 }
 
 function errorCode(error: unknown) {
@@ -530,12 +516,11 @@ export async function resolveCachedNpmThemePackage(
         );
       }
 
-      const extractSpec = manifestResolved(manifest) ?? `${manifest.name}@${manifest.version}`;
-      const integrity = manifestIntegrity(manifest);
+      const extractSpec = manifest._resolved;
       await mkdir(tempPackageRoot, { recursive: true });
       await operations.extract(extractSpec, tempPackageRoot, {
         cache: npmCacheDir,
-        ...(integrity ? { integrity } : {}),
+        ...(manifest._integrity ? { integrity: manifest._integrity } : {}),
       });
       await validateCachedNpmThemePackage(source, tempEntryDir);
       await writeCacheMetadata(source, tempEntryDir, manifest);

@@ -17,14 +17,8 @@ declare module "pacote" {
   export interface Manifest {
     name: string;
     version: string;
-    integrity?: string;
+    _resolved: string;
     _integrity?: string;
-    resolved?: string;
-    _resolved?: string;
-    dist?: {
-      integrity?: string;
-      tarball?: string;
-    };
   }
 
   export interface ExtractResult {
