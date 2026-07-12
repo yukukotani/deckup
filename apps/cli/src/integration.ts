@@ -23,6 +23,56 @@ const resolvedDeckupCliNavigationModuleId = `\0${DECKUP_CLI_NAVIGATION_MODULE_ID
 
 const require = createRequire(import.meta.url);
 
+/** @internal Test seam; not exported from the package index. */
+export type ResolveCoreRuntimeSpecifier = (specifier: string) => string;
+
+function defaultResolveCoreRuntimeSpecifier(specifier: string): string {
+  return require.resolve(specifier);
+}
+
+/** @internal Test seam; not exported from the package index. */
+export function resolveRequiredCoreRuntimeAsset(
+  specifier: string,
+  resolveSpecifier: ResolveCoreRuntimeSpecifier = defaultResolveCoreRuntimeSpecifier,
+): string {
+  try {
+    return resolveSpecifier(specifier);
+  } catch (error) {
+    throw new Error(`Deckup CLI could not resolve required Core runtime asset "${specifier}".`, {
+      cause: error,
+    });
+  }
+}
+
+interface DeckupCoreRuntimeAssets {
+  runtimeDir: string;
+  cssModuleId: string;
+  navigationFilePath: string;
+}
+
+function resolveCoreRuntimeAssets(
+  resolveSpecifier: ResolveCoreRuntimeSpecifier = defaultResolveCoreRuntimeSpecifier,
+): DeckupCoreRuntimeAssets {
+  const corePackageJsonPath = resolveRequiredCoreRuntimeAsset(
+    "@deckup/core/package.json",
+    resolveSpecifier,
+  );
+  const cssFilePath = resolveRequiredCoreRuntimeAsset(
+    "@deckup/core/runtime/styles/global.css",
+    resolveSpecifier,
+  );
+  const navigationFilePath = resolveRequiredCoreRuntimeAsset(
+    "@deckup/core/runtime/scripts/navigation.ts",
+    resolveSpecifier,
+  );
+
+  return {
+    runtimeDir: join(dirname(corePackageJsonPath), "runtime"),
+    cssModuleId: `/@fs/${normalizePath(cssFilePath)}`,
+    navigationFilePath,
+  };
+}
+
 function toStringArray(value: unknown): string[] {
   if (value === undefined) return [];
   return Array.isArray(value)
@@ -30,28 +80,7 @@ function toStringArray(value: unknown): string[] {
     : [];
 }
 
-function resolveCoreRuntimeDir(): string | undefined {
-  try {
-    const corePackageJsonPath = require.resolve("@deckup/core/package.json");
-    return join(dirname(corePackageJsonPath), "runtime");
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveCoreRuntimeFile(specifier: string): string | undefined {
-  try {
-    return require.resolve(specifier);
-  } catch {
-    return undefined;
-  }
-}
-
-function createCliDeckLayoutPlugin(): Plugin {
-  const cssFilePath = resolveCoreRuntimeFile("@deckup/core/runtime/styles/global.css");
-  const navigationFilePath = resolveCoreRuntimeFile("@deckup/core/runtime/scripts/navigation.ts");
-  const cssModuleId = cssFilePath ? `/@fs/${normalizePath(cssFilePath)}` : undefined;
-
+function createCliDeckLayoutPlugin(assets: DeckupCoreRuntimeAssets): Plugin {
   return {
     name: "deckup:cli-deck-layout",
     resolveId(id) {
@@ -61,14 +90,13 @@ function createCliDeckLayoutPlugin(): Plugin {
     },
     load(id) {
       if (id === resolvedDeckupCliDeckLayoutModuleId) {
-        if (!cssModuleId) return undefined;
         return createDeckLayoutSource({
-          cssModuleId,
+          cssModuleId: assets.cssModuleId,
           navigationModuleId: DECKUP_CLI_NAVIGATION_MODULE_ID,
         });
       }
       if (id === resolvedDeckupCliNavigationModuleId) {
-        return navigationFilePath ? readFileSync(navigationFilePath, "utf8") : undefined;
+        return readFileSync(assets.navigationFilePath, "utf8");
       }
       return undefined;
     },
@@ -102,11 +130,16 @@ export interface DeckupCliIntegrationOptions {
   theme?: DeckupResolvedTheme;
   generatedPageFilePath?: string;
   codeHighlight?: RawAstroCodeHighlightOptions;
+  /** @internal Test seam; not exported from the package index. */
+  resolveCoreRuntimeSpecifier?: ResolveCoreRuntimeSpecifier;
 }
 
 export function createDeckupCliIntegration(options: DeckupCliIntegrationOptions): AstroIntegration {
-  const { registry, theme, generatedPageFilePath, codeHighlight } = options;
+  const { registry, theme, generatedPageFilePath, codeHighlight, resolveCoreRuntimeSpecifier } =
+    options;
   const themeForDeck: DeckupThemeForDeck = () => theme;
+  const coreRuntimeAssets = resolveCoreRuntimeAssets(resolveCoreRuntimeSpecifier);
+  const cliDeckLayoutPlugin = createCliDeckLayoutPlugin(coreRuntimeAssets);
 
   return {
     name: "deckup:cli",
@@ -122,7 +155,6 @@ export function createDeckupCliIntegration(options: DeckupCliIntegrationOptions)
           });
         }
 
-        const coreRuntimeDir = resolveCoreRuntimeDir();
         const existingFsAllow = toStringArray(config.vite?.server?.fs?.allow);
         const deckDirs = registry.decks.map((deck) => dirname(deck.filePath));
         const themeDirs = theme
@@ -139,14 +171,14 @@ export function createDeckupCliIntegration(options: DeckupCliIntegrationOptions)
           ...themeDirs,
           ...(generatedPageFilePath ? [dirname(generatedPageFilePath)] : []),
           ...routeEntries.map(({ entrypoint }) => dirname(entrypoint)),
-          ...(coreRuntimeDir ? [coreRuntimeDir] : []),
+          coreRuntimeAssets.runtimeDir,
           ...existingFsAllow,
         ]).map(normalizePath);
 
         updateConfig({
           vite: {
             plugins: [
-              createCliDeckLayoutPlugin(),
+              cliDeckLayoutPlugin,
               ...createDeckupVitePluginsForRegistry(registry, themeForDeck, {
                 generatedPageFilePath,
                 deckLayoutModuleId: DECKUP_CLI_DECK_LAYOUT_MODULE_ID,

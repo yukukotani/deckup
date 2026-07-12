@@ -1,9 +1,12 @@
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "vite-plus/test";
+
+const configTestRequire = createRequire(import.meta.url);
 
 import {
   createAstroInlineConfig,
@@ -901,6 +904,37 @@ test("createDeckupAstroConfig wires cached npm themes into generated Page and Vi
   });
 });
 
+test("createDeckupCliIntegration fails fast when a required Core runtime specifier cannot resolve", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    const resolvedProjectRoot = await realpath(projectRoot);
+    const deck = await resolveDeckFile(resolvedProjectRoot, "slides/deck.astro");
+    const registry = createSingleDeckRegistry(resolvedProjectRoot, deck);
+    const resolveError = new Error("Cannot find module '@deckup/core/runtime/styles/global.css'");
+
+    let thrown: unknown;
+    try {
+      createDeckupCliIntegration({
+        registry,
+        resolveCoreRuntimeSpecifier: (specifier: string) => {
+          if (specifier === "@deckup/core/runtime/styles/global.css") {
+            throw resolveError;
+          }
+          return specifier;
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toContain(
+      'Deckup CLI could not resolve required Core runtime asset "@deckup/core/runtime/styles/global.css"',
+    );
+    expect((thrown as Error).cause).toBe(resolveError);
+  });
+});
+
 test("CLI integration preserves existing Vite fs allow entries", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
@@ -933,6 +967,37 @@ test("CLI integration preserves existing Vite fs allow entries", async () => {
 
     expect(updatedConfig?.vite?.server?.fs?.allow).toEqual(
       expect.arrayContaining([normalizePath(existingAllow)]),
+    );
+  });
+});
+
+test("CLI integration Vite fs allow includes the Core runtime directory", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    const resolvedProjectRoot = await realpath(projectRoot);
+    const deck = await resolveDeckFile(resolvedProjectRoot, "slides/deck.astro");
+    const registry = createSingleDeckRegistry(resolvedProjectRoot, deck);
+    const integration = createDeckupCliIntegration({ registry });
+    let updatedConfig: { vite?: { server?: { fs?: { allow?: string[] } } } } | undefined;
+    const setupHook = (integration.hooks as Record<string, (args: unknown) => Promise<void>>)[
+      "astro:config:setup"
+    ];
+
+    await setupHook({
+      config: {
+        root: pathToFileURL(`${resolvedProjectRoot}/`),
+      },
+      injectRoute() {},
+      updateConfig(config: typeof updatedConfig) {
+        updatedConfig = config;
+      },
+    });
+
+    const coreRuntimeDir = normalizePath(
+      join(dirname(configTestRequire.resolve("@deckup/core/package.json")), "runtime"),
+    );
+    expect(updatedConfig?.vite?.server?.fs?.allow).toEqual(
+      expect.arrayContaining([coreRuntimeDir]),
     );
   });
 });
