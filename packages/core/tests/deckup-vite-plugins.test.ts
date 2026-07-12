@@ -9,6 +9,7 @@ import {
   countAstroDeckPages,
   createDeckupVitePluginsForRegistry,
   createSourceIndexConverter,
+  getOptionalSpan,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
   validateAstroDeckSource,
@@ -472,6 +473,20 @@ test("createSourceIndexConverter maps the end-of-string boundary", () => {
   const toSourceIndex = createSourceIndexConverter("ab");
 
   expect(toSourceIndex(2, "test")).toBe(2);
+});
+
+test("getOptionalSpan propagates invalid non-UTF-8-boundary offsets", () => {
+  const toSourceIndex = createSourceIndexConverter("é");
+
+  expect(() => getOptionalSpan(toSourceIndex, { start: 1, end: 2 }, "test")).toThrow(
+    /is not a UTF-8 boundary/,
+  );
+});
+
+test("getOptionalSpan returns undefined for a node without a source span", () => {
+  const toSourceIndex = createSourceIndexConverter("abc");
+
+  expect(getOptionalSpan(toSourceIndex, {}, "test")).toBeUndefined();
 });
 
 test("registry Astro validation leaves non-deck Astro modules untouched", async () => {

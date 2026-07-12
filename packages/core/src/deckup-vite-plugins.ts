@@ -351,20 +351,17 @@ function getRequiredSpan(
   };
 }
 
-function getOptionalSpan(
+// Exported for tests only; not part of the public package surface (index.ts).
+export function getOptionalSpan(
   toSourceIndex: ReturnType<typeof createSourceIndexConverter>,
   node: AstroNode,
   context: string,
 ) {
   if (typeof node.start !== "number" || typeof node.end !== "number") return undefined;
-  try {
-    return {
-      start: toSourceIndex(node.start, `${context} start`),
-      end: toSourceIndex(node.end, `${context} end`),
-    };
-  } catch {
-    return undefined;
-  }
+  return {
+    start: toSourceIndex(node.start, `${context} start`),
+    end: toSourceIndex(node.end, `${context} end`),
+  };
 }
 
 function resolveStaticAstroCodeBlock(
