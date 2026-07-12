@@ -321,7 +321,7 @@ test("remarkDeckupMdxPages leaves non-selected files untouched", () => {
 });
 
 test("MDX decks treat lowercase <layout> as ordinary content, not Deckup metadata", () => {
-  const source = `<layout id="cover" />\n\n# One\n`;
+  const source = `<layout id="two-column" />\n\n# One\n`;
 
   const analysis = analyzeMdxDeckSource(source, deckFile);
   expect(analysis.pageCount).toBe(1);
@@ -329,10 +329,13 @@ test("MDX decks treat lowercase <layout> as ordinary content, not Deckup metadat
 
   const tree = transformMdxSource(source);
   expect(getPageLayout(tree.children[1])).toBe("cover");
+  expect(getPageChildren(tree.children[1])).toContainEqual(
+    expect.objectContaining({ type: "mdxJsxFlowElement", name: "layout" }),
+  );
 });
 
 test("MDX decks treat a nested lowercase <layout> as ordinary content, not Deckup metadata", () => {
-  const source = `<p>Before <layout id="cover" /></p>\n`;
+  const source = `<p>Before <layout id="two-column" /></p>\n`;
 
   const analysis = analyzeMdxDeckSource(source, deckFile);
   expect(analysis.pageCount).toBe(1);

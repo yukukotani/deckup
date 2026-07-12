@@ -207,13 +207,13 @@ test("remarkDeckupMdxPages leaves non-selected files untouched", () => {
 });
 
 test("public MDX analysis treats lowercase <layout> as ordinary content, not Deckup metadata", () => {
-  const analysis = analyzeMdxDeckSource(`<layout id="cover" />\n\n# One\n`);
+  const analysis = analyzeMdxDeckSource(`<layout id="two-column" />\n\n# One\n`);
   expect(analysis.pageCount).toBe(1);
   expect(analysis.layouts).toEqual([{ layout: "cover" }]);
 });
 
 test("public MDX analysis treats a nested lowercase <layout> as ordinary content, not Deckup metadata", () => {
-  const analysis = analyzeMdxDeckSource(`<p>Before <layout id="cover" /></p>\n`);
+  const analysis = analyzeMdxDeckSource(`<p>Before <layout id="two-column" /></p>\n`);
   expect(analysis.pageCount).toBe(1);
   expect(analysis.layouts).toEqual([{ layout: "cover" }]);
 });

@@ -326,12 +326,13 @@ test("Astro decks treat lowercase <layout> as ordinary content, not Deckup metad
 import Page from "@deckup/astro/page";
 ---
 
-<Page><layout id="cover" /><h1>One</h1></Page>
+<Page><layout id="two-column" /><h1>One</h1></Page>
 `;
 
   expect(validateAstroDeckSource(source)).toBe(1);
   const result = transformAstroDeckSource(source);
-  expect(result).toContain('<Page layout="cover"><layout id="cover" />');
+  expect(result).toContain('<Page layout="cover"><layout id="two-column" />');
+  expect(result).not.toContain('layout="two-column"');
   expect(result).not.toContain("PageMeta");
 });
 
@@ -340,12 +341,13 @@ test("Astro decks treat a nested lowercase <layout> as ordinary content, not Dec
 import Page from "@deckup/astro/page";
 ---
 
-<Page><div><layout id="cover" /></div></Page>
+<Page><div><layout id="two-column" /></div></Page>
 `;
 
   expect(validateAstroDeckSource(source)).toBe(1);
   const result = transformAstroDeckSource(source);
-  expect(result).toContain('<Page layout="cover"><div><layout id="cover" /></div></Page>');
+  expect(result).toContain('<Page layout="cover"><div><layout id="two-column" /></div></Page>');
+  expect(result).not.toContain('layout="two-column"');
 });
 
 const invalidAstroPageMetaCases: Array<[string, string, RegExp]> = [

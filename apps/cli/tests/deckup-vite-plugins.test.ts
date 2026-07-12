@@ -48,9 +48,10 @@ test("public Astro transform treats lowercase <layout> as ordinary content, not 
   const result = transformAstroDeckSource(`---
 import Page from "@deckup/astro/page";
 ---
-<Page><layout id="cover" /><h1>One</h1></Page>`);
+<Page><layout id="two-column" /><h1>One</h1></Page>`);
 
-  expect(result).toContain('<Page layout="cover"><layout id="cover" />');
+  expect(result).toContain('<Page layout="cover"><layout id="two-column" />');
+  expect(result).not.toContain('layout="two-column"');
   expect(result).not.toContain("PageMeta");
 });
 

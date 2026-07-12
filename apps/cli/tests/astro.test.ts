@@ -695,7 +695,7 @@ test("buildDeck treats a lowercase <layout> tag as ordinary content, never a Dec
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Intro"><layout id="cover" /><h1>Intro</h1></Page>
+<Page title="Intro"><layout id="two-column" /><h1>Intro</h1></Page>
 `,
     );
 
@@ -709,6 +709,7 @@ import Page from "@deckup/astro/page";
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
     expect(slideCount(html)).toBe(1);
     expect(html.match(/data-deckup-layout="cover"/g)?.length ?? 0).toBe(1);
+    expect(html.match(/data-deckup-layout="two-column"/g)?.length ?? 0).toBe(0);
     expect(html).toContain("Intro");
     expect(html).not.toContain("PageMeta");
   });
@@ -780,7 +781,10 @@ test("buildDeck treats a lowercase <layout> tag in MDX as ordinary content, neve
   await withProjectRoot(async (projectRoot) => {
     await linkCliPackage(projectRoot);
     await mkdir(join(projectRoot, "slides"));
-    await writeFile(join(projectRoot, "slides", "deck.mdx"), `<layout id="cover" />\n\n# Intro\n`);
+    await writeFile(
+      join(projectRoot, "slides", "deck.mdx"),
+      `<layout id="two-column" />\n\n# Intro\n`,
+    );
 
     await buildDeck({
       root: projectRoot,
@@ -792,6 +796,7 @@ test("buildDeck treats a lowercase <layout> tag in MDX as ordinary content, neve
     const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
     expect(slideCount(html)).toBe(1);
     expect(html.match(/data-deckup-layout="cover"/g)?.length ?? 0).toBe(1);
+    expect(html.match(/data-deckup-layout="two-column"/g)?.length ?? 0).toBe(0);
     expect(html).toContain("Intro");
     expect(html).not.toContain("PageMeta");
   });
