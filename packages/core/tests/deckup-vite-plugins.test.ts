@@ -684,6 +684,79 @@ test("createDeckupVitePluginsForRegistry exposes all effective theme layout maps
   }
 });
 
+test("virtual theme layouts reject a theme whose layouts directory disappears after a warm cache", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-registry-theme-missing-layouts-"));
+  try {
+    const layoutsDir = join(projectRoot, "themes", "minimal", "layouts");
+    await mkdir(layoutsDir, { recursive: true });
+    await writeFile(join(layoutsDir, "cover.astro"), "<slot />\n");
+    await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
+    const introDeck = {
+      filePath: join(projectRoot, "src/slides/intro.astro"),
+      projectRelativePath: "src/slides/intro.astro",
+      format: "astro" as const,
+      sourceGlob: "src/slides/*.astro",
+      globBase: "src/slides",
+      slug: "intro",
+      routePath: "/slides/intro",
+      routeId: "slides_intro",
+      virtualDeckModuleId: "virtual:deckup/decks/slides_intro",
+      virtualRouteModuleId: "virtual:deckup/routes/slides_intro.astro",
+    };
+    const registry = createDeckRegistry(projectRoot, "/slides", [introDeck]);
+    const minimalTheme = {
+      name: "minimal",
+      filePath: join(projectRoot, "themes/minimal/package.json"),
+      packageName: "@deckup/theme-minimal",
+      packageRoot: join(projectRoot, "themes/minimal"),
+      layoutsDir,
+      layouts: [
+        {
+          id: "cover",
+          filePath: join(layoutsDir, "cover.astro"),
+          importPath: "/@fs/themes/minimal/layouts/cover.astro",
+          hasDefaultSlot: true,
+          slotNames: [],
+        },
+      ],
+      slotNames: [],
+      source: "builtin" as const,
+    };
+    const plugins = createDeckupVitePluginsForRegistry(registry, minimalTheme, {
+      generatedPageFilePath: join(projectRoot, ".deckup", "Page.astro"),
+    });
+    const layoutsPlugin = plugins.find((plugin) => plugin.name === "deckup:virtual-theme-layouts");
+    const resolveId = layoutsPlugin?.resolveId as
+      | ((this: unknown, id: string) => string | undefined | Promise<string | undefined>)
+      | undefined;
+    const load = layoutsPlugin?.load as
+      | ((
+          this: { addWatchFile(filePath: string): void },
+          id: string,
+        ) => string | undefined | Promise<string | undefined>)
+      | undefined;
+    const resolved = await resolveId?.call({}, "virtual:deckup/theme-layouts");
+
+    const warmSource = await load?.call({ addWatchFile() {} }, resolved as string);
+    expect(warmSource).toContain('"cover"');
+
+    await rm(layoutsDir, { force: true, recursive: true });
+
+    await expect(load?.call({ addWatchFile() {} }, resolved as string)).rejects.toThrow(
+      /must include a readable layouts directory/,
+    );
+
+    await mkdir(layoutsDir, { recursive: true });
+    await writeFile(join(layoutsDir, "recovered.astro"), '<slot name="body" />\n');
+
+    const recoveredSource = await load?.call({ addWatchFile() {} }, resolved as string);
+    expect(recoveredSource).toContain('"recovered"');
+    expect(recoveredSource).not.toContain('"cover"');
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 test("registry Astro validation uses the matched deck effective theme", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "deckup-registry-theme-validation-"));
   try {

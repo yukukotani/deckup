@@ -695,22 +695,12 @@ async function refreshThemeLayouts(
   if (!theme) return undefined;
   if (!hasThemeLayouts(theme) || !theme.layoutsDir) return theme;
 
-  try {
-    const layouts = await discoverCached(theme.name, theme.layoutsDir);
-    return {
-      ...theme,
-      layouts,
-      slotNames: uniqueStrings(layouts.flatMap((layout) => layout.slotNames)).sort(),
-    };
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes("must include a readable layouts directory")
-    ) {
-      return theme;
-    }
-    throw error;
-  }
+  const layouts = await discoverCached(theme.name, theme.layoutsDir);
+  return {
+    ...theme,
+    layouts,
+    slotNames: uniqueStrings(layouts.flatMap((layout) => layout.slotNames)).sort(),
+  };
 }
 
 async function writeFreshGeneratedPage(
