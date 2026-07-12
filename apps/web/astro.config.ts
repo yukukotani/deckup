@@ -4,15 +4,6 @@ import deckup from "@deckup/astro";
 
 export default defineConfig({
   site: "https://deckup.yuku.dev",
-  redirects: {
-    "/quickstart": "/introduction/getting-started",
-    "/introduction/work-with-ai": "/guides/working-with-ai",
-    "/concepts/deck-authoring": "/guides/writing-slides",
-    "/reference/cli": "/references/cli",
-    "/reference/config": "/references/cli",
-    "/reference/built-in-themes": "/references/theme",
-    "/reference/themes": "/guides/authoring-themes",
-  },
   integrations: [
     deckup({ decks: "src/slides/*.{astro,mdx}", base: "/slides" }),
     starlight({
