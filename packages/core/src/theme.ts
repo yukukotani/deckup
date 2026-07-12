@@ -93,9 +93,22 @@ function resolveThemePackageRoot(projectRoot: string, themeName: string): Resolv
   }
 }
 
-export async function resolveDeckupThemeLayouts(projectRoot: string, theme: unknown) {
+type DeckupThemeResolveOptions = {
+  sourceMode?: "all" | "installed";
+};
+
+export async function resolveDeckupThemeLayouts(
+  projectRoot: string,
+  theme: unknown,
+  options: DeckupThemeResolveOptions = {},
+) {
   const name = normalizeThemeName(theme);
   const npmSource = parseNpmThemeSource(name);
+  if (npmSource && options.sourceMode === "installed") {
+    throw new Error(
+      `Deckup theme ${JSON.stringify(name)} uses an npm: source, but this operation only supports built-in themes and installed packages. Install ${JSON.stringify(npmSource.packageName)} in the project and use its package name instead.`,
+    );
+  }
   const resolvedTheme = npmSource
     ? await resolveCachedNpmThemePackage(npmSource)
     : resolveThemePackageRoot(projectRoot, name);

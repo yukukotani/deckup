@@ -47,8 +47,10 @@ const publicResolvedThemeLayout: DeckupResolvedThemeLayout = {
   id: "two-column",
   filePath: "/theme/layouts/two-column.astro",
   importPath: "/@fs/theme/layouts/two-column.astro",
+  hasDefaultSlot: true,
   slotNames: ["left", "right"],
 };
+expect(publicResolvedThemeLayout.hasDefaultSlot).toBe(true);
 expect(publicResolvedThemeLayout.slotNames).toEqual(["left", "right"]);
 
 const publicResolvedTheme: DeckupResolvedTheme = {

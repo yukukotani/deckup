@@ -72,15 +72,29 @@ function visitAstroNodes(value: unknown, visit: (node: AstroNode) => void) {
   }
 }
 
-export function extractAstroSlotNames(source: string, filePath: string) {
+type AstroSlotMetadata = {
+  hasDefaultSlot: boolean;
+  slotNames: string[];
+};
+
+function extractAstroSlotMetadata(source: string, filePath: string): AstroSlotMetadata {
   const ast = parseAstroLayout(source, filePath);
+  let hasDefaultSlot = false;
   const slotNames = new Set<string>();
   visitAstroNodes(ast, (node) => {
     if (!isJsxElementNamed(node, "slot")) return;
+    if (!getAttribute(node, "name")) {
+      hasDefaultSlot = true;
+      return;
+    }
     const slotName = getStringAttribute(node, "name", filePath)?.trim();
     if (slotName) slotNames.add(slotName);
   });
-  return [...slotNames].sort();
+  return { hasDefaultSlot, slotNames: [...slotNames].sort() };
+}
+
+export function extractAstroSlotNames(source: string, filePath: string) {
+  return extractAstroSlotMetadata(source, filePath).slotNames;
 }
 
 async function assertReadableAstroLayout(themeName: string, layoutId: string, filePath: string) {
@@ -147,11 +161,13 @@ export async function discoverThemeLayouts(
       const filePath = join(layoutsDir, entry.name);
       await assertReadableAstroLayout(themeName, id, filePath);
       const source = await readFile(filePath, "utf8");
+      const { hasDefaultSlot, slotNames } = extractAstroSlotMetadata(source, filePath);
       return {
         id,
         filePath,
         importPath: toViteFsImportPath(filePath),
-        slotNames: extractAstroSlotNames(source, filePath),
+        hasDefaultSlot,
+        slotNames,
       };
     }),
   );

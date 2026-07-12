@@ -29,15 +29,35 @@ async function writeLayout(layoutsDir: string, fileName: string, source: string)
 
 test("discoverThemeLayouts returns sorted layouts with slot metadata", async () => {
   await withLayoutsDir(async (layoutsDir) => {
-    await writeLayout(layoutsDir, "two-column.astro", '<slot name="left" /><slot name="right" />');
+    await writeLayout(
+      layoutsDir,
+      "two-column.astro",
+      '<slot name="right" /><slot name="left" /><slot name="right" />',
+    );
     await writeLayout(layoutsDir, "cover.astro", "<slot />");
 
     const layouts = await discoverThemeLayouts("fixture", layoutsDir);
 
     expect(layouts.map((layout) => layout.id)).toEqual(["cover", "two-column"]);
-    expect(layouts[0]).toMatchObject({ slotNames: [] });
+    expect(layouts[0]).toMatchObject({ hasDefaultSlot: true, slotNames: [] });
     expect(layouts[0].importPath).toMatch(/^\/@fs\//);
-    expect(layouts[1].slotNames).toEqual(["left", "right"]);
+    expect(layouts[1]).toMatchObject({
+      hasDefaultSlot: false,
+      slotNames: ["left", "right"],
+    });
+  });
+});
+
+test("discoverThemeLayouts keeps a named default slot distinct from an unnamed slot", async () => {
+  await withLayoutsDir(async (layoutsDir) => {
+    await writeLayout(layoutsDir, "named-default.astro", '<slot name="default" />');
+
+    const [layout] = await discoverThemeLayouts("fixture", layoutsDir);
+
+    expect(layout).toMatchObject({
+      hasDefaultSlot: false,
+      slotNames: ["default"],
+    });
   });
 });
 

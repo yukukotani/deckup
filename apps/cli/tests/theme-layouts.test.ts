@@ -30,9 +30,12 @@ test("discoverThemeLayouts returns sorted layouts with slot metadata", async () 
     const layouts = await discoverThemeLayouts("fixture", layoutsDir);
 
     expect(layouts.map((layout) => layout.id)).toEqual(["cover", "two-column"]);
-    expect(layouts[0]).toMatchObject({ slotNames: [] });
+    expect(layouts[0]).toMatchObject({ hasDefaultSlot: true, slotNames: [] });
     expect(layouts[0].importPath).toMatch(/^\/@fs\//);
-    expect(layouts[1].slotNames).toEqual(["left", "right"]);
+    expect(layouts[1]).toMatchObject({
+      hasDefaultSlot: false,
+      slotNames: ["left", "right"],
+    });
   });
 });
 

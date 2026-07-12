@@ -1,5 +1,7 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vite-plus/test";
@@ -10,15 +12,65 @@ import {
   buildCommand,
   entryCommand,
   executeBuildCommand,
+  executeInspectThemeCommand,
+  inspectCommand,
+  inspectThemeCommand,
   normalizeBuildFormat,
   normalizeBuildValues,
+  normalizeInspectThemeValues,
   normalizeLogLevel,
   normalizeOpenValues,
   openCommand,
   runDeckup,
   VERSION,
   type DeckupBuildCommandOperations,
+  type DeckupInspectThemeCommandOperations,
 } from "../src/commands.ts";
+
+const cliFile = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
+
+function runCli(args: string[], cwd?: string) {
+  return spawnSync(process.execPath, ["--conditions=development", cliFile, ...args], {
+    cwd,
+    encoding: "utf8",
+  });
+}
+
+async function withCliProject(run: (projectRoot: string) => Promise<void>) {
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-inspect-"));
+  try {
+    await writeFile(join(projectRoot, "package.json"), '{"type":"module"}\n');
+    await run(projectRoot);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+}
+
+async function writeInspectThemePackage(
+  projectRoot: string,
+  packageName: string,
+  layouts: Record<string, string>,
+) {
+  const packageRoot = join(projectRoot, "node_modules", ...packageName.split("/"));
+  const layoutsDir = join(packageRoot, "layouts");
+  await mkdir(layoutsDir, { recursive: true });
+  await writeFile(
+    join(packageRoot, "package.json"),
+    JSON.stringify({
+      name: packageName,
+      type: "module",
+      exports: {
+        "./layouts/*.astro": "./layouts/*.astro",
+        "./package.json": "./package.json",
+      },
+    }),
+  );
+  await Promise.all(
+    Object.entries(layouts).map(([fileName, source]) =>
+      writeFile(join(layoutsDir, fileName), source),
+    ),
+  );
+}
 
 test("VERSION matches the package.json version", () => {
   const packageJson = JSON.parse(
@@ -28,13 +80,195 @@ test("VERSION matches the package.json version", () => {
 });
 
 test("CLI prints headerless help exactly once", () => {
-  const cliFile = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
   const output = execFileSync(process.execPath, ["--conditions=development", cliFile, "--help"], {
     encoding: "utf8",
   });
 
   expect(output.match(/^USAGE:$/gm)).toHaveLength(1);
+  expect(output).toContain("inspect");
   expect(output).not.toMatch(/^deckup \(deckup v[^)]+\)$/m);
+});
+
+test("normalizeInspectThemeValues requires a theme and normalizes json", () => {
+  expect(normalizeInspectThemeValues({ themeName: " default ", json: true })).toEqual({
+    themeName: " default ",
+    json: true,
+  });
+  expect(() => normalizeInspectThemeValues({})).toThrow(/requires a theme name/);
+});
+
+test("executeInspectThemeCommand returns deterministic labeled output without runtime paths", async () => {
+  const requests: unknown[] = [];
+  const operations = {
+    resolveProjectRoot(root: string | undefined) {
+      requests.push({ root });
+      return "/project";
+    },
+    async resolveDeckupThemeLayouts(projectRoot: string, themeName: unknown, options: unknown) {
+      requests.push({ projectRoot, themeName, options });
+      return {
+        name: "fixture",
+        filePath: "/private/theme/package.json",
+        packageName: "@private/theme",
+        packageRoot: "/private/theme",
+        layoutsDir: "/private/theme/layouts",
+        layouts: [
+          {
+            id: "zeta",
+            filePath: "/private/theme/layouts/zeta.astro",
+            importPath: "/@fs/private/theme/layouts/zeta.astro",
+            hasDefaultSlot: false,
+            slotNames: [],
+          },
+          {
+            id: "alpha",
+            filePath: "/private/theme/layouts/alpha.astro",
+            importPath: "/@fs/private/theme/layouts/alpha.astro",
+            hasDefaultSlot: true,
+            slotNames: ["right", "default", "left", "right"],
+          },
+        ],
+        slotNames: ["default", "left", "right"],
+        source: "package" as const,
+      };
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  const output = await executeInspectThemeCommand(
+    { themeName: "fixture", json: false, root: "fixture-root" },
+    operations,
+  );
+
+  expect(requests).toEqual([
+    { root: "fixture-root" },
+    { projectRoot: "/project", themeName: "fixture", options: { sourceMode: "installed" } },
+  ]);
+  expect(output).toBe(
+    [
+      "Theme: fixture",
+      "  Layout: alpha",
+      "    Slots:",
+      "      - default",
+      "      - left",
+      "      - right",
+      "  Layout: zeta",
+      "    Slots: (none)",
+    ].join("\n"),
+  );
+  expect(output).not.toContain("/private/");
+});
+
+test("executeInspectThemeCommand returns only the stable JSON projection", async () => {
+  const operations = {
+    resolveProjectRoot() {
+      return "/project";
+    },
+    async resolveDeckupThemeLayouts() {
+      return {
+        name: "fixture",
+        filePath: "/private/theme/package.json",
+        packageName: "@private/theme",
+        packageRoot: "/private/theme",
+        layoutsDir: "/private/theme/layouts",
+        layouts: [
+          {
+            id: "cover",
+            filePath: "/private/theme/layouts/cover.astro",
+            importPath: "/@fs/private/theme/layouts/cover.astro",
+            hasDefaultSlot: true,
+            slotNames: [],
+          },
+        ],
+        slotNames: [],
+        source: "package" as const,
+      };
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  const output = await executeInspectThemeCommand({ themeName: "fixture", json: true }, operations);
+  expect(JSON.parse(output)).toEqual({
+    theme: "fixture",
+    layouts: [{ id: "cover", slots: ["default"] }],
+  });
+  expect(output).not.toMatch(/filePath|packageRoot|layoutsDir|importPath|source|private/);
+});
+
+test("inspect commands expose nested theme arguments", () => {
+  expect(inspectCommand.name).toBe("inspect");
+  expect(inspectCommand.subCommands).toMatchObject({ theme: inspectThemeCommand });
+  expect(inspectThemeCommand.args.themeName.required).toBe(true);
+  expect(inspectThemeCommand.args.json.default).toBe(false);
+});
+
+test("CLI inspect parent prints discoverable help exactly once", () => {
+  const result = runCli(["inspect"]);
+  expect(result.status).toBe(0);
+  expect(result.stderr).toBe("");
+  expect(result.stdout.match(/^USAGE:$/gm)).toHaveLength(1);
+  expect(result.stdout).toContain("theme");
+});
+
+test("CLI inspect theme emits parseable built-in JSON without internal paths", () => {
+  const result = runCli(["inspect", "theme", "default", "--json"]);
+  expect(result.status).toBe(0);
+  expect(result.stderr).toBe("");
+  const inspection = JSON.parse(result.stdout) as {
+    theme: string;
+    layouts: Array<{ id: string; slots: string[] }>;
+  };
+  expect(Object.keys(inspection)).toEqual(["theme", "layouts"]);
+  expect(inspection.theme).toBe("default");
+  const layoutIds = inspection.layouts.map((layout) => layout.id);
+  expect(layoutIds).toEqual([...layoutIds].sort());
+  expect(inspection.layouts.find((layout) => layout.id === "two-column")?.slots).toEqual([
+    "default",
+    "left",
+    "right",
+  ]);
+  expect(result.stdout).not.toMatch(/\/@fs\/|packageRoot|layoutsDir|filePath/);
+});
+
+test("CLI inspect theme resolves an installed package from the current project", async () => {
+  await withCliProject(async (projectRoot) => {
+    await writeInspectThemePackage(projectRoot, "@acme/inspect-theme", {
+      "zeta.astro": '<slot name="right" /><slot /><slot name="left" />',
+      "alpha.astro": '<slot name="beta" /><slot name="default" /><slot name="alpha" />',
+    });
+    const result = runCli(["inspect", "theme", "@acme/inspect-theme", "--json"], projectRoot);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual({
+      theme: "@acme/inspect-theme",
+      layouts: [
+        { id: "alpha", slots: ["default", "alpha", "beta"] },
+        { id: "zeta", slots: ["default", "left", "right"] },
+      ],
+    });
+  });
+});
+
+test("CLI inspect failures keep stdout empty and exit non-zero", async () => {
+  await withCliProject(async (projectRoot) => {
+    await writeInspectThemePackage(projectRoot, "broken-inspect-theme", {
+      "a-valid.astro": "<slot />",
+      "z-broken.astro": "<slot",
+    });
+    const cases: Array<[string[], RegExp]> = [
+      [["inspect", "theme"], /themeName|Positional argument.*required/],
+      [["inspect", "theme", "missing-inspect-theme", "--json"], /Unable to resolve/],
+      [
+        ["inspect", "theme", "npm:@acme/inspect-theme", "--json"],
+        /only supports built-in themes and installed packages/,
+      ],
+      [["inspect", "theme", "broken-inspect-theme", "--json"], /Failed to parse/],
+    ];
+    for (const [args, errorPattern] of cases) {
+      const result = runCli(args, projectRoot);
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toMatch(errorPattern);
+    }
+  });
 });
 
 test("normalizeLogLevel accepts known Astro log levels", () => {
@@ -252,13 +486,14 @@ test("legacy command exports are removed", () => {
   expect("exportCommand" in commandModule).toBe(false);
 });
 
-test("entry command advertises open and unified build", async () => {
+test("entry command advertises open, unified build, and theme inspection", async () => {
   expect(entryCommand.name).toBe("deckup");
   const output = await runDeckup([]);
   expect(output).toContain("deckup open <deck-file>");
   expect(output).toContain("deckup build <deck-file>");
   expect(output).toContain("--format html");
   expect(output).toContain("--format png");
+  expect(output).toContain("deckup inspect theme <theme-name>");
   expect(output).not.toContain("deckup dev");
   expect(output).not.toContain("deckup export");
 });

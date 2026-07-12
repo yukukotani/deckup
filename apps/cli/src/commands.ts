@@ -1,4 +1,4 @@
-import { resolveDeckFile } from "@deckup/core";
+import { resolveDeckFile, resolveDeckupThemeLayouts } from "@deckup/core";
 import { readFileSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { basename, extname } from "node:path";
@@ -7,6 +7,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 import { cli, define } from "gunshi";
+import { renderUsage } from "gunshi/renderer";
 
 import {
   buildDeck,
@@ -50,6 +51,19 @@ const logLevels = [
 ] as const satisfies readonly DeckupLogLevel[];
 
 type CommandValues = Record<string, unknown>;
+
+export interface DeckupInspectThemeCommandOptions {
+  themeName: string;
+  json: boolean;
+  root?: string;
+}
+
+export interface DeckupThemeInspection {
+  theme: string;
+  layouts: Array<{ id: string; slots: string[] }>;
+}
+
+type ResolvedDeckupTheme = Awaited<ReturnType<typeof resolveDeckupThemeLayouts>>;
 
 const buildOutputFormats = ["html", "pdf", "png"] as const satisfies readonly DeckupOutputFormat[];
 
@@ -129,6 +143,50 @@ export function normalizeBuildValues(values: CommandValues): DeckupBuildCommandO
     slides,
     logLevel: normalizeLogLevel(values.logLevel),
   };
+}
+
+export function normalizeInspectThemeValues(
+  values: CommandValues,
+): DeckupInspectThemeCommandOptions {
+  const themeName = stringValue(values.themeName);
+  if (!themeName) throw new Error("Deckup inspect theme requires a theme name.");
+  return { themeName, json: booleanValue(values.json) ?? false };
+}
+
+function compareStrings(left: string, right: string) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function projectThemeInspection(theme: ResolvedDeckupTheme): DeckupThemeInspection {
+  return {
+    theme: theme.name,
+    layouts: theme.layouts
+      .map((layout) => {
+        const namedSlots = [...new Set(layout.slotNames)]
+          .filter((slotName) => slotName !== "default")
+          .sort(compareStrings);
+        const hasPublicDefault = layout.hasDefaultSlot || layout.slotNames.includes("default");
+        return {
+          id: layout.id,
+          slots: [...(hasPublicDefault ? ["default"] : []), ...namedSlots],
+        };
+      })
+      .sort((left, right) => compareStrings(left.id, right.id)),
+  };
+}
+
+function formatThemeInspection(inspection: DeckupThemeInspection) {
+  const lines = [`Theme: ${inspection.theme}`];
+  for (const layout of inspection.layouts) {
+    lines.push(`  Layout: ${layout.id}`);
+    if (layout.slots.length === 0) {
+      lines.push("    Slots: (none)");
+      continue;
+    }
+    lines.push("    Slots:");
+    for (const slot of layout.slots) lines.push(`      - ${slot}`);
+  }
+  return lines.join("\n");
 }
 
 function formatDevUrl(
@@ -215,6 +273,30 @@ export async function executeBuildCommand(
   return `Deckup PDF deck built at ${result.pdfFile}`;
 }
 
+/** @internal Test seam; not exported from the package index. */
+export interface DeckupInspectThemeCommandOperations {
+  resolveDeckupThemeLayouts: typeof resolveDeckupThemeLayouts;
+  resolveProjectRoot: typeof resolveProjectRoot;
+}
+
+const defaultInspectThemeCommandOperations: DeckupInspectThemeCommandOperations = {
+  resolveDeckupThemeLayouts,
+  resolveProjectRoot,
+};
+
+/** @internal Exported for deterministic command-dispatch tests. */
+export async function executeInspectThemeCommand(
+  options: DeckupInspectThemeCommandOptions,
+  operations: DeckupInspectThemeCommandOperations = defaultInspectThemeCommandOperations,
+) {
+  const projectRoot = operations.resolveProjectRoot(options.root);
+  const theme = await operations.resolveDeckupThemeLayouts(projectRoot, options.themeName, {
+    sourceMode: "installed",
+  });
+  const inspection = projectThemeInspection(theme);
+  return options.json ? JSON.stringify(inspection) : formatThemeInspection(inspection);
+}
+
 export const openCommand = define({
   name: "open",
   description: "Open the Deckup Astro preview server.",
@@ -287,11 +369,41 @@ export const buildCommand = define({
   },
 });
 
+export const inspectThemeCommand = define({
+  name: "theme",
+  description: "Inspect a Deckup theme's layouts and slots.",
+  rendering: { validationErrors: null },
+  args: {
+    themeName: {
+      type: "positional",
+      required: true,
+      description: "Built-in theme name or installed theme package name.",
+    },
+    json: {
+      type: "boolean",
+      default: false,
+      description: "Print only machine-readable JSON.",
+    },
+  },
+  async run(ctx) {
+    return executeInspectThemeCommand(normalizeInspectThemeValues(ctx.values as CommandValues));
+  },
+});
+
+export const inspectCommand = define({
+  name: "inspect",
+  description: "Inspect Deckup project metadata.",
+  subCommands: { theme: inspectThemeCommand },
+  async run(ctx) {
+    return renderUsage(ctx);
+  },
+});
+
 export const entryCommand = define({
   name: "deckup",
   description: "Astro-based slide deck tool.",
   run() {
-    return "Run `deckup open <deck-file>` to preview slides, or `deckup build <deck-file>` to write a PDF by default. Use `--format html` for a static Web deck or `--format png --slides 1,3-5` for PNG images.";
+    return "Run `deckup open <deck-file>` to preview slides, or `deckup build <deck-file>` to write a PDF by default. Use `--format html` for a static Web deck or `--format png --slides 1,3-5` for PNG images. Inspect a theme with `deckup inspect theme <theme-name>`.";
   },
 });
 
@@ -303,6 +415,7 @@ export async function runDeckup(argv = process.argv.slice(2)) {
     subCommands: {
       open: openCommand,
       build: buildCommand,
+      inspect: inspectCommand,
     },
     onAfterCommand(ctx, result) {
       if (result && !ctx.values.help && !ctx.values.version) {

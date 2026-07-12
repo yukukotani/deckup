@@ -48,6 +48,7 @@ export interface DeckupResolvedThemeLayout {
   id: string;
   filePath: string;
   importPath: string;
+  hasDefaultSlot: boolean;
   slotNames: string[];
 }
 

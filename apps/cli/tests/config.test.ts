@@ -342,7 +342,9 @@ test("resolveDeckupThemeLayouts defaults to the first-party default theme layout
 
 test("resolveDeckupThemeLayouts maps built-in short names to first-party theme packages", async () => {
   await withProjectRoot(async (projectRoot) => {
-    const theme = await resolveDeckupThemeLayouts(projectRoot, "minimal");
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "minimal", {
+      sourceMode: "installed",
+    });
 
     expect(theme.name).toBe("minimal");
     expect(theme.source).toBe("builtin");
@@ -352,6 +354,7 @@ test("resolveDeckupThemeLayouts maps built-in short names to first-party theme p
       expect.arrayContaining([
         expect.objectContaining({
           id: "default",
+          hasDefaultSlot: true,
           importPath: expect.stringContaining("/@fs/"),
         }),
       ]),
@@ -401,11 +404,13 @@ test("resolveDeckupThemeLayouts resolves every built-in theme from layout compon
   });
 });
 
-test("resolveDeckupThemeLayouts resolves npm theme layouts from the project root", async () => {
+test("resolveDeckupThemeLayouts resolves installed theme layouts from the project root", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme");
 
-    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme");
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme", {
+      sourceMode: "installed",
+    });
 
     expect(theme).toMatchObject({
       name: "@acme/deckup-layout-theme",
@@ -431,14 +436,33 @@ test("resolveDeckupThemeLayouts resolves npm theme layouts from the project root
             ),
           ),
           importPath: expect.stringContaining("/@fs/"),
+          hasDefaultSlot: true,
           slotNames: [],
         }),
         expect.objectContaining({
           id: "two-column",
+          hasDefaultSlot: true,
           slotNames: ["left", "right"],
         }),
       ]),
     );
+  });
+});
+
+test("resolveDeckupThemeLayouts installed mode rejects normalized npm sources before cache work", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await withThemeCache(async (cacheDir) => {
+      await withSerializedProcessGlobals(() =>
+        withNpmThemeCacheEnv(cacheDir, async () => {
+          await expect(
+            resolveDeckupThemeLayouts(projectRoot, "  npm:@acme/deckup-theme@1.2.3  ", {
+              sourceMode: "installed",
+            }),
+          ).rejects.toThrow(/only supports built-in themes and installed packages/);
+          await expect(readdir(cacheDir)).resolves.toEqual([]);
+        }),
+      );
+    });
   });
 });
 
@@ -1124,12 +1148,14 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
           id: "cover",
           filePath: "/tmp/deckup-theme-minimal/layouts/cover.astro",
           importPath: "/@fs/tmp/deckup-theme-minimal/layouts/cover.astro",
+          hasDefaultSlot: true,
           slotNames: [],
         },
         {
           id: "default",
           filePath: "/tmp/deckup-theme-minimal/layouts/default.astro",
           importPath: "/@fs/tmp/deckup-theme-minimal/layouts/default.astro",
+          hasDefaultSlot: true,
           slotNames: [],
         },
       ],
