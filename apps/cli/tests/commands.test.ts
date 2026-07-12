@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { expect, test } from "vite-plus/test";
 
 import { DEFAULT_BUILD_OUT_DIR, DEFAULT_DEV_HOST } from "../src/astro.ts";
@@ -21,6 +21,7 @@ import {
   normalizeLogLevel,
   normalizeOpenValues,
   openCommand,
+  readCliVersion,
   runDeckup,
   VERSION,
   type DeckupBuildCommandOperations,
@@ -77,6 +78,107 @@ test("VERSION matches the package.json version", () => {
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
   ) as { version: string };
   expect(VERSION).toBe(packageJson.version);
+});
+
+async function withTempPackageJsonDir(run: (dir: string) => Promise<void>) {
+  const dir = await mkdtemp(join(tmpdir(), "deckup-cli-version-"));
+  try {
+    await run(dir);
+  } finally {
+    await rm(dir, { force: true, recursive: true });
+  }
+}
+
+test("readCliVersion returns the version string from a valid package.json", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    await writeFile(packageJsonPath, JSON.stringify({ version: "1.2.3" }));
+    expect(readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) })).toBe("1.2.3");
+  });
+});
+
+test("readCliVersion throws a contextual error when package.json is missing", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    expect(() => readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) })).toThrow(
+      /Deckup CLI version metadata is missing/,
+    );
+  });
+});
+
+test("readCliVersion preserves the read failure as the error cause", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    let caught: unknown;
+    try {
+      readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).cause).toBeInstanceOf(Error);
+    expect(((caught as Error).cause as NodeJS.ErrnoException).code).toBe("ENOENT");
+  });
+});
+
+test("readCliVersion throws a contextual error when package.json is malformed JSON", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    await writeFile(packageJsonPath, "{ not valid json");
+    expect(() => readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) })).toThrow(
+      /Deckup CLI version metadata is not valid JSON/,
+    );
+  });
+});
+
+test("readCliVersion preserves the parse failure as the error cause", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    await writeFile(packageJsonPath, "{ not valid json");
+    let caught: unknown;
+    try {
+      readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).cause).toBeInstanceOf(SyntaxError);
+  });
+});
+
+test("readCliVersion throws a contextual error when the version field is missing", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    await writeFile(packageJsonPath, JSON.stringify({ name: "deckup" }));
+    expect(() => readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) })).toThrow(
+      /Deckup CLI version metadata must include a string version/,
+    );
+  });
+});
+
+test("readCliVersion throws a contextual error when the version field is not a string", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    await writeFile(packageJsonPath, JSON.stringify({ version: 123 }));
+    expect(() => readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) })).toThrow(
+      /Deckup CLI version metadata must include a string version/,
+    );
+  });
+});
+
+test("readCliVersion never falls back to 0.0.0", async () => {
+  await withTempPackageJsonDir(async (dir) => {
+    const packageJsonPath = join(dir, "package.json");
+    await writeFile(packageJsonPath, JSON.stringify({ version: 0 }));
+    let threw = false;
+    try {
+      readCliVersion({ packageJsonUrl: pathToFileURL(packageJsonPath) });
+    } catch (error) {
+      threw = true;
+      expect((error as Error).message).not.toContain("0.0.0");
+    }
+    expect(threw).toBe(true);
+  });
 });
 
 test("CLI prints headerless help exactly once", () => {

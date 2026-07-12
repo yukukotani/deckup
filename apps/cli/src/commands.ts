@@ -27,17 +27,44 @@ import type {
   DeckupOutputFormat,
 } from "./types.ts";
 
-function readCliVersion() {
-  // package.json sits one directory above both src/ (dev) and dist/ (packed).
-  const packageJsonUrl = new URL("../package.json", import.meta.url);
+/** @internal Test seam; not exported from the package index. */
+export interface ReadCliVersionOptions {
+  packageJsonUrl?: URL;
+  readPackageJson?: (path: string) => string;
+}
+
+// package.json sits one directory above both src/ (dev) and dist/ (packed).
+const defaultPackageJsonUrl = new URL("../package.json", import.meta.url);
+
+/** @internal Exported for deterministic version-metadata tests; not exported from the package index. */
+export function readCliVersion(options: ReadCliVersionOptions = {}): string {
+  const packageJsonUrl = options.packageJsonUrl ?? defaultPackageJsonUrl;
+  const readPackageJson = options.readPackageJson ?? ((path: string) => readFileSync(path, "utf8"));
+  const packageJsonPath = fileURLToPath(packageJsonUrl);
+
+  let rawPackageJson: string;
   try {
-    const packageJson = JSON.parse(readFileSync(fileURLToPath(packageJsonUrl), "utf8")) as {
-      version?: unknown;
-    };
-    return typeof packageJson.version === "string" ? packageJson.version : "0.0.0";
-  } catch {
-    return "0.0.0";
+    rawPackageJson = readPackageJson(packageJsonPath);
+  } catch (error) {
+    throw new Error(`Deckup CLI version metadata is missing: ${packageJsonPath}`, { cause: error });
   }
+
+  let packageJson: { version?: unknown };
+  try {
+    packageJson = JSON.parse(rawPackageJson) as { version?: unknown };
+  } catch (error) {
+    throw new Error(`Deckup CLI version metadata is not valid JSON: ${packageJsonPath}`, {
+      cause: error,
+    });
+  }
+
+  if (typeof packageJson.version !== "string") {
+    throw new Error(
+      `Deckup CLI version metadata must include a string version: ${packageJsonPath}`,
+    );
+  }
+
+  return packageJson.version;
 }
 
 export const VERSION = readCliVersion();
