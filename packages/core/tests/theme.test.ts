@@ -6,7 +6,7 @@ import {
   BUILTIN_DECKUP_THEME_PACKAGES,
   BUILTIN_DECKUP_THEMES,
   resolveDeckupThemeLayouts,
-  setBuiltinThemePackageJsonResolverForTests,
+  resolveThemePackageRootForTests,
 } from "../src/theme.ts";
 
 async function readCorePackageJson() {
@@ -34,29 +34,21 @@ test("every built-in theme resolves its ./package.json export via package export
   }
 });
 
-test("forced built-in resolution failure throws the existing contextual error and retains cause", async () => {
+test("forced built-in resolution failure throws the existing contextual error and retains cause", () => {
   const injectedCause = new Error("injected built-in theme resolution failure");
-  setBuiltinThemePackageJsonResolverForTests(() => {
-    throw injectedCause;
-  });
 
+  let caught: unknown;
   try {
-    await expect(
-      resolveDeckupThemeLayouts("/tmp/deckup-nonexistent-project", "default"),
-    ).rejects.toThrow(
-      /Unable to resolve Deckup theme "default" package metadata from \/tmp\/deckup-nonexistent-project\. Built-in themes: default, minimal, google-basic, apple-basic\. For npm themes, install the package and export \.\/package\.json plus Astro layout components from layouts\/\*\.astro\./,
-    );
-
-    let caught: unknown;
-    try {
-      await resolveDeckupThemeLayouts("/tmp/deckup-nonexistent-project", "default");
-    } catch (error) {
-      caught = error;
-    }
-
-    expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).cause).toBe(injectedCause);
-  } finally {
-    setBuiltinThemePackageJsonResolverForTests(undefined);
+    resolveThemePackageRootForTests("/tmp/deckup-nonexistent-project", "default", () => {
+      throw injectedCause;
+    });
+  } catch (error) {
+    caught = error;
   }
+
+  expect(caught).toBeInstanceOf(Error);
+  expect((caught as Error).message).toMatch(
+    /Unable to resolve Deckup theme "default" package metadata from \/tmp\/deckup-nonexistent-project\. Built-in themes: default, minimal, google-basic, apple-basic\. For npm themes, install the package and export \.\/package\.json plus Astro layout components from layouts\/\*\.astro\./,
+  );
+  expect((caught as Error).cause).toBe(injectedCause);
 });

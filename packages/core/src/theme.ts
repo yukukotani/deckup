@@ -24,18 +24,6 @@ function resolveBuiltinThemePackageJsonPath(packageName: string) {
   return coreRequire.resolve(`${packageName}/package.json`);
 }
 
-let builtinThemePackageJsonResolver: BuiltinThemePackageJsonResolver =
-  resolveBuiltinThemePackageJsonPath;
-
-// Exported for tests only; not part of the public package surface (index.ts).
-// Lets tests force built-in theme resolution failures to exercise the contextual error path
-// without actually breaking the Core -> built-in-theme-package dependency.
-export function setBuiltinThemePackageJsonResolverForTests(
-  resolver: BuiltinThemePackageJsonResolver | undefined,
-) {
-  builtinThemePackageJsonResolver = resolver ?? resolveBuiltinThemePackageJsonPath;
-}
-
 type DeckupBuiltinTheme = (typeof BUILTIN_DECKUP_THEMES)[number];
 
 type ResolvedThemePackage = {
@@ -71,7 +59,11 @@ function createThemeResolver(themeName: string) {
   return { isBuiltin, packageName };
 }
 
-function resolveThemePackageRoot(projectRoot: string, themeName: string): ResolvedThemePackage {
+function resolveThemePackageRoot(
+  projectRoot: string,
+  themeName: string,
+  builtinThemePackageJsonResolver: BuiltinThemePackageJsonResolver = resolveBuiltinThemePackageJsonPath,
+): ResolvedThemePackage {
   const { isBuiltin, packageName } = createThemeResolver(themeName);
   const resolvePackageJsonPath = isBuiltin
     ? () => builtinThemePackageJsonResolver(packageName)
@@ -93,6 +85,11 @@ function resolveThemePackageRoot(projectRoot: string, themeName: string): Resolv
     );
   }
 }
+
+// Exported for tests only; not part of the public package surface (index.ts).
+// Lets tests force built-in theme resolution failures to exercise the contextual error path
+// via per-call resolver injection, with no mutable module state involved.
+export { resolveThemePackageRoot as resolveThemePackageRootForTests };
 
 type DeckupThemeResolveOptions = {
   sourceMode?: "all" | "installed";
