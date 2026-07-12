@@ -7,17 +7,47 @@ your row when done.
 
 ## Execution order & status
 
-| Plan | Title                                                             | Priority | Effort | Depends on    | Status |
-| ---- | ----------------------------------------------------------------- | -------- | ------ | ------------- | ------ |
-| 001  | Characterization tests for the Astro deck transformation pipeline | P1       | M      | —             | DONE   |
-| 002  | Harden compiled-output coupling; pin Astro-family catalog entries | P1       | M      | 001           | DONE   |
-| 003  | Single-pass, encoder-reusing `toSourceIndex`                      | P3       | S      | 001           | DONE   |
-| 004  | Consolidate duplicated Astro AST utilities and generic helpers    | P2       | M      | 001, 002, 003 | DONE   |
-| 005  | Cache theme layout discovery across virtual-module loads          | P2       | M      | 004           | DONE   |
-| 006  | Remove starter boilerplate (`apps/website`, `packages/utils`)     | P3       | S      | —             | DONE   |
-| 007  | Derive CLI version from package.json                              | P3       | S      | —             | DONE   |
+| Plan | Title                                                             | Priority | Effort | Depends on    | Status | Last verified |
+| ---- | ----------------------------------------------------------------- | -------- | ------ | ------------- | ------ | ------------- |
+| 001  | Characterization tests for the Astro deck transformation pipeline | P1       | M      | —             | DONE   | `b6f4c0d`     |
+| 002  | Harden compiled-output coupling; pin Astro-family catalog entries | P1       | M      | 001           | DONE   | `b6f4c0d`     |
+| 003  | Single-pass, encoder-reusing `toSourceIndex`                      | P3       | S      | 001           | DONE   | `b6f4c0d`     |
+| 004  | Consolidate duplicated Astro AST utilities and generic helpers    | P2       | M      | 001, 002, 003 | DONE   | `b6f4c0d`     |
+| 005  | Cache theme layout discovery across virtual-module loads          | P2       | M      | 004           | DONE   | `b6f4c0d`     |
+| 006  | Remove starter boilerplate (`apps/website`, `packages/utils`)     | P3       | S      | —             | DONE   | `b6f4c0d`     |
+| 007  | Derive CLI version from package.json                              | P3       | S      | —             | DONE   | `b6f4c0d`     |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+## Reconciliation log
+
+### 2026-07-12 — `b6f4c0d`
+
+- **Automated gates**: `vp run deckup#test` passed (232 tests),
+  `vp run @deckup/core#test` passed (124 tests), and `vp check` passed.
+- **001**: the CLI characterization suite remains present with 35 tests;
+  the implementation and an expanded suite also live in `packages/core/`.
+- **002**: Astro-family catalog entries remain pinned to caret ranges. Astro
+  has advanced deliberately from `^7.0.3` to `^7.0.4`; the former marker
+  scanner has since been superseded by an Acorn AST transform, while the
+  characterization suites still pass.
+- **003**: `createSourceIndexConverter` still uses one module-level
+  `TextEncoder`, and its ASCII, multibyte, boundary, and error tests pass.
+- **004**: the original CLI helper consolidation remains intact. Shared deck
+  transformation code has since moved into `@deckup/core`, which now owns
+  package-local equivalents rather than importing CLI internals.
+- **005**: parallel layout discovery, fingerprint caching, generated-page
+  write memoization, and cache invalidation/reference-equality tests remain
+  in place under `packages/core/`; the CLI compatibility tests also pass.
+  The manual HMR smoke check was not repeated during this read-only
+  reconciliation.
+- **006**: `apps/website` and `packages/utils` remain absent, with no stale
+  lockfile importer entries.
+- **007**: source and existing packed CLI both report package version
+  `0.0.4`; the package-version regression test passes.
+- **Full gate note**: `vp run ready` was not repeated because it performs
+  builds that write generated artifacts. The read-only reconciliation used
+  focused tests and check-mode verification instead.
 
 ## Dependency notes
 
