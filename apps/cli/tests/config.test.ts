@@ -35,6 +35,49 @@ import {
 import { resolveDeckupThemeLayouts } from "../src/theme.ts";
 import type { DeckupRuntimePaths } from "../src/types.ts";
 
+/**
+ * Test-only bridge to packages/core/src/npm-theme.ts's private lock-timeout /
+ * lifecycle-fault seam (`resolveCachedNpmThemePackageForTests`). That seam is
+ * intentionally not exported from packages/core/src/index.ts or
+ * apps/cli/src/npm-theme.ts, so it cannot be reached with a static import
+ * here without leaking into this package's public declarations. A computed
+ * dynamic import keeps the source module's own exports (and this file's
+ * declaration surface) unchanged; the return value is cast through a local
+ * structural type describing only what these tests use.
+ */
+type NpmThemeCacheLockClockForTests = { now(): number; wait(ms: number): Promise<void> };
+type NpmThemeCacheLifecycleOperationsForTests = {
+  removeTempEntry(tempEntryDir: string): Promise<void>;
+  releaseLock(lockDir: string): Promise<void>;
+};
+type ResolveCachedNpmThemePackageForTests = (
+  source: DeckupNpmThemeSource,
+  options: DeckupNpmThemeResolveOptions,
+  overrides?: {
+    lockClock?: NpmThemeCacheLockClockForTests;
+    lifecycle?: NpmThemeCacheLifecycleOperationsForTests;
+  },
+) => Promise<unknown>;
+
+const coreNpmThemeSourceModuleUrl = new URL(
+  "../../../packages/core/src/npm-theme.ts",
+  import.meta.url,
+);
+
+async function resolveCachedNpmThemePackageForLifecycleFaultTests(
+  source: DeckupNpmThemeSource,
+  options: DeckupNpmThemeResolveOptions,
+  overrides: {
+    lockClock?: NpmThemeCacheLockClockForTests;
+    lifecycle?: NpmThemeCacheLifecycleOperationsForTests;
+  },
+) {
+  const coreNpmThemeSourceModule = (await import(coreNpmThemeSourceModuleUrl.href)) as {
+    resolveCachedNpmThemePackageForTests: ResolveCachedNpmThemePackageForTests;
+  };
+  return coreNpmThemeSourceModule.resolveCachedNpmThemePackageForTests(source, options, overrides);
+}
+
 async function withProjectRoot(run: (projectRoot: string) => Promise<void>) {
   const projectRoot = await mkdtemp(join(tmpdir(), "deckup-config-"));
   try {
@@ -808,7 +851,7 @@ test("resolveCachedNpmThemePackage times out lock acquisition on a monotonic clo
 
     let monotonicNow = 0;
     const waitDurations: number[] = [];
-    const lockClock: NonNullable<DeckupNpmThemeResolveOptions["lockClock"]> = {
+    const lockClock: NpmThemeCacheLockClockForTests = {
       now: () => monotonicNow,
       wait: async (ms) => {
         waitDurations.push(ms);
@@ -825,29 +868,34 @@ test("resolveCachedNpmThemePackage times out lock acquisition on a monotonic clo
 
     let receivedError: unknown;
     try {
-      await resolveCachedNpmThemePackage(source, {
-        cacheDir,
-        lockClock,
-        lifecycle: {
-          removeTempEntry: async () => {
-            throw new Error("must not run temp cleanup: lock was never acquired");
+      await resolveCachedNpmThemePackageForLifecycleFaultTests(
+        source,
+        {
+          cacheDir,
+          confirmDownload: async () => {
+            throw new Error("must not confirm while the lock is held");
           },
-          releaseLock: async () => {
-            throw new Error("must not release a lock this waiter never acquired");
-          },
-        },
-        confirmDownload: async () => {
-          throw new Error("must not confirm while the lock is held");
-        },
-        operations: {
-          async manifest() {
-            throw new Error("must not fetch a manifest while the lock is held");
-          },
-          async extract() {
-            throw new Error("must not extract while the lock is held");
+          operations: {
+            async manifest() {
+              throw new Error("must not fetch a manifest while the lock is held");
+            },
+            async extract() {
+              throw new Error("must not extract while the lock is held");
+            },
           },
         },
-      });
+        {
+          lockClock,
+          lifecycle: {
+            removeTempEntry: async () => {
+              throw new Error("must not run temp cleanup: lock was never acquired");
+            },
+            releaseLock: async () => {
+              throw new Error("must not release a lock this waiter never acquired");
+            },
+          },
+        },
+      );
     } catch (error) {
       receivedError = error;
     } finally {
@@ -919,30 +967,35 @@ test("resolveCachedNpmThemePackage reports an ordered AggregateError when a prim
 
     let receivedError: unknown;
     try {
-      await resolveCachedNpmThemePackage(source, {
-        cacheDir,
-        confirmDownload: async () => true,
-        lifecycle: {
-          removeTempEntry: async () => {
-            throw cleanupError;
-          },
-          releaseLock: async (lockDir) => {
-            await rm(lockDir, { force: true, recursive: true });
-          },
-        },
-        operations: {
-          async manifest() {
-            return {
-              name: "@acme/deckup-theme",
-              version: "1.2.3",
-              _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
-            };
-          },
-          async extract() {
-            throw new Error("extract failed");
+      await resolveCachedNpmThemePackageForLifecycleFaultTests(
+        source,
+        {
+          cacheDir,
+          confirmDownload: async () => true,
+          operations: {
+            async manifest() {
+              return {
+                name: "@acme/deckup-theme",
+                version: "1.2.3",
+                _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
+              };
+            },
+            async extract() {
+              throw new Error("extract failed");
+            },
           },
         },
-      });
+        {
+          lifecycle: {
+            removeTempEntry: async () => {
+              throw cleanupError;
+            },
+            releaseLock: async (lockDir) => {
+              await rm(lockDir, { force: true, recursive: true });
+            },
+          },
+        },
+      );
     } catch (error) {
       receivedError = error;
     }
@@ -962,30 +1015,35 @@ test("resolveCachedNpmThemePackage reports an ordered AggregateError when a prim
 
     let receivedError: unknown;
     try {
-      await resolveCachedNpmThemePackage(source, {
-        cacheDir,
-        confirmDownload: async () => true,
-        lifecycle: {
-          removeTempEntry: async (tempEntryDir) => {
-            await rm(tempEntryDir, { force: true, recursive: true });
-          },
-          releaseLock: async () => {
-            throw releaseError;
-          },
-        },
-        operations: {
-          async manifest() {
-            return {
-              name: "@acme/deckup-theme",
-              version: "1.2.3",
-              _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
-            };
-          },
-          async extract() {
-            throw new Error("extract failed");
+      await resolveCachedNpmThemePackageForLifecycleFaultTests(
+        source,
+        {
+          cacheDir,
+          confirmDownload: async () => true,
+          operations: {
+            async manifest() {
+              return {
+                name: "@acme/deckup-theme",
+                version: "1.2.3",
+                _resolved: "https://registry.example.test/acme-deckup-theme-1.2.3.tgz",
+              };
+            },
+            async extract() {
+              throw new Error("extract failed");
+            },
           },
         },
-      });
+        {
+          lifecycle: {
+            removeTempEntry: async (tempEntryDir) => {
+              await rm(tempEntryDir, { force: true, recursive: true });
+            },
+            releaseLock: async () => {
+              throw releaseError;
+            },
+          },
+        },
+      );
     } catch (error) {
       receivedError = error;
     }
@@ -1004,19 +1062,24 @@ test("resolveCachedNpmThemePackage rejects when successful work is followed by a
     const releaseError = new Error("lock release failed");
 
     await expect(
-      resolveCachedNpmThemePackage(source, {
-        cacheDir,
-        confirmDownload: async () => true,
-        lifecycle: {
-          removeTempEntry: async (tempEntryDir) => {
-            await rm(tempEntryDir, { force: true, recursive: true });
-          },
-          releaseLock: async () => {
-            throw releaseError;
+      resolveCachedNpmThemePackageForLifecycleFaultTests(
+        source,
+        {
+          cacheDir,
+          confirmDownload: async () => true,
+          operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3"),
+        },
+        {
+          lifecycle: {
+            removeTempEntry: async (tempEntryDir) => {
+              await rm(tempEntryDir, { force: true, recursive: true });
+            },
+            releaseLock: async () => {
+              throw releaseError;
+            },
           },
         },
-        operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3"),
-      }),
+      ),
     ).rejects.toBe(releaseError);
 
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);

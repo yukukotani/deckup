@@ -87,10 +87,6 @@ interface NpmThemeCacheLifecycleOperations {
 export interface DeckupNpmThemeResolveOptions extends DeckupNpmThemeOptions {
   /** @internal Test seam for avoiding real npm registry/network access. */
   operations?: NpmThemeInstallOperations;
-  /** @internal Test seam for deterministic lock-acquisition timing. */
-  lockClock?: NpmThemeCacheLockClock;
-  /** @internal Test seam for injecting cache lifecycle (temp cleanup / lock release) failures. */
-  lifecycle?: NpmThemeCacheLifecycleOperations;
 }
 
 const exactVersionPattern =
@@ -509,14 +505,14 @@ async function promoteExtractedPackage(
   return validateCachedNpmThemeEntry(source, cacheEntryDir);
 }
 
-export async function resolveCachedNpmThemePackage(
+async function resolveCachedNpmThemePackageImpl(
   source: DeckupNpmThemeSource,
-  options: DeckupNpmThemeResolveOptions = {},
+  options: DeckupNpmThemeResolveOptions,
+  clock: NpmThemeCacheLockClock,
+  lifecycle: NpmThemeCacheLifecycleOperations,
 ): Promise<DeckupCachedNpmThemePackage> {
   const cacheDir = resolveNpmThemeCacheDir(options.cacheDir);
   const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
-  const lifecycle = options.lifecycle ?? defaultCacheLifecycleOperations;
-  const clock = options.lockClock ?? defaultCacheLockClock;
 
   return withCacheEntryLock(cacheDir, source, lifecycle, clock, async () => {
     if (await pathExists(cacheEntryDir)) {
@@ -567,4 +563,40 @@ export async function resolveCachedNpmThemePackage(
       throw primaryError;
     }
   });
+}
+
+export async function resolveCachedNpmThemePackage(
+  source: DeckupNpmThemeSource,
+  options: DeckupNpmThemeResolveOptions = {},
+): Promise<DeckupCachedNpmThemePackage> {
+  return resolveCachedNpmThemePackageImpl(
+    source,
+    options,
+    defaultCacheLockClock,
+    defaultCacheLifecycleOperations,
+  );
+}
+
+/**
+ * @internal Test-only entry point. Not part of the public npm theme contract:
+ * do not export this from packages/core/src/index.ts or apps/cli/src/npm-theme.ts.
+ * Injects a per-call lock clock and/or cache lifecycle seam so tests can
+ * exercise lock-timeout and lifecycle-fault paths without a module-global
+ * mutable seam. Omitted overrides fall back to the same production defaults
+ * used by resolveCachedNpmThemePackage.
+ */
+export async function resolveCachedNpmThemePackageForTests(
+  source: DeckupNpmThemeSource,
+  options: DeckupNpmThemeResolveOptions,
+  overrides: {
+    lockClock?: NpmThemeCacheLockClock;
+    lifecycle?: NpmThemeCacheLifecycleOperations;
+  } = {},
+): Promise<DeckupCachedNpmThemePackage> {
+  return resolveCachedNpmThemePackageImpl(
+    source,
+    options,
+    overrides.lockClock ?? defaultCacheLockClock,
+    overrides.lifecycle ?? defaultCacheLifecycleOperations,
+  );
 }
