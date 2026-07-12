@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
@@ -689,7 +689,7 @@ test("virtual theme layouts reject a theme whose layouts directory disappears af
   try {
     const layoutsDir = join(projectRoot, "themes", "minimal", "layouts");
     await mkdir(layoutsDir, { recursive: true });
-    await writeFile(join(layoutsDir, "cover.astro"), "<slot />\n");
+    await writeFile(join(layoutsDir, "cover.astro"), '<slot name="head" />\n');
     await mkdir(join(projectRoot, "src", "slides"), { recursive: true });
     const introDeck = {
       filePath: join(projectRoot, "src/slides/intro.astro"),
@@ -715,15 +715,16 @@ test("virtual theme layouts reject a theme whose layouts directory disappears af
           id: "cover",
           filePath: join(layoutsDir, "cover.astro"),
           importPath: "/@fs/themes/minimal/layouts/cover.astro",
-          hasDefaultSlot: true,
-          slotNames: [],
+          hasDefaultSlot: false,
+          slotNames: ["head"],
         },
       ],
-      slotNames: [],
+      slotNames: ["head"],
       source: "builtin" as const,
     };
+    const generatedPageFilePath = join(projectRoot, ".deckup", "Page.astro");
     const plugins = createDeckupVitePluginsForRegistry(registry, minimalTheme, {
-      generatedPageFilePath: join(projectRoot, ".deckup", "Page.astro"),
+      generatedPageFilePath,
     });
     const layoutsPlugin = plugins.find((plugin) => plugin.name === "deckup:virtual-theme-layouts");
     const resolveId = layoutsPlugin?.resolveId as
@@ -739,6 +740,9 @@ test("virtual theme layouts reject a theme whose layouts directory disappears af
 
     const warmSource = await load?.call({ addWatchFile() {} }, resolved as string);
     expect(warmSource).toContain('"cover"');
+    const warmGeneratedSource = await readFile(generatedPageFilePath, "utf8");
+    expect(warmGeneratedSource).toContain('<slot name="head" slot="head" />');
+    expect(warmGeneratedSource).not.toContain('name="body"');
 
     await rm(layoutsDir, { force: true, recursive: true });
 
@@ -752,6 +756,9 @@ test("virtual theme layouts reject a theme whose layouts directory disappears af
     const recoveredSource = await load?.call({ addWatchFile() {} }, resolved as string);
     expect(recoveredSource).toContain('"recovered"');
     expect(recoveredSource).not.toContain('"cover"');
+    const recoveredGeneratedSource = await readFile(generatedPageFilePath, "utf8");
+    expect(recoveredGeneratedSource).toContain('<slot name="body" slot="body" />');
+    expect(recoveredGeneratedSource).not.toContain('name="head"');
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
