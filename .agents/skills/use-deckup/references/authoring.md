@@ -24,7 +24,7 @@ What changed and why it matters
 
 ---
 
-<layout id="page" />
+<PageMeta layout="page" />
 
 # Three outcomes
 
@@ -36,8 +36,10 @@ What changed and why it matters
 Constraints:
 
 - Do not create empty pages with adjacent horizontal rules or a trailing divider without content.
-- Use at most one `<layout id="..." />` declaration per page.
-- Write layout declarations as self-closing elements.
+- Use at most one import-free `<PageMeta layout="..." />` marker per page.
+- Place it as the first meaningful page item; whitespace and non-rendering comments may precede it.
+- Use exactly one static, non-empty `layout` string attribute and write the marker as self-closing.
+- Do not use expressions, spreads, unknown attributes, children, paired tags, or `PageMeta` as a user component.
 - Use MDX imports and JSX/HTML when needed. Assign named slots through the `slot` attribute on JSX/HTML elements.
 
 ## Astro syntax
@@ -51,13 +53,13 @@ const theme = "google-basic";
 ---
 
 <Page title="Product update">
-  <layout id="cover" />
+  <PageMeta layout="cover" />
   <h1>Product update</h1>
   <p>What changed and why it matters</p>
 </Page>
 
 <Page title="Two priorities">
-  <layout id="two-column" />
+  <PageMeta layout="two-column" />
   <h1>Two priorities</h1>
   <div slot="left">
     <h2>Now</h2>
@@ -73,8 +75,8 @@ const theme = "google-basic";
 Constraints:
 
 - Include at least one `<Page>`.
-- Place `<layout>` as a direct, self-closing child of `<Page>`.
-- Use at most one layout declaration per page.
+- Place `<PageMeta>` as the first meaningful direct child of `<Page>` and make it self-closing.
+- Use at most one marker with exactly one static `layout` string attribute per page.
 - Give each page a `title` for an accessible slide name.
 - Declare the theme in frontmatter as a static `const theme = "..."` string.
 
@@ -82,7 +84,7 @@ Constraints:
 
 - The first page defaults to `cover`.
 - The second and later pages default to `default`.
-- Select a layout explicitly with `<layout id="page" />`.
+- Select a layout explicitly with the import-free `<PageMeta layout="page" />` marker.
 - Start layout IDs with a lowercase letter and use only lowercase letters, numbers, and hyphens.
 - Available layout IDs and named slots depend on the selected theme.
 
@@ -115,7 +117,7 @@ Deck-level theme metadata takes precedence over `deckup.config.*`, which takes p
 Use `left` and `right` with supporting themes, including `google-basic` and `apple-basic`.
 
 ```mdx
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # Build or buy?
 

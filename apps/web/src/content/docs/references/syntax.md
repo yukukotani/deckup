@@ -18,7 +18,7 @@ import Page from "@deckup/astro/page";
 ---
 
 <Page title="Presentation title">
-  <layout id="cover" />
+  <PageMeta layout="cover" />
   <h1>Presentation title</h1>
 </Page>
 
@@ -52,11 +52,14 @@ Empty pages are invalid, so do not use adjacent rules or a trailing rule without
 Deckup assigns `cover` to page 1 and `default` to every later page unless the page declares another layout:
 
 ```mdx
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 ```
 
 A page may contain at most one declaration.
-It must be a self-closing child of the page and is removed before the content renders.
+`PageMeta` is an import-free Deckup marker, not a runtime component.
+It must be the first meaningful direct child; whitespace and non-rendering comments may precede it.
+The marker must be self-closing and may contain exactly one static, non-empty `layout` string attribute. Expressions, spreads, unknown attributes, children, and paired tags are invalid.
+`PageMeta` is reserved and is removed before content renders.
 Layout IDs start with a lowercase letter and contain only lowercase letters, numbers, and hyphens.
 
 ## Named slots
@@ -65,7 +68,7 @@ Target a named region with Astro's standard `slot` attribute:
 
 ```astro
 <Page title="Two columns">
-  <layout id="two-column" />
+  <PageMeta layout="two-column" />
   <h1>Two columns</h1>
   <p slot="left">Left side</p>
   <p slot="right">Right side</p>

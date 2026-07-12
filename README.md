@@ -19,13 +19,13 @@ Omitting `theme` uses `default`.
 First-party themes are regular npm packages in this workspace (`@deckup/theme-default`, `@deckup/theme-minimal`, `@deckup/theme-google-basic`, and `@deckup/theme-apple-basic`), while slide authors use the short names above.
 
 Themes provide Astro layout components instead of a package-root CSS file.
-A slide selects a layout with the existing metadata-only `<layout id="..." />` child, and Deckup injects the slide body into the selected layout's slots.
+A slide selects a layout with the import-free `<PageMeta layout="..." />` marker, and Deckup injects the slide body into the selected layout's slots. Place the marker before page content; Deckup consumes it during compilation and never renders it.
 Single-region layouts use the default slot, so authors can write normal content without a `slot` attribute.
 Multi-region layouts use Astro's standard named slot syntax:
 
 ```astro
 <Page title="Two-column page title">
-  <layout id="two-column" />
+  <PageMeta layout="two-column" />
   <h1>This is page title</h1>
   <p slot="left">Left column content</p>
   <p slot="right">Right column content</p>
@@ -37,7 +37,7 @@ In the built-in `google-basic` and `apple-basic` themes, the `two-column` layout
 The same `slot="left"` / `slot="right"` attributes work in MDX when using JSX elements:
 
 ```mdx
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # This is page title
 

@@ -85,10 +85,10 @@ Deckup parses each public layout file and forwards the union of discovered names
 - Do not hide named slot declarations only inside an imported child component; Deckup does not follow component imports while discovering slot names.
 - Treat slot names as public API.
 
-Slide authors consume the layout like this:
+Slide authors consume a named-slot layout with the import-free marker:
 
 ```mdx
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # Compare
 
@@ -100,7 +100,7 @@ The same `slot` attributes work in Astro decks.
 
 ## Defaults and recommended layouts
 
-When a slide omits `<layout>`:
+When a slide omits `<PageMeta>`:
 
 - slide 1 uses `cover`;
 - slides 2 and later use `default`.

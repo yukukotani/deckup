@@ -50,10 +50,10 @@ import Page from "@deckup/astro/page";
 
 ## Apply layouts intentionally
 
-Deckup uses `cover` for the first page and `default` for later pages unless you add an explicit layout declaration.
+Deckup uses `cover` for the first page and `default` for later pages unless you add an explicit `PageMeta` declaration as the page's first meaningful item.
 
 ```mdx
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # Two perspectives
 

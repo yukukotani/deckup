@@ -4,18 +4,18 @@ const theme = "google-basic";
 ---
 
 <Page title="Presentation title">
-  <layout id="cover" />
+  <PageMeta layout="cover" />
   <h1>This is presentation title</h1>
   <p>This is presentation subtitle</p>
 </Page>
 
 <Page title="Section title">
-  <layout id="section" />
+  <PageMeta layout="section" />
   <h1>This is section title</h1>
 </Page>
 
 <Page title="Page title">
-  <layout id="page" />
+  <PageMeta layout="page" />
   <h1>This is page title</h1>
   <p>This is page content</p>
   <ul>
@@ -30,31 +30,31 @@ const theme = "google-basic";
 </Page>
 
 <Page title="Two-column page title">
-  <layout id="two-column" />
+  <PageMeta layout="two-column" />
   <h1>This is page title</h1>
   <p slot="left">This is left column content</p>
   <p slot="right">This is right column content</p>
 </Page>
 
 <Page title="Number page">
-  <layout id="number" />
+  <PageMeta layout="number" />
   <p>xx%</p>
   <p>This is number page</p>
 </Page>
 
 <Page title="Quote page">
-  <layout id="quote" />
+  <PageMeta layout="quote" />
   <p>This is quote page</p>
   <p>- name</p>
 </Page>
 
 <Page title="Statement page">
-  <layout id="statement" />
+  <PageMeta layout="statement" />
   <p>This is statement<br />page</p>
 </Page>
 
 <Page title="TypeScript code block">
-  <layout id="page" />
+  <PageMeta layout="page" />
   <h1>TypeScript code block</h1>
   <p>This slide shows a TypeScript code block in an Astro deck.</p>
   <pre><code class="language-ts">type Slide = &#123;
