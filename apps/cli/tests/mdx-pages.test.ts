@@ -206,16 +206,16 @@ test("remarkDeckupMdxPages leaves non-selected files untouched", () => {
   expect(tree.children).toEqual([{ type: "heading" }]);
 });
 
-test("public MDX analysis rejects legacy layout markers", () => {
-  expect(() => countMdxDeckPages(`<layout id="cover" />\n\n# One\n`)).toThrow(
-    /Legacy <layout> declaration/,
-  );
+test("public MDX analysis treats lowercase <layout> as ordinary content, not Deckup metadata", () => {
+  const analysis = analyzeMdxDeckSource(`<layout id="cover" />\n\n# One\n`);
+  expect(analysis.pageCount).toBe(1);
+  expect(analysis.layouts).toEqual([{ layout: "cover" }]);
 });
 
-test("public MDX analysis rejects nested legacy layout markers", () => {
-  expect(() => countMdxDeckPages(`<p>Before <layout id="cover" /></p>\n`)).toThrow(
-    /Legacy <layout> declaration/,
-  );
+test("public MDX analysis treats a nested lowercase <layout> as ordinary content, not Deckup metadata", () => {
+  const analysis = analyzeMdxDeckSource(`<p>Before <layout id="cover" /></p>\n`);
+  expect(analysis.pageCount).toBe(1);
+  expect(analysis.layouts).toEqual([{ layout: "cover" }]);
 });
 
 test("public MDX analysis rejects misplaced PageMeta", () => {

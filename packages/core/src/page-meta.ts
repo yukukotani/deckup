@@ -1,5 +1,4 @@
 export const PAGE_META_MARKER_NAME = "PageMeta";
-export const LEGACY_LAYOUT_MARKER_NAME = "layout";
 
 export type NormalizedPageMetaAttribute = {
   name: string | undefined;

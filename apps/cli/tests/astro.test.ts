@@ -685,8 +685,36 @@ test("buildDeck rejects Astro decks without the package Page import", async () =
   });
 });
 
+test("buildDeck treats a lowercase <layout> tag as ordinary content, never a Deckup layout", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Intro"><layout id="cover" /><h1>Intro</h1></Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideCount(html)).toBe(1);
+    expect(html.match(/data-deckup-layout="cover"/g)?.length ?? 0).toBe(1);
+    expect(html).toContain("Intro");
+    expect(html).not.toContain("PageMeta");
+  });
+});
+
 const invalidAstroPageMetaBuildCases: Array<[string, string, RegExp]> = [
-  ["legacy layout marker", `<layout id="cover" /><h1>Intro</h1>`, /Legacy <layout> declaration/],
   [
     "duplicate declarations",
     `<PageMeta layout="cover" /><PageMeta layout="default" /><h1>Intro</h1>`,
@@ -748,8 +776,25 @@ async function expectMdxDeckError(deckSource: string, matcher: RegExp) {
   });
 }
 
-test("buildDeck rejects legacy MDX layout markers", async () => {
-  await expectMdxDeckError(`<layout id="cover" />\n\n# Intro\n`, /Legacy <layout> declaration/);
+test("buildDeck treats a lowercase <layout> tag in MDX as ordinary content, never a Deckup layout", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(join(projectRoot, "slides", "deck.mdx"), `<layout id="cover" />\n\n# Intro\n`);
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.mdx",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    expect(slideCount(html)).toBe(1);
+    expect(html.match(/data-deckup-layout="cover"/g)?.length ?? 0).toBe(1);
+    expect(html).toContain("Intro");
+    expect(html).not.toContain("PageMeta");
+  });
 });
 
 test("buildDeck rejects nested MDX PageMeta", async () => {

@@ -320,13 +320,26 @@ test("remarkDeckupMdxPages leaves non-selected files untouched", () => {
   expect(tree.children).toEqual([{ type: "heading" }]);
 });
 
+test("MDX decks treat lowercase <layout> as ordinary content, not Deckup metadata", () => {
+  const source = `<layout id="cover" />\n\n# One\n`;
+
+  const analysis = analyzeMdxDeckSource(source, deckFile);
+  expect(analysis.pageCount).toBe(1);
+  expect(analysis.layouts).toEqual([{ layout: "cover" }]);
+
+  const tree = transformMdxSource(source);
+  expect(getPageLayout(tree.children[1])).toBe("cover");
+});
+
+test("MDX decks treat a nested lowercase <layout> as ordinary content, not Deckup metadata", () => {
+  const source = `<p>Before <layout id="cover" /></p>\n`;
+
+  const analysis = analyzeMdxDeckSource(source, deckFile);
+  expect(analysis.pageCount).toBe(1);
+  expect(analysis.layouts).toEqual([{ layout: "cover" }]);
+});
+
 const invalidPageMetaCases: Array<[string, string, RegExp]> = [
-  ["legacy layout marker", `<layout id="cover" />\n\n# One\n`, /Legacy <layout> declaration/],
-  [
-    "nested legacy layout marker",
-    `<p>Before <layout id="cover" /></p>\n`,
-    /Legacy <layout> declaration/,
-  ],
   [
     "multiple declarations",
     `<PageMeta layout="cover" />\n<PageMeta layout="default" />\n\n# One\n`,

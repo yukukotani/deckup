@@ -4,11 +4,7 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 import { resolveDeckupLayout } from "./layout.ts";
-import {
-  LEGACY_LAYOUT_MARKER_NAME,
-  PAGE_META_MARKER_NAME,
-  resolvePageMetaLayoutAttribute,
-} from "./page-meta.ts";
+import { PAGE_META_MARKER_NAME, resolvePageMetaLayoutAttribute } from "./page-meta.ts";
 import type { DeckupDeckMetadata, DeckupDeckRegistry, DeckupResolvedDeck } from "./types.ts";
 import { normalizeIdPath } from "./utils.ts";
 
@@ -110,10 +106,6 @@ function isPageMetaNode(node: MdastNode) {
   return isMdxJsxNodeNamed(node, PAGE_META_MARKER_NAME);
 }
 
-function isLegacyLayoutNode(node: MdastNode) {
-  return isMdxJsxNodeNamed(node, LEGACY_LAYOUT_MARKER_NAME);
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -130,10 +122,10 @@ function isMdxCommentNode(node: MdastNode) {
   );
 }
 
-function collectMdxMarkerNodes(nodes: MdastNode[]) {
+function collectMdxPageMetaNodes(nodes: MdastNode[]) {
   const markers: MdastNode[] = [];
   function visit(node: MdastNode) {
-    if (isPageMetaNode(node) || isLegacyLayoutNode(node)) markers.push(node);
+    if (isPageMetaNode(node)) markers.push(node);
     for (const child of node.children ?? []) visit(child);
   }
   for (const node of nodes) visit(node);
@@ -173,14 +165,7 @@ function resolveMdxPage(
   source?: string,
 ): DeckupMdxPage {
   const context = `${filePath} page ${pageIndex + 1}`;
-  const markerNodes = collectMdxMarkerNodes(page);
-  if (markerNodes.some(isLegacyLayoutNode)) {
-    throw new Error(
-      `Legacy <layout> declaration in ${context} is not supported. Use <PageMeta layout="..." />.`,
-    );
-  }
-
-  const pageMetaNodes = markerNodes.filter(isPageMetaNode);
+  const pageMetaNodes = collectMdxPageMetaNodes(page);
   if (pageMetaNodes.length > 1) {
     throw new Error(`Deckup deck contains multiple PageMeta declarations in ${context}.`);
   }

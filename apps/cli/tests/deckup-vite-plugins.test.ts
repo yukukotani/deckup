@@ -44,13 +44,14 @@ test("public Astro transform moves PageMeta layout and removes the marker", () =
   expect(result).not.toContain("PageMeta");
 });
 
-test("public Astro transform rejects legacy layout markers", () => {
-  expect(() =>
-    transformAstroDeckSource(`---
+test("public Astro transform treats lowercase <layout> as ordinary content, not Deckup metadata", () => {
+  const result = transformAstroDeckSource(`---
 import Page from "@deckup/astro/page";
 ---
-<Page><layout id="cover" /><h1>One</h1></Page>`),
-  ).toThrow(/Legacy <layout> declaration/);
+<Page><layout id="cover" /><h1>One</h1></Page>`);
+
+  expect(result).toContain('<Page layout="cover"><layout id="cover" />');
+  expect(result).not.toContain("PageMeta");
 });
 
 test("public Astro transform rejects misplaced PageMeta", () => {

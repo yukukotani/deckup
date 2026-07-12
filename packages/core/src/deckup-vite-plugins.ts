@@ -16,11 +16,7 @@ import {
   type AstroRoot,
 } from "./astro-ast.ts";
 import { resolveDeckupLayout } from "./layout.ts";
-import {
-  LEGACY_LAYOUT_MARKER_NAME,
-  PAGE_META_MARKER_NAME,
-  resolvePageMetaLayoutAttribute,
-} from "./page-meta.ts";
+import { PAGE_META_MARKER_NAME, resolvePageMetaLayoutAttribute } from "./page-meta.ts";
 import { createRuntimePageSource } from "./runtime-page.ts";
 import { analyzeMdxDeckSource } from "./deckup-mdx-pages.ts";
 import {
@@ -173,18 +169,14 @@ function isPageMetaDeclaration(node: AstroNode) {
   return isJsxElementNamed(node, PAGE_META_MARKER_NAME);
 }
 
-function isLegacyLayoutDeclaration(node: AstroNode) {
-  return isJsxElementNamed(node, LEGACY_LAYOUT_MARKER_NAME);
-}
-
 function isPageMetadataIgnorable(node: AstroNode) {
   return isWhitespace(node) || node.type === "AstroComment";
 }
 
-function collectAstroMarkerNodes(page: AstroNode) {
+function collectAstroPageMetaNodes(page: AstroNode) {
   const markers: AstroNode[] = [];
   function visit(node: AstroNode) {
-    if (isPageMetaDeclaration(node) || isLegacyLayoutDeclaration(node)) markers.push(node);
+    if (isPageMetaDeclaration(node)) markers.push(node);
     for (const child of node.children ?? []) visit(child);
   }
   for (const child of page.children ?? []) visit(child);
@@ -458,14 +450,7 @@ function resolveAstroPageLayout(page: AstroNode, pageIndex: number, filePath: st
     );
   }
 
-  const markerNodes = collectAstroMarkerNodes(page);
-  if (markerNodes.some(isLegacyLayoutDeclaration)) {
-    throw new Error(
-      `Legacy <layout> declaration in ${context} is not supported. Use <PageMeta layout="..." />.`,
-    );
-  }
-
-  const pageMetaNodes = markerNodes.filter(isPageMetaDeclaration);
+  const pageMetaNodes = collectAstroPageMetaNodes(page);
   if (pageMetaNodes.length > 1) {
     throw new Error(`Deckup deck contains multiple PageMeta declarations in ${context}.`);
   }

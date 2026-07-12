@@ -321,9 +321,34 @@ const theme = "";
   ).toThrow(/must be a non-empty string/);
 });
 
+test("Astro decks treat lowercase <layout> as ordinary content, not Deckup metadata", () => {
+  const source = `---
+import Page from "@deckup/astro/page";
+---
+
+<Page><layout id="cover" /><h1>One</h1></Page>
+`;
+
+  expect(validateAstroDeckSource(source)).toBe(1);
+  const result = transformAstroDeckSource(source);
+  expect(result).toContain('<Page layout="cover"><layout id="cover" />');
+  expect(result).not.toContain("PageMeta");
+});
+
+test("Astro decks treat a nested lowercase <layout> as ordinary content, not Deckup metadata", () => {
+  const source = `---
+import Page from "@deckup/astro/page";
+---
+
+<Page><div><layout id="cover" /></div></Page>
+`;
+
+  expect(validateAstroDeckSource(source)).toBe(1);
+  const result = transformAstroDeckSource(source);
+  expect(result).toContain('<Page layout="cover"><div><layout id="cover" /></div></Page>');
+});
+
 const invalidAstroPageMetaCases: Array<[string, string, RegExp]> = [
-  ["legacy layout marker", `<layout id="cover" />\n<h1>One</h1>`, /Legacy <layout> declaration/],
-  ["nested legacy marker", `<div><layout id="cover" /></div>`, /Legacy <layout> declaration/],
   [
     "multiple declarations",
     `<PageMeta layout="cover" /><PageMeta layout="default" />`,
