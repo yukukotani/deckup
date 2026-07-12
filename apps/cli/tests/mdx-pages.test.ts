@@ -29,6 +29,20 @@ function getPageChildren(node: unknown) {
   return (node as { children?: unknown[] }).children ?? [];
 }
 
+function createSourceBackedPageMeta(layout: string) {
+  const source = `<PageMeta layout="${layout}" />`;
+  return {
+    source,
+    node: {
+      type: "mdxJsxFlowElement",
+      name: "PageMeta",
+      attributes: [{ type: "mdxJsxAttribute", name: "layout", value: layout }],
+      children: [],
+      position: { start: { offset: 0 }, end: { offset: source.length } },
+    },
+  };
+}
+
 test("stripMdxFrontmatter preserves post-frontmatter divider content", () => {
   expect(stripMdxFrontmatter(twoPageMdx)).toBe(`
 # One
@@ -91,18 +105,14 @@ test("remarkDeckupMdxPages adds default layout attributes", () => {
   expect(getPageLayout(tree.children[2])).toBe("default");
 });
 
-test("remarkDeckupMdxPages moves layout declarations to Page attributes", () => {
-  const layoutNode = {
-    type: "mdxJsxFlowElement",
-    name: "layout",
-    attributes: [{ type: "mdxJsxAttribute", name: "id", value: "section-intro" }],
-    children: [],
-  };
+test("remarkDeckupMdxPages moves PageMeta layout to Page attributes", () => {
+  const { node, source } = createSourceBackedPageMeta("section-intro");
   const tree = {
-    children: [layoutNode, { type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
+    children: [node, { type: "heading" }, { type: "thematicBreak" }, { type: "paragraph" }],
   };
   remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
+    value: source,
   });
 
   expect(getPageLayout(tree.children[1])).toBe("section-intro");
@@ -110,7 +120,8 @@ test("remarkDeckupMdxPages moves layout declarations to Page attributes", () => 
   expect(tree.children[2]).toMatchObject({ children: [{ type: "paragraph" }] });
 });
 
-test("remarkDeckupMdxPages preserves slot attributes on generated Page children", () => {
+test("remarkDeckupMdxPages preserves slot attributes after removing PageMeta", () => {
+  const { node, source } = createSourceBackedPageMeta("two-column");
   const slottedNode = {
     type: "mdxJsxFlowElement",
     name: "div",
@@ -118,19 +129,11 @@ test("remarkDeckupMdxPages preserves slot attributes on generated Page children"
     children: [{ type: "text", value: "Left column" }],
   };
   const tree = {
-    children: [
-      {
-        type: "mdxJsxFlowElement",
-        name: "layout",
-        attributes: [{ type: "mdxJsxAttribute", name: "id", value: "two-column" }],
-        children: [],
-      },
-      { type: "heading" },
-      slottedNode,
-    ],
+    children: [node, { type: "heading" }, slottedNode],
   };
   remarkDeckupMdxPages({ deckFile: "/project/slides/talk.mdx" })(tree, {
     path: "/project/slides/talk.mdx",
+    value: source,
   });
 
   expect(getPageLayout(tree.children[1])).toBe("two-column");
@@ -176,7 +179,7 @@ test("analyzeMdxDeckSource ignores MDX ESM nodes like the renderer", () => {
   const analysis = analyzeMdxDeckSource(
     `import Chart from "./Chart.astro";
 
-<layout id="cover" />
+<PageMeta layout="cover" />
 
 # One
 
@@ -184,7 +187,7 @@ test("analyzeMdxDeckSource ignores MDX ESM nodes like the renderer", () => {
 
 import Aside from "./Aside.astro";
 
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # Two
 `,
@@ -203,39 +206,32 @@ test("remarkDeckupMdxPages leaves non-selected files untouched", () => {
   expect(tree.children).toEqual([{ type: "heading" }]);
 });
 
-test("countMdxDeckPages rejects duplicate layout declarations", () => {
-  expect(() =>
-    countMdxDeckPages(`<layout id="cover" />
-<layout id="default" />
-
-# One
-`),
-  ).toThrow(/multiple layout declarations/);
+test("public MDX analysis rejects legacy layout markers", () => {
+  expect(() => countMdxDeckPages(`<layout id="cover" />\n\n# One\n`)).toThrow(
+    /Legacy <layout> declaration/,
+  );
 });
 
-test("countMdxDeckPages rejects layout declarations without id", () => {
-  expect(() =>
-    countMdxDeckPages(`<layout />
-
-# One
-`),
-  ).toThrow(/must include an id attribute/);
+test("public MDX analysis rejects nested legacy layout markers", () => {
+  expect(() => countMdxDeckPages(`<p>Before <layout id="cover" /></p>\n`)).toThrow(
+    /Legacy <layout> declaration/,
+  );
 });
 
-test("countMdxDeckPages rejects empty layout ids", () => {
-  expect(() =>
-    countMdxDeckPages(`<layout id="" />
-
-# One
-`),
-  ).toThrow(/Invalid Deckup layout id/);
+test("public MDX analysis rejects misplaced PageMeta", () => {
+  expect(() => countMdxDeckPages(`# One\n\n<PageMeta layout="cover" />\n`)).toThrow(
+    /first meaningful direct child/,
+  );
 });
 
-test("countMdxDeckPages rejects invalid layout ids", () => {
-  expect(() =>
-    countMdxDeckPages(`<layout id="Cover Slide" />
+test("public MDX analysis enforces lexical self-closing PageMeta", () => {
+  expect(() => countMdxDeckPages(`<PageMeta layout="cover"></PageMeta>\n\n# One\n`)).toThrow(
+    /must be self-closing/,
+  );
+});
 
-# One
-`),
-  ).toThrow(/Invalid Deckup layout id/);
+test("public MDX analysis rejects invalid PageMeta layout ids", () => {
+  expect(() => countMdxDeckPages(`<PageMeta layout="Cover Slide" />\n\n# One\n`)).toThrow(
+    /Invalid Deckup layout id/,
+  );
 });

@@ -414,7 +414,7 @@ test("buildDeck builds one selected Astro deck file", async () => {
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Intro"><layout id="cover" /><h1>Intro</h1></Page>
+<Page title="Intro"><PageMeta layout="cover" /><h1>Intro</h1></Page>
 <Page title="Details"><h1>Details</h1></Page>
 `,
     );
@@ -432,6 +432,7 @@ import Page from "@deckup/astro/page";
     expect(html).toContain("Intro");
     expect(html).toContain("Details");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -591,7 +592,7 @@ test("buildDeck renders Astro pages through theme layouts and named slots", asyn
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Columns"><layout id="two-column" /><h1>Column title</h1><div slot="left">Left content</div><div slot="right">Right content</div></Page>
+<Page title="Columns"><PageMeta layout="two-column" /><h1>Column title</h1><div slot="left">Left content</div><div slot="right">Right content</div></Page>
 <Page title="Default"><p>Default content</p></Page>
 `,
     );
@@ -622,6 +623,7 @@ import Page from "@deckup/astro/page";
     expect(html).toContain('class="fixture-default"');
     expect(html).toContain("Default content");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -683,51 +685,84 @@ test("buildDeck rejects Astro decks without the package Page import", async () =
   });
 });
 
-test("buildDeck rejects duplicate Astro layout declarations", async () => {
-  await expectAstroDeckError(
-    `---
-import Page from "@deckup/astro/page";
----
-
-<Page><layout id="cover" /><layout id="default" /><h1>Intro</h1></Page>
-`,
-    /multiple layout declarations/,
-  );
-});
-
-test("buildDeck rejects Astro layout declarations without id", async () => {
-  await expectAstroDeckError(
-    `---
-import Page from "@deckup/astro/page";
----
-
-<Page><layout /><h1>Intro</h1></Page>
-`,
-    /must include an id attribute/,
-  );
-});
-
-test("buildDeck rejects empty Astro layout ids", async () => {
-  await expectAstroDeckError(
-    `---
-import Page from "@deckup/astro/page";
----
-
-<Page><layout id="" /><h1>Intro</h1></Page>
-`,
+const invalidAstroPageMetaBuildCases: Array<[string, string, RegExp]> = [
+  ["legacy layout marker", `<layout id="cover" /><h1>Intro</h1>`, /Legacy <layout> declaration/],
+  [
+    "duplicate declarations",
+    `<PageMeta layout="cover" /><PageMeta layout="default" /><h1>Intro</h1>`,
+    /multiple PageMeta declarations/,
+  ],
+  ["missing layout", `<PageMeta /><h1>Intro</h1>`, /exactly one layout attribute/],
+  ["dynamic layout", `<PageMeta layout={layout} /><h1>Intro</h1>`, /static string/],
+  ["empty layout", `<PageMeta layout="" /><h1>Intro</h1>`, /non-empty string/],
+  [
+    "invalid layout id",
+    `<PageMeta layout="Cover Slide" /><h1>Intro</h1>`,
     /Invalid Deckup layout id/,
+  ],
+  [
+    "unknown attribute",
+    `<PageMeta layout="cover" extra="value" /><h1>Intro</h1>`,
+    /exactly one layout attribute/,
+  ],
+  [
+    "duplicate layout attribute",
+    `<PageMeta layout="cover" layout="default" /><h1>Intro</h1>`,
+    /exactly one layout attribute/,
+  ],
+  ["spread attribute", `<PageMeta {...props} /><h1>Intro</h1>`, /exactly one layout attribute/],
+  ["children", `<PageMeta layout="cover">child</PageMeta><h1>Intro</h1>`, /must not have children/],
+  [
+    "non-self-closing marker",
+    `<PageMeta layout="cover"></PageMeta><h1>Intro</h1>`,
+    /must be self-closing/,
+  ],
+  ["late marker", `<h1>Intro</h1><PageMeta layout="cover" />`, /first meaningful direct child/],
+  ["nested marker", `<div><PageMeta layout="cover" /></div>`, /first meaningful direct child/],
+];
+
+for (const [name, body, matcher] of invalidAstroPageMetaBuildCases) {
+  test(`buildDeck rejects Astro PageMeta ${name}`, async () => {
+    await expectAstroDeckError(
+      `---
+import Page from "@deckup/astro/page";
+const layout = "cover";
+const props = {};
+---
+
+<Page>${body}</Page>
+`,
+      matcher,
+    );
+  });
+}
+
+async function expectMdxDeckError(deckSource: string, matcher: RegExp) {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(join(projectRoot, "slides", "bad.mdx"), deckSource);
+    await expect(
+      buildDeck({ root: projectRoot, deckFile: "slides/bad.mdx", logLevel: "silent" }),
+    ).rejects.toThrow(matcher);
+  });
+}
+
+test("buildDeck rejects legacy MDX layout markers", async () => {
+  await expectMdxDeckError(`<layout id="cover" />\n\n# Intro\n`, /Legacy <layout> declaration/);
+});
+
+test("buildDeck rejects nested MDX PageMeta", async () => {
+  await expectMdxDeckError(
+    `<div><PageMeta layout="cover" /></div>\n`,
+    /first meaningful direct child/,
   );
 });
 
-test("buildDeck rejects invalid Astro layout ids", async () => {
-  await expectAstroDeckError(
-    `---
-import Page from "@deckup/astro/page";
----
-
-<Page><layout id="Cover Slide" /><h1>Intro</h1></Page>
-`,
-    /Invalid Deckup layout id/,
+test("buildDeck rejects non-self-closing MDX PageMeta", async () => {
+  await expectMdxDeckError(
+    `<PageMeta layout="cover"></PageMeta>\n\n# Intro\n`,
+    /must be self-closing/,
   );
 });
 
@@ -742,7 +777,7 @@ test("buildDeck rejects Astro decks that select a missing theme layout", async (
 import Page from "@deckup/astro/page";
 ---
 
-<Page><layout id="missing" /><h1>Missing</h1></Page>
+<Page><PageMeta layout="missing" /><h1>Missing</h1></Page>
 `,
     );
 
@@ -766,8 +801,8 @@ test("buildDeck renders Astro pages through the Google Basic flow layouts", asyn
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Google Page"><layout id="page" /><h1>Google page title</h1><p>Google page body</p><ul><li>Google bullet</li></ul><p>Google follow-up</p></Page>
-<Page title="Google Columns"><layout id="two-column" /><h1>Google column title</h1><p slot="left">Google left</p><p slot="right">Google right</p></Page>
+<Page title="Google Page"><PageMeta layout="page" /><h1>Google page title</h1><p>Google page body</p><ul><li>Google bullet</li></ul><p>Google follow-up</p></Page>
+<Page title="Google Columns"><PageMeta layout="two-column" /><h1>Google column title</h1><p slot="left">Google left</p><p slot="right">Google right</p></Page>
 `,
     );
 
@@ -792,6 +827,7 @@ import Page from "@deckup/astro/page";
     expect(html).toContain('class="deckup-google-column deckup-google-column--right"');
     expect(html).toContain("Google right");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -809,8 +845,8 @@ test("buildDeck renders Astro pages through the Apple Basic flow layouts", async
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Apple Page"><layout id="page" /><h1>Apple page title</h1><p>Apple page subtitle</p><p>Apple page body</p><ul><li>Apple bullet</li></ul></Page>
-<Page title="Apple Columns"><layout id="two-column" /><h1>Apple column title</h1><p slot="left">Apple left</p><p slot="right">Apple right</p></Page>
+<Page title="Apple Page"><PageMeta layout="page" /><h1>Apple page title</h1><p>Apple page subtitle</p><p>Apple page body</p><ul><li>Apple bullet</li></ul></Page>
+<Page title="Apple Columns"><PageMeta layout="two-column" /><h1>Apple column title</h1><p slot="left">Apple left</p><p slot="right">Apple right</p></Page>
 `,
     );
 
@@ -835,6 +871,7 @@ import Page from "@deckup/astro/page";
     expect(html).toContain('class="deckup-apple-column deckup-apple-column--right"');
     expect(html).toContain("Apple right");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -853,7 +890,7 @@ for (const theme of builtInViewerThemes) {
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Intro"><layout id="cover" /><h1>Intro</h1><p>Body</p></Page>
+<Page title="Intro"><PageMeta layout="cover" /><h1>Intro</h1><p>Body</p></Page>
 `,
       );
 
@@ -946,11 +983,11 @@ for (const theme of ["google-basic", "apple-basic"] as const) {
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Cover"><layout id="cover" /><h1>Cover title</h1><p>Cover subtitle</p></Page>
-<Page title="Section"><layout id="section" /><h1>Section title</h1></Page>
-<Page title="Number"><layout id="number" /><p>42</p><p>Number caption</p></Page>
-<Page title="Quote"><layout id="quote" /><p>Quote body</p><p>Quote name</p></Page>
-<Page title="Statement"><layout id="statement" /><p>Statement body</p></Page>
+<Page title="Cover"><PageMeta layout="cover" /><h1>Cover title</h1><p>Cover subtitle</p></Page>
+<Page title="Section"><PageMeta layout="section" /><h1>Section title</h1></Page>
+<Page title="Number"><PageMeta layout="number" /><p>42</p><p>Number caption</p></Page>
+<Page title="Quote"><PageMeta layout="quote" /><p>Quote body</p><p>Quote name</p></Page>
+<Page title="Statement"><PageMeta layout="statement" /><p>Statement body</p></Page>
 `,
       );
 
@@ -974,6 +1011,7 @@ import Page from "@deckup/astro/page";
       expect(html).toContain("Quote body");
       expect(html).toContain("Statement body");
       expect(html).not.toContain("<layout");
+      expect(html).not.toContain("PageMeta");
     });
   });
 }
@@ -1335,7 +1373,7 @@ test("buildDeck builds one selected MDX deck file split by dividers", async () =
 title: MDX Deck
 ---
 
-<layout id="cover" />
+<PageMeta layout="cover" />
 
 # Intro
 
@@ -1361,6 +1399,7 @@ title: MDX Deck
     expect(html).toContain("Intro");
     expect(html).toContain("Details");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -1375,7 +1414,7 @@ test("buildDeck renders MDX pages through theme layouts and named slots", async 
 title: MDX Layout Deck
 ---
 
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # MDX Column title
 
@@ -1409,6 +1448,7 @@ title: MDX Layout Deck
     expect(html).toContain('class="fixture-default"');
     expect(html).toContain("MDX default content");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -1426,7 +1466,7 @@ test("buildDeck renders MDX pages through the Google Basic flow layouts", async 
 title: Google Basic MDX
 ---
 
-<layout id="page" />
+<PageMeta layout="page" />
 
 # Google MDX page title
 
@@ -1438,7 +1478,7 @@ Google MDX follow-up
 
 ---
 
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # Google MDX column title
 
@@ -1469,6 +1509,7 @@ Google MDX follow-up
     expect(html).toContain('class="deckup-google-column deckup-google-column--right"');
     expect(html).toContain("Google MDX right");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -1486,7 +1527,7 @@ test("buildDeck renders MDX pages through the Apple Basic flow layouts", async (
 title: Apple Basic MDX
 ---
 
-<layout id="page" />
+<PageMeta layout="page" />
 
 # Apple MDX page title
 
@@ -1498,7 +1539,7 @@ Apple MDX page body
 
 ---
 
-<layout id="two-column" />
+<PageMeta layout="two-column" />
 
 # Apple MDX column title
 
@@ -1529,6 +1570,7 @@ Apple MDX page body
     expect(html).toContain('class="deckup-apple-column deckup-apple-column--right"');
     expect(html).toContain("Apple MDX right");
     expect(html).not.toContain("<layout");
+    expect(html).not.toContain("PageMeta");
   });
 });
 
@@ -1543,7 +1585,7 @@ test("buildDeck rejects MDX decks that select a missing theme layout", async () 
 title: Missing
 ---
 
-<layout id="missing" />
+<PageMeta layout="missing" />
 
 # Missing
 `,

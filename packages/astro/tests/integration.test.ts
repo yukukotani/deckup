@@ -57,7 +57,7 @@ title: Guide MDX Deck
 theme: minimal
 ---
 
-<layout id="cover" />
+<PageMeta layout="cover" />
 
 # Guide MDX Deck
 
@@ -73,7 +73,7 @@ import Page from "@deckup/astro/page";
 const theme = "google-basic";
 ---
 
-<Page title="Google"><layout id="cover" /><h1>Google Astro Deck</h1></Page>
+<Page title="Google"><PageMeta layout="cover" /><h1>Google Astro Deck</h1></Page>
 `,
   );
   await writeFile(
@@ -83,7 +83,7 @@ import Page from "@deckup/astro/page";
 const theme = "apple-basic";
 ---
 
-<Page title="Apple"><layout id="cover" /><h1>Apple Astro Deck</h1></Page>
+<Page title="Apple"><PageMeta layout="cover" /><h1>Apple Astro Deck</h1></Page>
 `,
   );
   await writeFile(
@@ -169,6 +169,8 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(intro).toContain('data-slide-count="2"');
     expect(intro).toContain('data-deckup-theme="default"');
     expect(intro).not.toContain('data-deckup-theme="minimal"');
+    expect(intro).not.toContain("<layout");
+    expect(intro).not.toContain("PageMeta");
     const introCss = await readBuiltCss(projectRoot, intro);
     expect(intro).toContain("data-deckup-shell");
     expect(intro).toContain("data-deckup-navigation");
@@ -191,6 +193,8 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(guide).toContain('data-slide-count="2"');
     expect(guide).toContain('data-deckup-theme="minimal"');
     expect(guide).not.toContain('data-deckup-theme="default"');
+    expect(guide).not.toContain("<layout");
+    expect(guide).not.toContain("PageMeta");
     expect(guide).toContain("Guide MDX Deck");
     expect(guide).toContain("Guide Details");
     const guideCss = await readBuiltCss(projectRoot, guide);
@@ -205,6 +209,8 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     );
     expect(google).toContain('data-deckup-theme="google-basic"');
     expect(google).toContain("Google Astro Deck");
+    expect(google).not.toContain("<layout");
+    expect(google).not.toContain("PageMeta");
     const googleCss = await readBuiltCss(projectRoot, google);
     expect(googleCss).toContain("--gb-blue");
     expect(googleCss).not.toContain("#f7f8fc");
@@ -217,6 +223,8 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     );
     expect(apple).toContain('data-deckup-theme="apple-basic"');
     expect(apple).toContain("Apple Astro Deck");
+    expect(apple).not.toContain("<layout");
+    expect(apple).not.toContain("PageMeta");
     const appleCss = await readBuiltCss(projectRoot, apple);
     expect(appleCss).toContain("--ab-text");
     expect(appleCss).not.toContain("#f7f8fc");

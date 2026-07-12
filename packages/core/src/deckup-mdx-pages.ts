@@ -4,6 +4,11 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 import { resolveDeckupLayout } from "./layout.ts";
+import {
+  LEGACY_LAYOUT_MARKER_NAME,
+  PAGE_META_MARKER_NAME,
+  resolvePageMetaLayoutAttribute,
+} from "./page-meta.ts";
 import type { DeckupDeckMetadata, DeckupDeckRegistry, DeckupResolvedDeck } from "./types.ts";
 import { normalizeIdPath } from "./utils.ts";
 
@@ -15,6 +20,11 @@ type MdxJsxAttribute = {
   value?: unknown;
 };
 
+type MdastPosition = {
+  start?: { offset?: number };
+  end?: { offset?: number };
+};
+
 type MdastNode = {
   type?: string;
   value?: string;
@@ -22,6 +32,7 @@ type MdastNode = {
   name?: string;
   attributes?: MdxJsxAttribute[];
   data?: Record<string, unknown>;
+  position?: MdastPosition;
 };
 
 type MdastRoot = {
@@ -42,6 +53,7 @@ type DeckupMdxDeckAnalysis = {
 type VFileLike = {
   path?: string;
   history?: string[];
+  value?: string | Uint8Array;
 };
 
 export interface DeckupMdxPagesOptions {
@@ -88,41 +100,128 @@ function createPageImportNode(componentExport = pageComponentExport): MdastNode 
   };
 }
 
-function isLayoutNode(node: MdastNode) {
-  return node.type === "mdxJsxFlowElement" && node.name === "layout";
+function isMdxJsxNodeNamed(node: MdastNode, name: string) {
+  return (
+    (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") && node.name === name
+  );
 }
 
-function getLayoutIdAttribute(node: MdastNode, context: string) {
-  const idAttribute = node.attributes?.find((attribute) => attribute.name === "id");
-  if (!idAttribute || idAttribute.value === null || idAttribute.value === undefined) {
-    throw new Error(`MDX layout declaration in ${context} must include an id attribute.`);
-  }
-
-  if (typeof idAttribute.value !== "string") {
-    throw new TypeError(`MDX layout declaration in ${context} must use a string id attribute.`);
-  }
-
-  return idAttribute.value;
+function isPageMetaNode(node: MdastNode) {
+  return isMdxJsxNodeNamed(node, PAGE_META_MARKER_NAME);
 }
 
-function resolveMdxPage(page: MdastNode[], pageIndex: number, filePath: string): DeckupMdxPage {
+function isLegacyLayoutNode(node: MdastNode) {
+  return isMdxJsxNodeNamed(node, LEGACY_LAYOUT_MARKER_NAME);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isMdxCommentNode(node: MdastNode) {
+  if (node.type !== "mdxFlowExpression") return false;
+  const estree = node.data?.estree;
+  if (!isRecord(estree)) return false;
+  return (
+    Array.isArray(estree.body) &&
+    estree.body.length === 0 &&
+    Array.isArray(estree.comments) &&
+    estree.comments.length > 0
+  );
+}
+
+function collectMdxMarkerNodes(nodes: MdastNode[]) {
+  const markers: MdastNode[] = [];
+  function visit(node: MdastNode) {
+    if (isPageMetaNode(node) || isLegacyLayoutNode(node)) markers.push(node);
+    for (const child of node.children ?? []) visit(child);
+  }
+  for (const node of nodes) visit(node);
+  return markers;
+}
+
+function normalizeMdxPageMetaAttributes(node: MdastNode) {
+  return (node.attributes ?? []).map((attribute) => ({
+    name: attribute.type === "mdxJsxAttribute" ? attribute.name : undefined,
+    staticStringValue:
+      attribute.type === "mdxJsxAttribute" && typeof attribute.value === "string"
+        ? attribute.value
+        : undefined,
+  }));
+}
+
+function getMdxNodeSource(node: MdastNode, source: string | undefined, context: string) {
+  const start = node.position?.start?.offset;
+  const end = node.position?.end?.offset;
+  if (
+    source === undefined ||
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    (start as number) < 0 ||
+    (end as number) < (start as number) ||
+    (end as number) > source.length
+  ) {
+    throw new Error(`Cannot validate PageMeta declaration in ${context} without its source span.`);
+  }
+  return source.slice(start as number, end as number);
+}
+
+function resolveMdxPage(
+  page: MdastNode[],
+  pageIndex: number,
+  filePath: string,
+  source?: string,
+): DeckupMdxPage {
   const context = `${filePath} page ${pageIndex + 1}`;
-  const layoutNodes = page.filter(isLayoutNode);
-  if (layoutNodes.length > 1) {
-    throw new Error(`MDX deck contains multiple layout declarations in ${context}.`);
+  const markerNodes = collectMdxMarkerNodes(page);
+  if (markerNodes.some(isLegacyLayoutNode)) {
+    throw new Error(
+      `Legacy <layout> declaration in ${context} is not supported. Use <PageMeta layout="..." />.`,
+    );
   }
 
-  const explicitLayout = layoutNodes[0] ? getLayoutIdAttribute(layoutNodes[0], context) : undefined;
+  const pageMetaNodes = markerNodes.filter(isPageMetaNode);
+  if (pageMetaNodes.length > 1) {
+    throw new Error(`Deckup deck contains multiple PageMeta declarations in ${context}.`);
+  }
+
+  const pageMeta = pageMetaNodes[0];
+  if (pageMeta && (pageMeta.children ?? []).length > 0) {
+    throw new Error(`PageMeta declaration in ${context} must not have children.`);
+  }
+  const firstMeaningfulChild = page.find((child) => !isMdxCommentNode(child));
+  if (pageMeta && pageMeta !== firstMeaningfulChild) {
+    throw new Error(
+      `PageMeta declaration in ${context} must be the first meaningful direct child.`,
+    );
+  }
+
+  let explicitLayout: string | undefined;
+  if (pageMeta) {
+    if (!/\/>\s*$/.test(getMdxNodeSource(pageMeta, source, context))) {
+      throw new Error(`PageMeta declaration in ${context} must be self-closing.`);
+    }
+    explicitLayout = resolvePageMetaLayoutAttribute(
+      normalizeMdxPageMetaAttributes(pageMeta),
+      context,
+    );
+  }
+
   return {
-    children: page.filter((child) => !isLayoutNode(child)),
+    children: page.filter((child) => child !== pageMeta),
     layout: resolveDeckupLayout(explicitLayout, pageIndex, context),
   };
 }
 
-function resolveMdxPages(children: MdastNode[], filePath: string) {
+function resolveMdxPages(children: MdastNode[], filePath: string, source?: string) {
   return splitMdxChildrenIntoPages(children).map((page, pageIndex) =>
-    resolveMdxPage(page, pageIndex, filePath),
+    resolveMdxPage(page, pageIndex, filePath, source),
   );
+}
+
+function getVFileSource(file: VFileLike) {
+  if (typeof file.value === "string") return file.value;
+  return file.value instanceof Uint8Array ? new TextDecoder().decode(file.value) : undefined;
 }
 
 function getRenderableMdxNodes(children: MdastRoot["children"]) {
@@ -175,7 +274,7 @@ export function remarkDeckupMdxPages(options: DeckupMdxPagesOptions = {}) {
     const pageComponent = options.pageComponentForDeck?.(deck);
     const esmNodes = tree.children.filter((child) => child.type === "mdxjsEsm");
     const renderableNodes = getRenderableMdxNodes(tree.children);
-    const pages = resolveMdxPages(renderableNodes, deck.filePath);
+    const pages = resolveMdxPages(renderableNodes, deck.filePath, getVFileSource(file));
     tree.children = [
       createPageImportNode(pageComponent),
       ...esmNodes,
@@ -262,12 +361,13 @@ export function stripMdxFrontmatter(source: string) {
 }
 
 function parseMdxBody(source: string): MdastRoot {
-  return unified().use(remarkParse).use(remarkMdx).parse(stripMdxFrontmatter(source)) as MdastRoot;
+  return unified().use(remarkParse).use(remarkMdx).parse(source) as MdastRoot;
 }
 
 export function analyzeMdxDeckSource(source: string, filePath = "MDX deck"): DeckupMdxDeckAnalysis {
-  const renderableNodes = getRenderableMdxNodes(parseMdxBody(source).children);
-  const pages = resolveMdxPages(renderableNodes, filePath);
+  const bodySource = stripMdxFrontmatter(source);
+  const renderableNodes = getRenderableMdxNodes(parseMdxBody(bodySource).children);
+  const pages = resolveMdxPages(renderableNodes, filePath, bodySource);
   return {
     pageCount: pages.length,
     layouts: pages.map((page) => ({ layout: page.layout })),
