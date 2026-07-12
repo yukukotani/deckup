@@ -113,4 +113,14 @@ the named entry under the cache directory's `packages/` folder, then rerun
 Deckup interactively to re-download it. Avoid deleting the whole cache
 directory; that removes every other theme you already have cached.
 
+Deckup serializes concurrent downloads of the same theme with a per-package
+cache lock. Acquiring that lock waits up to 60 seconds; if the wait times
+out, Deckup reports a timeout error naming the theme, the wait duration, and
+the lock directory instead of waiting indefinitely. A lock only remains past
+that window if a Deckup process abandoned it (for example, a crash or a
+killed process). To recover, confirm no Deckup process is using that theme,
+then remove the named `.lock` directory under the cache directory's `locks/`
+folder before retrying. Do not remove a lock while a Deckup process still
+holds it.
+
 To create a reusable package, read [Authoring Themes](/guides/authoring-themes/).
