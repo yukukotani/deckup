@@ -105,4 +105,12 @@ Both `npm:package` and exact `npm:package@version` specs are supported.
 Deckup caches downloaded packages; set `DECKUP_THEME_CACHE_DIR` to choose another cache directory.
 An uncached download requires confirmation, and non-interactive runs stop with guidance instead of downloading automatically.
 
+Deckup does not automatically replace an invalid cache entry. If a cached
+theme fails validation (for example, edited or corrupted metadata or package
+files), Deckup reports the error instead of deleting and re-downloading it.
+To recover, verify no Deckup process is using that cache entry, remove only
+the named entry under the cache directory's `packages/` folder, then rerun
+Deckup interactively to re-download it. Avoid deleting the whole cache
+directory; that removes every other theme you already have cached.
+
 To create a reusable package, read [Authoring Themes](/guides/authoring-themes/).

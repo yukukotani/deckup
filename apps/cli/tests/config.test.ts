@@ -660,60 +660,98 @@ test("resolveCachedNpmThemePackage reuses valid cached themes without prompting"
   });
 });
 
-test("resolveCachedNpmThemePackage repairs invalid cache entries before downloading", async () => {
+test("resolveCachedNpmThemePackage rejects invalid cache metadata without repairing", async () => {
   await withThemeCache(async (cacheDir) => {
     const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
     await mkdir(cacheEntryDir, { recursive: true });
     await writeFile(join(cacheEntryDir, "deckup-npm-theme.json"), "{}\n");
+    const metadataPath = join(cacheEntryDir, "deckup-npm-theme.json");
+    const beforeMetadata = await readFile(metadataPath, "utf8");
 
     const calls: string[] = [];
-    const resolved = await resolveCachedNpmThemePackage(source, {
-      cacheDir,
-      confirmDownload: async () => true,
-      operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls),
-    });
+    await expect(
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => {
+          calls.push("confirm");
+          return true;
+        },
+        operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls),
+      }),
+    ).rejects.toThrow(
+      `Cached Deckup npm theme metadata does not match ${source.spec}: ${metadataPath}`,
+    );
 
-    expect(calls).toEqual([
-      expect.stringContaining("manifest:@acme/deckup-theme@1.2.3:"),
-      expect.stringContaining(
-        "extract:https://registry.example.test/@acme-deckup-theme-1.2.3.tgz:",
-      ),
-    ]);
-    expect(resolved.packageRoot).toBe(await realpath(join(cacheEntryDir, "package")));
+    expect(calls).toEqual([]);
+    await expect(readFile(metadataPath, "utf8")).resolves.toBe(beforeMetadata);
+    await expect(readdir(cacheEntryDir)).resolves.toEqual(["deckup-npm-theme.json"]);
   });
 });
 
-test("resolveCachedNpmThemePackage repairs metadata/package version mismatches before downloading", async () => {
+test("resolveCachedNpmThemePackage rejects metadata/package version mismatches without repairing", async () => {
   await withThemeCache(async (cacheDir) => {
     const source = parseNpmThemeSource("npm:@acme/deckup-theme")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
     await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.0.0");
     await writeCachedThemeMetadata(cacheEntryDir, source, "2.0.0");
+    const packageJsonPath = join(cacheEntryDir, "package", "package.json");
+    const beforePackageJson = await readFile(packageJsonPath, "utf8");
+    const beforeMetadata = await readFile(join(cacheEntryDir, "deckup-npm-theme.json"), "utf8");
 
     const calls: string[] = [];
-    const resolved = await resolveCachedNpmThemePackage(source, {
-      cacheDir,
-      confirmDownload: async () => true,
-      operations: fakeNpmThemeOperations("@acme/deckup-theme", "2.0.0", calls),
-    });
+    await expect(
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => {
+          calls.push("confirm");
+          return true;
+        },
+        operations: fakeNpmThemeOperations("@acme/deckup-theme", "2.0.0", calls),
+      }),
+    ).rejects.toThrow(
+      `Cached Deckup npm theme metadata version mismatch for ${source.spec}: expected 2.0.0, got 1.0.0.`,
+    );
 
-    expect(calls).toEqual([
-      expect.stringContaining("manifest:@acme/deckup-theme:"),
-      expect.stringContaining(
-        "extract:https://registry.example.test/@acme-deckup-theme-2.0.0.tgz:",
-      ),
-    ]);
-    expect(resolved.version).toBe("2.0.0");
+    expect(calls).toEqual([]);
+    await expect(readFile(packageJsonPath, "utf8")).resolves.toBe(beforePackageJson);
+    await expect(readFile(join(cacheEntryDir, "deckup-npm-theme.json"), "utf8")).resolves.toBe(
+      beforeMetadata,
+    );
   });
 });
 
-test("resolveCachedNpmThemePackage serializes same-cache-key repair and download", async () => {
+test("resolveCachedNpmThemePackage rejects invalid cached package metadata without repairing", async () => {
   await withThemeCache(async (cacheDir) => {
     const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
     const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
-    await mkdir(cacheEntryDir, { recursive: true });
-    await writeFile(join(cacheEntryDir, "deckup-npm-theme.json"), "{}\n");
+    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/other-theme", "1.2.3");
+    await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+    const packageJsonPath = join(cacheEntryDir, "package", "package.json");
+    const beforePackageJson = await readFile(packageJsonPath, "utf8");
+
+    const calls: string[] = [];
+    await expect(
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => {
+          calls.push("confirm");
+          return true;
+        },
+        operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls),
+      }),
+    ).rejects.toThrow(
+      `Cached Deckup npm theme package name mismatch for ${source.spec}: expected @acme/deckup-theme, got @acme/other-theme.`,
+    );
+
+    expect(calls).toEqual([]);
+    await expect(readFile(packageJsonPath, "utf8")).resolves.toBe(beforePackageJson);
+  });
+});
+
+test("resolveCachedNpmThemePackage serializes same-cache-key downloads", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
 
     let manifestCalls = 0;
     const operations = fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3");

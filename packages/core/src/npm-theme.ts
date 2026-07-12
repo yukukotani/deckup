@@ -485,13 +485,8 @@ export async function resolveCachedNpmThemePackage(
 
   return withCacheEntryLock(cacheDir, source, async () => {
     if (await pathExists(cacheEntryDir)) {
-      try {
-        await assertDirectory(cacheEntryDir, "Cached Deckup npm theme entry");
-        return await validateCachedNpmThemeEntry(source, cacheEntryDir);
-      } catch (error) {
-        if (!(error instanceof NpmThemeCacheValidationError)) throw error;
-        await rm(cacheEntryDir, { force: true, recursive: true });
-      }
+      await assertDirectory(cacheEntryDir, "Cached Deckup npm theme entry");
+      return await validateCachedNpmThemeEntry(source, cacheEntryDir);
     }
 
     await confirmNpmThemeDownload(source, cacheDir, options);
