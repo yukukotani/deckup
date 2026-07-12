@@ -238,3 +238,26 @@ test("build injects one route per Astro and MDX deck and leaves host MDX untouch
     expect(docs).not.toContain("data-deckup-layout");
   });
 });
+
+test("build rejects a non-string theme option", async () => {
+  await withHostProject(async (projectRoot) => {
+    await writeHostFixture(projectRoot);
+
+    await expect(
+      build({
+        root: projectRoot,
+        srcDir: join(projectRoot, "source"),
+        outDir: join(projectRoot, "dist"),
+        configFile: false,
+        logLevel: "silent",
+        integrations: [
+          deckup({
+            decks: "source/slides/*.{astro,mdx}",
+            base: "/slides",
+            theme: { name: "minimal" } as never,
+          }),
+        ],
+      }),
+    ).rejects.toThrow(/Deckup theme must be a string/);
+  });
+});

@@ -30,7 +30,7 @@ export interface DeckupAstroOptions {
    * Optional fallback theme for registered decks.
    * Deck frontmatter `theme` takes precedence over this value.
    */
-  theme?: unknown;
+  theme?: string;
 }
 
 const DEFAULT_DECKUP_BASE = "/slides";
@@ -92,27 +92,12 @@ function hasThemeLayouts(theme: DeckupResolvedTheme | undefined) {
   return (theme?.layouts?.length ?? 0) > 0;
 }
 
-function isCoreCompatibleTheme(value: unknown): value is DeckupResolvedTheme {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<DeckupResolvedTheme>;
-  return (
-    typeof candidate.name === "string" &&
-    (candidate.source === "builtin" || candidate.source === "package") &&
-    Array.isArray(candidate.layouts)
-  );
-}
-
 function uniqueThemes(themes: Array<DeckupResolvedTheme | undefined>) {
   const byName = new Map<string, DeckupResolvedTheme>();
   for (const theme of themes) {
     if (theme && hasThemeLayouts(theme)) byName.set(theme.name, theme);
   }
   return [...byName.values()];
-}
-
-async function resolveFallbackTheme(projectRoot: string, theme: unknown) {
-  if (isCoreCompatibleTheme(theme) && hasThemeLayouts(theme)) return theme;
-  return resolveDeckupThemeLayouts(projectRoot, theme);
 }
 
 async function resolveEffectiveThemes(
@@ -340,7 +325,7 @@ export default function deckup(options: DeckupAstroOptions): AstroIntegration {
           options.decks,
           options.base ?? DEFAULT_DECKUP_BASE,
         );
-        const fallbackTheme = await resolveFallbackTheme(projectRoot, options.theme);
+        const fallbackTheme = await resolveDeckupThemeLayouts(projectRoot, options.theme);
         const themeByRouteId = await resolveEffectiveThemes(projectRoot, registry, fallbackTheme);
         const themeForDeck: DeckupThemeForDeck = (deck) =>
           themeByRouteId.get((deck as DeckupResolvedDeckRoute).routeId);
