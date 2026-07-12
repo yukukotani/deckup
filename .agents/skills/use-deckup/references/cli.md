@@ -64,3 +64,10 @@ npx deckup build slides/deck.mdx --format png --slides 1,3-5 --out /tmp/deckup-p
 - Default-export a plain object or `defineConfig({...})` from the configuration file.
 - If Chromium download or launch fails, inspect the environment. Set `DECKUP_CHROMIUM_EXECUTABLE_PATH` or `DECKUP_BROWSER_CACHE_DIR` when required.
 - An uncached npm theme may require interactive download confirmation. Install the theme or prepare its cache before running non-interactively.
+
+## Recovering a corrupt Chromium cache
+
+Stop any running Deckup process first.
+Then remove only the configured Deckup browser cache directory (the path from `DECKUP_BROWSER_CACHE_DIR`, or the platform default under the user cache directory) and re-run the command to trigger a fresh download.
+Alternatively, set `DECKUP_BROWSER_CACHE_DIR` to a new, empty directory.
+Do not run broad recursive deletes outside that directory.

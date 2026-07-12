@@ -5,7 +5,6 @@ import {
   detectBrowserPlatform,
   install,
   resolveBuildId,
-  uninstall,
 } from "@puppeteer/browsers";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -18,13 +17,6 @@ export const DECKUP_CHROMIUM_EXECUTABLE_ENV = "DECKUP_CHROMIUM_EXECUTABLE_PATH";
 export interface DeckupChromiumOptions {
   executablePath?: string;
   cacheDir?: string;
-}
-
-type ChromiumInstallOptions = Parameters<typeof uninstall>[0];
-
-export interface ChromiumInstallOperations {
-  install(options: ChromiumInstallOptions): Promise<unknown>;
-  uninstall(options: ChromiumInstallOptions): Promise<void>;
 }
 
 function envString(name: string) {
@@ -50,31 +42,6 @@ export function resolveBrowserCacheDir(cacheDir?: string) {
   return resolve(cacheDir ?? envString(DECKUP_BROWSER_CACHE_ENV) ?? defaultBrowserCacheDir());
 }
 
-function isMissingCachedExecutableError(error: unknown) {
-  return (
-    error instanceof Error &&
-    error.message.includes("The browser folder (") &&
-    error.message.includes(") exists but the executable (") &&
-    error.message.includes(") is missing")
-  );
-}
-
-export async function installChromiumWithCacheRepair(
-  options: ChromiumInstallOptions,
-  operations: ChromiumInstallOperations = { install, uninstall },
-) {
-  try {
-    await operations.install(options);
-  } catch (error) {
-    if (!isMissingCachedExecutableError(error)) {
-      throw error;
-    }
-
-    await operations.uninstall(options);
-    await operations.install(options);
-  }
-}
-
 export async function resolveChromiumExecutablePath(options: DeckupChromiumOptions = {}) {
   const explicitPath = options.executablePath ?? envString(DECKUP_CHROMIUM_EXECUTABLE_ENV);
   if (explicitPath) {
@@ -96,7 +63,7 @@ export async function resolveChromiumExecutablePath(options: DeckupChromiumOptio
   });
 
   if (!(await pathExists(executablePath))) {
-    await installChromiumWithCacheRepair({ browser: Browser.CHROME, buildId, cacheDir, platform });
+    await install({ browser: Browser.CHROME, buildId, cacheDir, platform });
   }
 
   if (!(await pathExists(executablePath))) {

@@ -79,3 +79,10 @@ export default defineConfig({
 Deckup owns `root`, `srcDir`, `configFile`, `output`, `server`, `outDir`, `logLevel`, and `devToolbar`.
 Do not set these through `deckup.config.*`.
 Nested `astro.vite.root` is also ignored.
+
+## Recovering a corrupt Chromium cache
+
+PNG and PDF export download a cached Chromium build.
+If that cache becomes corrupt, stop any running Deckup process, then remove only the configured Deckup browser cache directory (the path from `DECKUP_BROWSER_CACHE_DIR`, or the platform default under your user cache directory) and re-run the command to trigger a fresh download.
+Alternatively, set `DECKUP_BROWSER_CACHE_DIR` to a new, empty directory.
+Do not run broad recursive deletes outside that directory.
