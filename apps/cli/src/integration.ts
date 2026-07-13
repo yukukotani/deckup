@@ -9,7 +9,6 @@ import {
   type RawAstroCodeHighlightOptions,
 } from "@deckup/core";
 import type { AstroIntegration } from "astro";
-import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -19,7 +18,6 @@ import type { Plugin } from "vite";
 const DECKUP_CLI_DECK_LAYOUT_MODULE_ID = "virtual:deckup/cli/deck-layout.astro";
 const DECKUP_CLI_NAVIGATION_MODULE_ID = "virtual:deckup/cli/navigation.ts";
 const resolvedDeckupCliDeckLayoutModuleId = DECKUP_CLI_DECK_LAYOUT_MODULE_ID;
-const resolvedDeckupCliNavigationModuleId = `\0${DECKUP_CLI_NAVIGATION_MODULE_ID}`;
 
 const require = createRequire(import.meta.url);
 
@@ -85,7 +83,9 @@ function createCliDeckLayoutPlugin(assets: DeckupCoreRuntimeAssets): Plugin {
     name: "deckup:cli-deck-layout",
     resolveId(id) {
       if (id === DECKUP_CLI_DECK_LAYOUT_MODULE_ID) return resolvedDeckupCliDeckLayoutModuleId;
-      if (id === DECKUP_CLI_NAVIGATION_MODULE_ID) return resolvedDeckupCliNavigationModuleId;
+      if (id === DECKUP_CLI_NAVIGATION_MODULE_ID) {
+        return normalizePath(assets.navigationFilePath);
+      }
       return undefined;
     },
     load(id) {
@@ -94,9 +94,6 @@ function createCliDeckLayoutPlugin(assets: DeckupCoreRuntimeAssets): Plugin {
           cssModuleId: assets.cssModuleId,
           navigationModuleId: DECKUP_CLI_NAVIGATION_MODULE_ID,
         });
-      }
-      if (id === resolvedDeckupCliNavigationModuleId) {
-        return readFileSync(assets.navigationFilePath, "utf8");
       }
       return undefined;
     },

@@ -1327,6 +1327,41 @@ test("CLI integration Vite fs allow includes the Core runtime directory", async 
   });
 });
 
+test("CLI integration resolves navigation to its TypeScript file for Vite transformation", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    const resolvedProjectRoot = await realpath(projectRoot);
+    const deck = await resolveDeckFile(resolvedProjectRoot, "slides/deck.astro");
+    const registry = createSingleDeckRegistry(resolvedProjectRoot, deck);
+    const integration = createDeckupCliIntegration({ registry });
+    let updatedConfig:
+      | { vite?: { plugins?: Array<{ name?: string; resolveId?: (id: string) => unknown }> } }
+      | undefined;
+    const setupHook = (integration.hooks as Record<string, (args: unknown) => Promise<void>>)[
+      "astro:config:setup"
+    ];
+
+    await setupHook({
+      config: {
+        root: pathToFileURL(`${resolvedProjectRoot}/`),
+      },
+      injectRoute() {},
+      updateConfig(config: typeof updatedConfig) {
+        updatedConfig = config;
+      },
+    });
+
+    const plugin = updatedConfig?.vite?.plugins?.find(
+      (candidate) => candidate.name === "deckup:cli-deck-layout",
+    );
+    const navigationFilePath = normalizePath(
+      configTestRequire.resolve("@deckup/core/runtime/scripts/navigation.ts"),
+    );
+
+    expect(plugin?.resolveId?.("virtual:deckup/cli/navigation.ts")).toBe(navigationFilePath);
+  });
+});
+
 test("createDeckupAstroConfig fails uncached npm themes before Astro starts in non-interactive mode", async () => {
   await withProjectRoot(async (projectRoot) => {
     await writeAstroDeck(projectRoot);
