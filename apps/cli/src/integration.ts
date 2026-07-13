@@ -78,7 +78,10 @@ function toStringArray(value: unknown): string[] {
     : [];
 }
 
-function createCliDeckLayoutPlugin(assets: DeckupCoreRuntimeAssets): Plugin {
+function createCliDeckLayoutPlugin(
+  assets: DeckupCoreRuntimeAssets,
+  additionalCssModuleIds: string[],
+): Plugin {
   return {
     name: "deckup:cli-deck-layout",
     resolveId(id) {
@@ -92,6 +95,7 @@ function createCliDeckLayoutPlugin(assets: DeckupCoreRuntimeAssets): Plugin {
       if (id === resolvedDeckupCliDeckLayoutModuleId) {
         return createDeckLayoutSource({
           cssModuleId: assets.cssModuleId,
+          additionalCssModuleIds,
           navigationModuleId: DECKUP_CLI_NAVIGATION_MODULE_ID,
         });
       }
@@ -127,16 +131,23 @@ export interface DeckupCliIntegrationOptions {
   theme?: DeckupResolvedTheme;
   generatedPageFilePath?: string;
   codeHighlight?: RawAstroCodeHighlightOptions;
+  additionalCssModuleIds?: string[];
   /** @internal Test seam; not exported from the package index. */
   resolveCoreRuntimeSpecifier?: ResolveCoreRuntimeSpecifier;
 }
 
 export function createDeckupCliIntegration(options: DeckupCliIntegrationOptions): AstroIntegration {
-  const { registry, theme, generatedPageFilePath, codeHighlight, resolveCoreRuntimeSpecifier } =
-    options;
+  const {
+    registry,
+    theme,
+    generatedPageFilePath,
+    codeHighlight,
+    additionalCssModuleIds = [],
+    resolveCoreRuntimeSpecifier,
+  } = options;
   const themeForDeck: DeckupThemeForDeck = () => theme;
   const coreRuntimeAssets = resolveCoreRuntimeAssets(resolveCoreRuntimeSpecifier);
-  const cliDeckLayoutPlugin = createCliDeckLayoutPlugin(coreRuntimeAssets);
+  const cliDeckLayoutPlugin = createCliDeckLayoutPlugin(coreRuntimeAssets, additionalCssModuleIds);
 
   return {
     name: "deckup:cli",

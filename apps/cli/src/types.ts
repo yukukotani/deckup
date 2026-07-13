@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import type { DeckupResolvedDeck, DeckupResolvedTheme, DeckupRuntimePaths } from "@deckup/core";
+import type { PluginOptions as TailwindPluginOptions } from "@tailwindcss/vite";
 import type { AstroInlineConfig, dev } from "astro";
 
 export type {
@@ -24,9 +25,16 @@ export type DeckupAstroConfig = Omit<
 >;
 export type DeckupOutputFormat = "html" | "pdf" | "png";
 
+export type DeckupTailwindOptions = TailwindPluginOptions;
+
+export interface DeckupBuiltInIntegrationsConfig {
+  tailwind?: DeckupTailwindOptions | false;
+}
+
 export interface DeckupConfig {
   port?: number;
   theme?: string;
+  integrations?: DeckupBuiltInIntegrationsConfig;
   astro?: DeckupAstroConfig;
 }
 

@@ -280,6 +280,9 @@ importers:
       '@puppeteer/browsers':
         specifier: 'catalog:'
         version: 3.0.6
+      '@tailwindcss/vite':
+        specifier: 'catalog:'
+        version: 4.3.2(@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0))
       astro:
         specifier: 'catalog:'
         version: 7.0.4(@astrojs/markdown-remark@7.2.0)(@types/node@24.13.2)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0)
@@ -292,6 +295,12 @@ importers:
       playwright-core:
         specifier: 'catalog:'
         version: 1.61.1
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.3.2
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@0.2.2
+        version: '@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0)'
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -302,9 +311,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@0.2.2
-        version: '@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0)'
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.2(@types/node@24.13.2)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0))(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0)
@@ -339,15 +345,9 @@ importers:
       '@deckup/astro':
         specifier: workspace:*
         version: link:../packages/astro
-      '@tailwindcss/vite':
-        specifier: 'catalog:'
-        version: 4.3.2(vite@8.1.0(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
       deckup:
         specifier: workspace:*
         version: link:../apps/cli
-      tailwindcss:
-        specifier: 'catalog:'
-        version: 4.3.2
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.2(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(vite@8.1.0(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
@@ -4774,12 +4774,12 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.2
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.2
 
-  '@tailwindcss/vite@4.3.2(vite@8.1.0(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))':
+  '@tailwindcss/vite@4.3.2(@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0))':
     dependencies:
       '@tailwindcss/node': 4.3.2
       '@tailwindcss/oxide': 4.3.2
       tailwindcss: 4.3.2
-      vite: 8.1.0(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)
+      vite: '@voidzero-dev/vite-plus-core@0.2.2(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.0)'
 
   '@testing-library/dom@10.4.1':
     dependencies:

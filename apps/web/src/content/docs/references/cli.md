@@ -60,6 +60,11 @@ import { defineConfig } from "deckup";
 export default defineConfig({
   port: 4321,
   theme: "google-basic",
+  integrations: {
+    tailwind: {
+      optimize: { minify: false },
+    },
+  },
   astro: {
     vite: {
       resolve: {
@@ -70,11 +75,23 @@ export default defineConfig({
 });
 ```
 
-| Field   | Type                       | Description                                         |
-| ------- | -------------------------- | --------------------------------------------------- |
-| `port`  | `number`                   | Default development server port. CLI `--port` wins. |
-| `theme` | `string`                   | Fallback built-in, installed, or `npm:` theme.      |
-| `astro` | `AstroInlineConfig` subset | Additional supported Astro configuration.           |
+| Field          | Type                                            | Description                                               |
+| -------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| `port`         | `number`                                        | Default development server port. CLI `--port` wins.       |
+| `theme`        | `string`                                        | Fallback built-in, installed, or `npm:` theme.            |
+| `integrations` | `{ tailwind?: DeckupTailwindOptions \| false }` | Known Deckup built-ins. Tailwind is enabled when omitted. |
+| `astro`        | `AstroInlineConfig` subset                      | Additional supported Astro configuration.                 |
+
+### Built-in Tailwind
+
+The Deckup CLI supplies Tailwind CSS v4 and its Vite plugin directly.
+With no `integrations` config, Astro and MDX decks can use Tailwind utility classes without installing packages or importing CSS.
+`integrations.tailwind` accepts the upstream `@tailwindcss/vite` options object; Deckup passes it through without adding defaults.
+Set `integrations.tailwind` to `false` to remove the built-in plugins and generated stylesheet.
+
+Built-in plugins are placed before `astro.vite.plugins`.
+Manual Tailwind plugins remain in the user list and are not de-duplicated.
+This setting applies to the Deckup CLI; `@deckup/astro` hosts keep styling under the host Astro configuration.
 
 Deckup owns `root`, `srcDir`, `configFile`, `output`, `server`, `outDir`, `logLevel`, and `devToolbar`.
 Do not set these through `deckup.config.*`.

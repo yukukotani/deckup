@@ -72,11 +72,24 @@ const cliTsConfig = readJson<TsConfig>("../tsconfig.json");
 const astroTsConfig = readJson<TsConfig>("../../../packages/astro/tsconfig.json");
 const coreTsConfig = readJson<TsConfig>("../../../packages/core/tsconfig.json");
 const webTsConfig = readJson<TsConfig>("../../../apps/web/tsconfig.json");
+const examplePackageJson = readPackageJson("../../../example/package.json");
+const exampleDeckupConfigSource = readText("../../../example/deckup.config.ts");
 
 test("workspace root and published CLI package names do not collide", () => {
   expect(rootPackageJson.name).toBe("root");
   expect(rootPackageJson.private).toBe(true);
   expect(cliPackageJson.name).toBe("deckup");
+});
+
+test("CLI owns built-in Tailwind runtime dependencies instead of the example", () => {
+  expect(cliPackageJson.dependencies?.["@tailwindcss/vite"]).toBe("catalog:");
+  expect(cliPackageJson.dependencies?.tailwindcss).toBe("catalog:");
+  expect(cliPackageJson.dependencies?.vite).toBe("catalog:");
+  expect(cliPackageJson.devDependencies?.vite).toBeUndefined();
+  expect(examplePackageJson.devDependencies?.["@tailwindcss/vite"]).toBeUndefined();
+  expect(examplePackageJson.devDependencies?.tailwindcss).toBeUndefined();
+  expect(exampleDeckupConfigSource).not.toContain("@tailwindcss/vite");
+  expect(exampleDeckupConfigSource).not.toContain("tailwindcss()");
 });
 
 test("cli task runs the source CLI with the development condition", () => {

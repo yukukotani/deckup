@@ -1,6 +1,5 @@
 import { fileURLToPath } from "node:url";
 
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "deckup";
 
 export default defineConfig({
@@ -8,7 +7,6 @@ export default defineConfig({
   theme: "default",
   astro: {
     vite: {
-      plugins: [tailwindcss() as never],
       resolve: {
         alias: {
           "@slides": fileURLToPath(new URL("./slides", import.meta.url)),

@@ -1,14 +1,17 @@
 export interface DeckLayoutSourceOptions {
   cssModuleId: string;
+  additionalCssModuleIds?: string[];
   navigationModuleId: string;
 }
 
 export function createDeckLayoutSource(options: DeckLayoutSourceOptions) {
-  const cssImport = JSON.stringify(options.cssModuleId);
+  const cssImports = [options.cssModuleId, ...(options.additionalCssModuleIds ?? [])]
+    .map((moduleId) => `import ${JSON.stringify(moduleId)};`)
+    .join("\n");
   const navigationImport = JSON.stringify(options.navigationModuleId);
 
   return `---
-import ${cssImport};
+${cssImports}
 
 interface Props {
   slideCount: number;

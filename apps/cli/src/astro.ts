@@ -23,6 +23,11 @@ import { createRequire } from "node:module";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { resolveChromiumExecutablePath } from "./browser.ts";
+import {
+  resolveDeckupBuiltInIntegrations,
+  writeDeckupBuiltInIntegrationAssets,
+  type DeckupResolvedBuiltInIntegrations,
+} from "./built-in-integrations.ts";
 import { loadDeckupConfig, resolveDeckupConfig } from "./config.ts";
 import { resolveProjectRoot, resolveRuntimeSourceDir } from "./runtime.ts";
 import { createDeckupCliIntegration } from "./integration.ts";
@@ -197,6 +202,7 @@ async function writeGeneratedPageComponent(
     createGeneratedPageComponentSource(
       deckupTheme.slotNames ?? [],
       VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
+      deckupTheme.name,
     ),
   );
   return { ...paths, generatedPageFilePath };
@@ -334,6 +340,25 @@ export function createAstroInlineConfig(
   deck?: DeckupResolvedDeck,
   deckupTheme?: DeckupResolvedTheme,
 ): AstroInlineConfig {
+  return createAstroInlineConfigWithBuiltIns(
+    paths,
+    options,
+    deckupConfig,
+    deck,
+    deckupTheme,
+    resolveDeckupBuiltInIntegrations(paths, deckupConfig),
+  );
+}
+
+/** @internal Test seam; not exported from the package index. */
+export function createAstroInlineConfigWithBuiltIns(
+  paths: DeckupRuntimePaths,
+  options: DeckupDevOptions | DeckupBuildOptions | DeckupExportOptions,
+  deckupConfig: DeckupConfig,
+  deck: DeckupResolvedDeck | undefined,
+  deckupTheme: DeckupResolvedTheme | undefined,
+  builtInIntegrations: DeckupResolvedBuiltInIntegrations,
+): AstroInlineConfig {
   const devOptions = options as DeckupDevOptions;
   const buildOptions = options as DeckupBuildOptions;
   const userAstroConfig = deckupConfig.astro ?? {};
@@ -344,6 +369,7 @@ export function createAstroInlineConfig(
   const userViteServer = userViteConfig.server ?? {};
   const userViteFs = userViteServer.fs ?? {};
   const requiredAliases = [
+    ...builtInIntegrations.requiredAliases,
     {
       find: /^astro\/app$/,
       replacement: `${astroPackageRoot}/dist/core/app/entrypoints/index.js`,
@@ -372,7 +398,7 @@ export function createAstroInlineConfig(
     ...(deckupTheme?.layoutsDir ? [deckupTheme.layoutsDir] : []),
   ];
 
-  const astroConfig = {
+  return {
     ...userAstroConfig,
     root: paths.projectRoot,
     outDir: normalizeBuildOutDir(paths.projectRoot, buildOptions.outDir),
@@ -389,7 +415,7 @@ export function createAstroInlineConfig(
     },
     vite: {
       ...userViteConfig,
-      plugins: [...toArray(userViteConfig.plugins as never)],
+      plugins: [...builtInIntegrations.vitePlugins, ...toArray(userViteConfig.plugins as never)],
       optimizeDeps: {
         ...userViteConfig.optimizeDeps,
         exclude: uniqueStrings([
@@ -411,12 +437,28 @@ export function createAstroInlineConfig(
       },
     },
   } as AstroInlineConfig;
-
-  return astroConfig;
 }
+
+export interface DeckupBuiltInIntegrationOperations {
+  resolveBuiltInIntegrations: typeof resolveDeckupBuiltInIntegrations;
+  writeBuiltInIntegrationAssets: typeof writeDeckupBuiltInIntegrationAssets;
+}
+
+const defaultBuiltInIntegrationOperations: DeckupBuiltInIntegrationOperations = {
+  resolveBuiltInIntegrations: resolveDeckupBuiltInIntegrations,
+  writeBuiltInIntegrationAssets: writeDeckupBuiltInIntegrationAssets,
+};
 
 export async function createDeckupAstroConfig(
   options: DeckupDevOptions | DeckupBuildOptions | DeckupExportOptions = {},
+): Promise<DeckupResolvedConfig> {
+  return createDeckupAstroConfigWithOperations(options, defaultBuiltInIntegrationOperations);
+}
+
+/** @internal Test seam; not exported from the package index. */
+export async function createDeckupAstroConfigWithOperations(
+  options: DeckupDevOptions | DeckupBuildOptions | DeckupExportOptions,
+  builtInIntegrationOperations: DeckupBuiltInIntegrationOperations,
 ): Promise<DeckupResolvedConfig> {
   const projectRoot = await realpath(resolveProjectRoot(options.root));
   const deck = await resolveDeckFile(projectRoot, options.deckFile);
@@ -437,6 +479,11 @@ export async function createDeckupAstroConfig(
     runtimeSourceDir: resolveRuntimeSourceDir(),
     runtimeOutDir: workDir,
   };
+  const builtInIntegrations = builtInIntegrationOperations.resolveBuiltInIntegrations(
+    paths,
+    deckupConfig,
+  );
+  await builtInIntegrationOperations.writeBuiltInIntegrationAssets(builtInIntegrations);
   const updatedPaths = await writeGeneratedPageComponent(paths, deckupTheme);
   const registry = createSingleDeckRegistry(projectRoot, deck);
   const rawAstroCodeHighlight = resolveRawAstroCodeHighlightOptions(
@@ -447,17 +494,19 @@ export async function createDeckupAstroConfig(
     theme: deckupTheme,
     generatedPageFilePath: updatedPaths.generatedPageFilePath,
     codeHighlight: rawAstroCodeHighlight,
+    additionalCssModuleIds: builtInIntegrations.runtimeCssModuleIds,
   });
   const pageAlias =
     deckupTheme.layouts?.length && updatedPaths.generatedPageFilePath
       ? [{ find: /^@deckup\/astro\/page$/, replacement: updatedPaths.generatedPageFilePath }]
       : [];
-  const astroConfig = createAstroInlineConfig(
+  const astroConfig = createAstroInlineConfigWithBuiltIns(
     updatedPaths,
     options,
     deckupConfig,
     deck,
     deckupTheme,
+    builtInIntegrations,
   );
   const existingIntegrations = astroConfig.integrations ?? [];
   astroConfig.integrations = [

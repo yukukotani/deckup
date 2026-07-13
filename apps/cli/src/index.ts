@@ -96,6 +96,7 @@ export type {
   DeckupBrowserOptions,
   DeckupBuildCommandOptions,
   DeckupBuildOptions,
+  DeckupBuiltInIntegrationsConfig,
   DeckupConfig,
   DeckupDevOptions,
   DeckupDevResult,
@@ -107,4 +108,5 @@ export type {
   DeckupPngExportOptions,
   DeckupPngExportResult,
   DeckupResolvedConfig,
+  DeckupTailwindOptions,
 } from "./types.ts";

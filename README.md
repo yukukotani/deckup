@@ -2,6 +2,49 @@
 
 Astro-native slide deck tooling for authoring `.astro` and `.mdx` slides.
 
+## Tailwind CSS
+
+The Deckup CLI enables Tailwind CSS v4 for `.astro` and `.mdx` decks by default.
+Deck authors do not need to install Tailwind packages, register a Vite plugin, or import a Tailwind stylesheet.
+Use utility classes directly in a deck:
+
+```astro
+---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Tailwind">
+  <h1 class="text-5xl font-bold text-blue-600">Built in</h1>
+</Page>
+```
+
+Configure the built-in through the known `integrations.tailwind` key.
+The options are passed directly to `@tailwindcss/vite` without Deckup-specific defaults:
+
+```ts
+import { defineConfig, type DeckupTailwindOptions } from "deckup";
+
+const tailwind: DeckupTailwindOptions = {
+  optimize: { minify: false },
+};
+
+export default defineConfig({
+  integrations: { tailwind },
+});
+```
+
+Set the key to `false` to disable the built-in plugin and stylesheet for one deck:
+
+```ts
+export default defineConfig({
+  integrations: { tailwind: false },
+});
+```
+
+Built-in Tailwind plugins run before plugins from `astro.vite.plugins`.
+Deckup preserves manually configured Tailwind plugins instead of detecting or de-duplicating them.
+This built-in belongs to the Deckup CLI and `deckup.config.*` path; Astro hosts using `@deckup/astro` continue to own their host styling configuration.
+
 ## Themes
 
 Select a theme in `deckup.config.ts` with the top-level `theme` option:
@@ -139,4 +182,4 @@ Use the sample package in `example/` to verify that development and static outpu
 3. Press <kbd>→</kbd> or <kbd>PageDown</kbd> and confirm the second slide shows `This is section title` and the URL hash changes to `#2`.
 4. Press <kbd>←</kbd> or <kbd>PageUp</kbd> and confirm the first slide is visible again and the URL hash changes to `#1`.
 5. Run `vp run example#build`, serve the generated `example/dist/` directory, and repeat the same first-slide and navigation checks against the static output.
-6. Confirm the example config uses `theme: "google-basic"` and that the two-column slide routes the `slot="left"` and `slot="right"` content into the corresponding regions.
+6. Confirm the example config uses `theme: "default"` and that the two-column slide routes the `slot="left"` and `slot="right"` content into the corresponding regions.

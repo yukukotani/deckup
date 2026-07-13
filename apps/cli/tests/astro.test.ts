@@ -23,6 +23,7 @@ import {
   exportDeckPngWithOperations,
   normalizeBuildOutDir,
   normalizeExportOutFile,
+  startDevServer,
   type DeckupPngExportOperations,
 } from "../src/astro.ts";
 import {
@@ -433,6 +434,104 @@ import Page from "@deckup/astro/page";
     expect(html).toContain("Details");
     expect(html).not.toContain("<layout");
     expect(html).not.toContain("PageMeta");
+  });
+});
+
+test("buildDeck emits built-in Tailwind utilities for Astro decks", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await expect(pathExists(join(projectRoot, "node_modules", "tailwindcss"))).resolves.toBe(false);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Tailwind Astro">
+  <h1 class="text-5xl font-bold text-blue-600">Astro utilities</h1>
+</Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    const css = await readBuiltCss(projectRoot, html);
+    expect(html).toContain("Astro utilities");
+    expect(css).toMatch(/\.text-5xl\{[^}]*font-size:/);
+    expect(css).toMatch(/\.font-bold\{[^}]*font-weight:/);
+    expect(css).toMatch(/\.text-blue-600\{[^}]*color:/);
+  });
+});
+
+test("buildDeck emits built-in Tailwind utilities for MDX decks", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await expect(pathExists(join(projectRoot, "node_modules", "tailwindcss"))).resolves.toBe(false);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.mdx"),
+      `---
+title: Tailwind MDX
+---
+
+# MDX utilities
+
+<div className="mx-auto max-w-xl text-center">Built in for MDX</div>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.mdx",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    const css = await readBuiltCss(projectRoot, html);
+    expect(html).toContain("Built in for MDX");
+    expect(css).toMatch(/\.mx-auto\{[^}]*margin-inline:auto/);
+    expect(css).toMatch(/\.max-w-xl\{[^}]*max-width:/);
+    expect(css).toMatch(/\.text-center\{[^}]*text-align:center/);
+  });
+});
+
+test("buildDeck omits built-in Tailwind output when disabled", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await writeFile(
+      join(projectRoot, "deckup.config.ts"),
+      "export default { integrations: { tailwind: false } };\n",
+    );
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="No Tailwind"><h1 class="text-5xl">Unstyled utility</h1></Page>
+`,
+    );
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+
+    const html = await readFile(join(projectRoot, "dist", "index.html"), "utf8");
+    const css = await readBuiltCss(projectRoot, html);
+    expect(html).toContain('class="text-5xl"');
+    expect(css).not.toMatch(/\.text-5xl\{/);
   });
 });
 
@@ -1646,3 +1745,151 @@ title: Missing
     ).rejects.toThrow(/does not provide layout "missing"/);
   });
 });
+
+test("dev and build share the built-in Tailwind asset resolution path", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await linkCliPackage(projectRoot);
+    await mkdir(join(projectRoot, "slides"));
+    await writeFile(
+      join(projectRoot, "slides", "deck.astro"),
+      `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Shared Tailwind"><h1 class="text-5xl">Shared path</h1></Page>
+`,
+    );
+    const tailwindCssPath = join(await realpath(projectRoot), ".deckup", "tailwind.css");
+    const { server } = await startDevServer({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      port: 0,
+      logLevel: "silent",
+    });
+    let devTailwindSource: string;
+    try {
+      devTailwindSource = await readFile(tailwindCssPath, "utf8");
+    } finally {
+      await server.stop();
+    }
+
+    await buildDeck({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+      outDir: "dist",
+      logLevel: "silent",
+    });
+    await expect(readFile(tailwindCssPath, "utf8")).resolves.toBe(devTailwindSource);
+    expect(devTailwindSource).toBe('@import "tailwindcss" source("..");\n');
+  });
+});
+
+const expectedThemeHeading = {
+  default: { color: "rgb(26, 28, 40)", fontSize: "44px", fontWeight: "400" },
+  minimal: { color: "rgb(17, 24, 39)", fontSize: "44px", fontWeight: "600" },
+  "google-basic": { color: "rgb(255, 255, 255)", fontSize: "49.6px", fontWeight: "400" },
+  "apple-basic": { color: "rgb(0, 0, 0)", fontSize: "70.88px", fontWeight: "600" },
+} as const;
+
+async function readCascadeComputedStyles(projectRoot: string) {
+  const { server, address } = await startDevServer({
+    root: projectRoot,
+    deckFile: "slides/deck.astro",
+    port: 0,
+    logLevel: "silent",
+  });
+  try {
+    const { chromium } = await import("playwright-core");
+    const browser = await chromium.launch({
+      executablePath: await localBrowserExecutablePath(),
+      headless: true,
+    });
+    try {
+      const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: "networkidle" });
+      return await page.locator("h1").evaluate((heading) => {
+        const headingStyle = getComputedStyle(heading);
+        const shell = document.querySelector<HTMLElement>("[data-deckup-shell]");
+        if (!shell) throw new Error("Missing Deckup shell in cascade fixture.");
+        const shellStyle = getComputedStyle(shell);
+        return {
+          colorScheme: getComputedStyle(document.documentElement).colorScheme,
+          borderInlineStartWidth: shellStyle.borderInlineStartWidth,
+          borderInlineEndWidth: shellStyle.borderInlineEndWidth,
+          color: headingStyle.color,
+          fontSize: headingStyle.fontSize,
+          fontWeight: headingStyle.fontWeight,
+        };
+      });
+    } finally {
+      await browser.close();
+    }
+  } finally {
+    await server.stop();
+  }
+}
+
+for (const theme of builtInViewerThemes) {
+  test(`Tailwind utilities preserve cascade for ${theme}`, async () => {
+    await withProjectRoot(async (projectRoot) => {
+      await linkCliPackage(projectRoot);
+      await writeFile(
+        join(projectRoot, "deckup.config.ts"),
+        `export default { theme: '${theme}' };\n`,
+      );
+      await mkdir(join(projectRoot, "slides"));
+      await writeFile(
+        join(projectRoot, "slides", "deck.astro"),
+        `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Cascade">
+  <PageMeta layout="page" />
+  <h1 class="text-5xl font-bold text-[#123456]">Computed utilities</h1>
+</Page>
+`,
+      );
+
+      expect(await readCascadeComputedStyles(projectRoot)).toMatchObject({
+        colorScheme: "light",
+        borderInlineStartWidth: "0px",
+        borderInlineEndWidth: "0px",
+        color: "rgb(18, 52, 86)",
+        fontSize: "48px",
+        fontWeight: "700",
+      });
+    });
+  }, 120_000);
+
+  test(`theme defaults preserve cascade without Tailwind for ${theme}`, async () => {
+    await withProjectRoot(async (projectRoot) => {
+      await linkCliPackage(projectRoot);
+      await writeFile(
+        join(projectRoot, "deckup.config.ts"),
+        `export default { theme: '${theme}', integrations: { tailwind: false } };\n`,
+      );
+      await mkdir(join(projectRoot, "slides"));
+      await writeFile(
+        join(projectRoot, "slides", "deck.astro"),
+        `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Cascade">
+  <PageMeta layout="page" />
+  <h1>Theme defaults</h1>
+</Page>
+`,
+      );
+
+      expect(await readCascadeComputedStyles(projectRoot)).toMatchObject({
+        colorScheme: "light",
+        borderInlineStartWidth: "0px",
+        borderInlineEndWidth: "0px",
+        ...expectedThemeHeading[theme],
+      });
+    });
+  }, 120_000);
+}

@@ -10,11 +10,17 @@ const configTestRequire = createRequire(import.meta.url);
 
 import {
   createAstroInlineConfig,
+  createAstroInlineConfigWithBuiltIns,
   createMarkdownConfig,
   createDeckupAstroConfig,
+  createDeckupAstroConfigWithOperations,
   DEFAULT_DEV_PORT,
   resolveRawAstroCodeHighlightOptions,
 } from "../src/astro.ts";
+import {
+  resolveDeckupBuiltInIntegrations,
+  writeDeckupBuiltInIntegrationAssets,
+} from "../src/built-in-integrations.ts";
 import { loadDeckupConfig } from "../src/config.ts";
 import { createDeckupCliIntegration } from "../src/integration.ts";
 import {
@@ -33,7 +39,7 @@ import {
   resolveDeckFile,
 } from "@deckup/core";
 import { resolveDeckupThemeLayouts } from "../src/theme.ts";
-import type { DeckupRuntimePaths } from "../src/types.ts";
+import type { DeckupRuntimePaths, DeckupTailwindOptions } from "../src/types.ts";
 
 /**
  * Test-only bridge to packages/core/src/npm-theme.ts's private lock-timeout /
@@ -95,6 +101,26 @@ function testPaths(projectRoot = resolve("/tmp/deckup-project")): DeckupRuntimeP
   };
 }
 
+function tailwindTestPaths(projectRoot = resolve("/tmp/deckup-project")): DeckupRuntimePaths {
+  return { ...testPaths(projectRoot), runtimeOutDir: join(projectRoot, ".deckup") };
+}
+
+function resolveTailwindForTest(
+  paths: DeckupRuntimePaths,
+  config = {},
+  calls: Array<DeckupTailwindOptions | undefined> = [],
+) {
+  const plugins = [{ name: "tailwind:scan" }, { name: "tailwind:generate" }];
+  const resolution = resolveDeckupBuiltInIntegrations(paths, config, {
+    createTailwindPlugins(options) {
+      calls.push(options);
+      return plugins;
+    },
+    resolveTailwindCss: () => "/deckup/node_modules/tailwindcss/index.css",
+  });
+  return { calls, plugins, resolution };
+}
+
 function serverPort(config: ReturnType<typeof createAstroInlineConfig>) {
   return (config.server as { port?: number } | undefined)?.port;
 }
@@ -117,6 +143,29 @@ import Page from "@deckup/astro/page";
 ) {
   await mkdir(join(projectRoot, "slides"));
   await writeFile(join(projectRoot, "slides", "deck.astro"), source);
+}
+
+async function loadCliDeckLayoutSource(
+  integration: ReturnType<typeof createDeckupCliIntegration>,
+  projectRoot: string,
+) {
+  let updatedConfig:
+    | { vite?: { plugins?: Array<{ name?: string; load?: (id: string) => unknown }> } }
+    | undefined;
+  const setupHook = (integration.hooks as Record<string, (args: unknown) => Promise<void>>)[
+    "astro:config:setup"
+  ];
+  await setupHook({
+    config: { root: pathToFileURL(`${projectRoot}/`) },
+    injectRoute() {},
+    updateConfig(config: typeof updatedConfig) {
+      updatedConfig = config;
+    },
+  });
+  const plugin = updatedConfig?.vite?.plugins?.find(
+    (candidate) => candidate.name === "deckup:cli-deck-layout",
+  );
+  return String(plugin?.load?.("virtual:deckup/cli/deck-layout.astro"));
 }
 
 async function writeThemePackage(projectRoot: string, packageName: string) {
@@ -1476,9 +1525,218 @@ test("user Astro markdown syntaxHighlight override disables raw Astro highlighti
   ).toEqual({ enabled: false });
 });
 
-test("no config does not install Tailwind as a built-in Vite plugin", () => {
-  const config = createAstroInlineConfig(testPaths());
-  expect(config.vite?.plugins).toEqual([]);
+test("built-in Tailwind resolver enables default plugins and a project-root CSS source", () => {
+  const paths = tailwindTestPaths();
+  const { calls, plugins, resolution } = resolveTailwindForTest(paths);
+  expect(calls).toEqual([undefined]);
+  expect(resolution.vitePlugins).toEqual([plugins]);
+  expect(resolution.requiredAliases).toEqual([
+    { find: /^tailwindcss$/, replacement: "/deckup/node_modules/tailwindcss/index.css" },
+  ]);
+  expect(resolution.assets).toEqual([
+    {
+      filePath: join(paths.runtimeOutDir, "tailwind.css"),
+      moduleId: `/@fs/${normalizePath(join(paths.runtimeOutDir, "tailwind.css"))}`,
+      source: '@import "tailwindcss" source("..");\n',
+    },
+  ]);
+  expect(resolution.runtimeCssModuleIds).toEqual([resolution.assets[0].moduleId]);
+});
+
+test("built-in Tailwind resolver forwards empty options without adding defaults", () => {
+  const options = {} satisfies DeckupTailwindOptions;
+  const { calls } = resolveTailwindForTest(tailwindTestPaths(), {
+    integrations: { tailwind: options },
+  });
+  expect(calls).toEqual([options]);
+  expect(calls[0]).toBe(options);
+});
+
+test("built-in Tailwind resolver forwards configured options without adding defaults", () => {
+  const options = { optimize: { minify: false } } satisfies DeckupTailwindOptions;
+  const { calls } = resolveTailwindForTest(tailwindTestPaths(), {
+    integrations: { tailwind: options },
+  });
+  expect(calls).toEqual([options]);
+  expect(calls[0]).toBe(options);
+});
+
+test("built-in Tailwind resolver disables every contribution for strict false", () => {
+  const resolution = resolveDeckupBuiltInIntegrations(
+    tailwindTestPaths(),
+    { integrations: { tailwind: false } },
+    {
+      createTailwindPlugins() {
+        throw new Error("disabled Tailwind must not create plugins");
+      },
+      resolveTailwindCss() {
+        throw new Error("disabled Tailwind must not resolve CSS");
+      },
+    },
+  );
+  expect(resolution).toEqual({
+    vitePlugins: [],
+    requiredAliases: [],
+    runtimeCssModuleIds: [],
+    assets: [],
+  });
+});
+
+test("built-in Tailwind resolver fails fast and retains CSS resolution cause", () => {
+  const cause = new Error("injected Tailwind CSS resolution failure");
+  let caught: unknown;
+
+  try {
+    resolveDeckupBuiltInIntegrations(
+      tailwindTestPaths(),
+      {},
+      {
+        createTailwindPlugins: () => [],
+        resolveTailwindCss() {
+          throw cause;
+        },
+      },
+    );
+  } catch (error) {
+    caught = error;
+  }
+
+  expect(caught).toBeInstanceOf(Error);
+  expect((caught as Error).message).toBe(
+    'Deckup CLI could not resolve required Tailwind CSS asset "tailwindcss/index.css".',
+  );
+  expect((caught as Error).cause).toBe(cause);
+});
+
+test("built-in integration assets are written beneath the Deckup work directory", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    const paths = tailwindTestPaths(projectRoot);
+    const { resolution } = resolveTailwindForTest(paths);
+    await writeDeckupBuiltInIntegrationAssets(resolution);
+    await expect(readFile(join(paths.runtimeOutDir, "tailwind.css"), "utf8")).resolves.toBe(
+      '@import "tailwindcss" source("..");\n',
+    );
+  });
+});
+
+test("no config installs built-in Tailwind plugins, CSS entry, and layout import", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    const { astroConfig, paths } = await createDeckupAstroConfig({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+    });
+    expect(Array.isArray(astroConfig.vite?.plugins?.[0])).toBe(true);
+    expect(astroConfig.vite?.resolve?.alias).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ replacement: expect.stringMatching(/tailwindcss\/index\.css$/) }),
+      ]),
+    );
+    const tailwindCssPath = join(paths.runtimeOutDir, "tailwind.css");
+    await expect(readFile(tailwindCssPath, "utf8")).resolves.toBe(
+      '@import "tailwindcss" source("..");\n',
+    );
+    const cliIntegration = (astroConfig.integrations as Array<{ name?: string }>).find(
+      (integration) => integration.name === "deckup:cli",
+    ) as ReturnType<typeof createDeckupCliIntegration>;
+    const layoutSource = await loadCliDeckLayoutSource(cliIntegration, paths.projectRoot);
+    expect(layoutSource).toContain(`/@fs/${normalizePath(tailwindCssPath)}`);
+  });
+});
+
+test("configured Tailwind options reach the factory exactly once by reference", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    await writeFile(
+      join(projectRoot, "deckup.config.ts"),
+      "export default { integrations: { tailwind: { optimize: { minify: false } } } };\n",
+    );
+    const factoryCalls: Array<DeckupTailwindOptions | undefined> = [];
+    let resolutionCalls = 0;
+    const result = await createDeckupAstroConfigWithOperations(
+      { root: projectRoot, deckFile: "slides/deck.astro" },
+      {
+        resolveBuiltInIntegrations(paths, config) {
+          resolutionCalls += 1;
+          return resolveDeckupBuiltInIntegrations(paths, config, {
+            createTailwindPlugins(options) {
+              factoryCalls.push(options);
+              return [{ name: "tailwind:test" }];
+            },
+            resolveTailwindCss: () => "/deckup/node_modules/tailwindcss/index.css",
+          });
+        },
+        writeBuiltInIntegrationAssets: writeDeckupBuiltInIntegrationAssets,
+      },
+    );
+    const loadedOptions = result.deckupConfig?.integrations?.tailwind;
+    expect(resolutionCalls).toBe(1);
+    expect(factoryCalls).toHaveLength(1);
+    expect(factoryCalls[0]).toBe(loadedOptions);
+    expect(loadedOptions).toEqual({ optimize: { minify: false } });
+    expect(result.astroConfig.vite?.plugins).toEqual([[{ name: "tailwind:test" }]]);
+  });
+});
+
+test("integrations.tailwind false removes plugins, alias, generated CSS, and layout import", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    await writeFile(
+      join(projectRoot, "deckup.config.ts"),
+      "export default { integrations: { tailwind: false } };\n",
+    );
+    const { astroConfig, paths } = await createDeckupAstroConfig({
+      root: projectRoot,
+      deckFile: "slides/deck.astro",
+    });
+    expect(astroConfig.vite?.plugins).toEqual([]);
+    const aliases = (astroConfig.vite?.resolve?.alias ?? []) as unknown as Array<{
+      find?: RegExp;
+    }>;
+    expect(aliases.some((alias) => alias.find?.test("tailwindcss"))).toBe(false);
+    await expect(stat(join(paths.runtimeOutDir, "tailwind.css"))).rejects.toThrow();
+    const cliIntegration = (astroConfig.integrations as Array<{ name?: string }>).find(
+      (integration) => integration.name === "deckup:cli",
+    ) as ReturnType<typeof createDeckupCliIntegration>;
+    expect(await loadCliDeckLayoutSource(cliIntegration, paths.projectRoot)).not.toContain(
+      "tailwind.css",
+    );
+  });
+});
+
+test("built-in Tailwind plugins stay before an undeduplicated user Tailwind group", () => {
+  const paths = tailwindTestPaths();
+  const { plugins: builtInPlugins, resolution } = resolveTailwindForTest(paths);
+  const config = createAstroInlineConfigWithBuiltIns(
+    paths,
+    {},
+    { astro: { vite: { plugins: [builtInPlugins as never] } } },
+    undefined,
+    undefined,
+    resolution,
+  );
+  expect(config.vite?.plugins).toEqual([builtInPlugins, builtInPlugins]);
+  expect(config.vite?.plugins?.[0]).toBe(config.vite?.plugins?.[1]);
+});
+
+test("CLI integration imports additional CSS modules after Core CSS", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeAstroDeck(projectRoot);
+    const resolvedProjectRoot = await realpath(projectRoot);
+    const deck = await resolveDeckFile(resolvedProjectRoot, "slides/deck.astro");
+    const registry = createSingleDeckRegistry(resolvedProjectRoot, deck);
+    const tailwindCssModuleId = `/@fs/${normalizePath(
+      join(resolvedProjectRoot, ".deckup/tailwind.css"),
+    )}`;
+    const integration = createDeckupCliIntegration({
+      registry,
+      additionalCssModuleIds: [tailwindCssModuleId],
+    });
+    const source = await loadCliDeckLayoutSource(integration, resolvedProjectRoot);
+    expect(source.indexOf("runtime/styles/global.css")).toBeLessThan(
+      source.indexOf(tailwindCssModuleId),
+    );
+  });
 });
 
 test("generated Page paths do not alias deckup/page without layout themes", () => {
@@ -1511,12 +1769,10 @@ test("createDeckupAstroConfig writes generated Page for layout themes", async ()
       join(await realpath(projectRoot), ".deckup/generated/Page.astro"),
     );
     expect(paths.generatedPageFilePath).toBeDefined();
-    expect(await readFile(paths.generatedPageFilePath!, "utf8")).toContain(
-      VIRTUAL_DECKUP_THEME_LAYOUTS_ID,
-    );
-    expect(await readFile(paths.generatedPageFilePath!, "utf8")).toContain(
-      '<slot name="left" slot="left" />',
-    );
+    const generatedPageSource = await readFile(paths.generatedPageFilePath!, "utf8");
+    expect(generatedPageSource).toContain(VIRTUAL_DECKUP_THEME_LAYOUTS_ID);
+    expect(generatedPageSource).toContain('<slot name="left" slot="left" />');
+    expect(generatedPageSource).toContain('theme = "@acme/deckup-layout-theme"');
     expect(astroConfig.vite?.resolve?.alias).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ replacement: paths.generatedPageFilePath }),
@@ -1537,7 +1793,9 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
     projectRelativePath: "slides/deck.astro",
     format: "astro" as const,
   };
-  const config = createAstroInlineConfig(
+  const { plugins: builtInPlugins, resolution: builtInIntegrations } =
+    resolveTailwindForTest(paths);
+  const config = createAstroInlineConfigWithBuiltIns(
     paths,
     {},
     {
@@ -1587,6 +1845,7 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
       slotNames: [],
       source: "builtin",
     },
+    builtInIntegrations,
   );
 
   expect(config.root).toBe(paths.projectRoot);
@@ -1600,10 +1859,11 @@ test("user Astro config appends without replacing Deckup-owned values", () => {
   expect(config.srcDir).toBeUndefined();
   expect(config.output).toBe("static");
   expect(config.integrations?.at(-1)).toBe(userIntegration);
-  expect(config.vite?.plugins).toEqual([userPlugin]);
+  expect(config.vite?.plugins).toEqual([builtInPlugins, userPlugin]);
   expect(config.vite?.resolve?.alias).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ find: /^astro$/ }),
+      expect.objectContaining({ find: /^tailwindcss$/ }),
       expect.objectContaining({ find: /^@slides$/ }),
     ]),
   );

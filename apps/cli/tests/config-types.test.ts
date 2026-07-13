@@ -4,6 +4,7 @@ import {
   defineConfig,
   exportDeckPng,
   type DeckupBuildCommandOptions,
+  type DeckupBuiltInIntegrationsConfig,
   type DeckupRuntimePaths,
   type DeckupConfig,
   type DeckupOutputFormat,
@@ -11,6 +12,7 @@ import {
   type DeckupPngExportResult,
   type DeckupResolvedTheme,
   type DeckupResolvedThemeLayout,
+  type DeckupTailwindOptions,
 } from "../src/index.ts";
 import * as deckup from "../src/index.ts";
 
@@ -19,9 +21,17 @@ test("defineConfig returns an object config", () => {
   expect(config).toEqual({ port: 3000 });
 });
 
+const tailwindOptions: DeckupTailwindOptions = {
+  optimize: { minify: false },
+};
+const builtInIntegrations: DeckupBuiltInIntegrationsConfig = {
+  tailwind: tailwindOptions,
+};
+
 const validConfig = defineConfig({
   port: 3000,
   theme: "minimal",
+  integrations: builtInIntegrations,
   astro: {
     integrations: [],
     vite: {
@@ -33,6 +43,61 @@ const validConfig = defineConfig({
 const assignableConfig: DeckupConfig = validConfig;
 expect(assignableConfig.port).toBe(3000);
 expect(assignableConfig.theme).toBe("minimal");
+
+const emptyBuiltInIntegrations = defineConfig({ integrations: {} });
+expect(emptyBuiltInIntegrations.integrations).toEqual({});
+const defaultTailwind = defineConfig({ integrations: { tailwind: {} } });
+expect(defaultTailwind.integrations?.tailwind).toEqual({});
+const disabledTailwind = defineConfig({ integrations: { tailwind: false } });
+expect(disabledTailwind.integrations?.tailwind).toBe(false);
+
+defineConfig({
+  integrations: {
+    // @ts-expect-error Deckup built-in integrations expose known keys only
+    unknown: {},
+  },
+});
+
+defineConfig({
+  integrations: {
+    // @ts-expect-error Tailwind accepts its options object or false, not true
+    tailwind: true,
+  },
+});
+
+defineConfig({
+  integrations: {
+    // @ts-expect-error Tailwind config is not an array
+    tailwind: [],
+  },
+});
+
+defineConfig({
+  integrations: {
+    // @ts-expect-error Tailwind config is not a string
+    tailwind: "disabled",
+  },
+});
+
+defineConfig({
+  integrations: {
+    tailwind: {
+      // @ts-expect-error optimize must be a boolean or an object
+      optimize: "always",
+    },
+  },
+});
+
+defineConfig({
+  integrations: {
+    tailwind: {
+      optimize: {
+        // @ts-expect-error minify must be a boolean
+        minify: "yes",
+      },
+    },
+  },
+});
 
 const themedConfig = defineConfig({ theme: "google-basic" });
 expect(themedConfig.theme).toBe("google-basic");
