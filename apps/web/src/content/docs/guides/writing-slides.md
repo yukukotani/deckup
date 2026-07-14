@@ -71,8 +71,7 @@ import Page from "@deckup/astro/page";
 import ArchitectureDiagram from "./components/ArchitectureDiagram.astro";
 ---
 
-<Page title="Application architecture">
-  <PageMeta layout="page" />
+<Page title="Application architecture" layout="page">
   <h1>Application architecture</h1>
   <ArchitectureDiagram />
 </Page>
@@ -89,7 +88,18 @@ For hydrated controls, continue with the [React integration](/integrations/react
 
 ## Apply layouts intentionally
 
-Deckup uses `cover` for the first page and `default` for later pages unless you add an explicit `PageMeta` declaration as the page's first meaningful item.
+Deckup uses `cover` for the first page and `default` for later pages unless you select another layout.
+In Astro, set a static `layout` prop directly on `Page`:
+
+```astro
+<Page title="Two perspectives" layout="two-column">
+  <h1>Two perspectives</h1>
+  <p slot="left">What users need</p>
+  <p slot="right">What we will build</p>
+</Page>
+```
+
+In MDX, add an import-free `PageMeta` declaration as the page's first meaningful item:
 
 ```mdx
 <PageMeta layout="two-column" />

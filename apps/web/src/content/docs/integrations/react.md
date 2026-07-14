@@ -70,8 +70,7 @@ import Page from "@deckup/astro/page";
 import ReactRange from "./components/ReactRange.tsx";
 ---
 
-<Page title="React range">
-  <PageMeta layout="page" />
+<Page title="React range" layout="page">
   <h1>React range</h1>
   <ReactRange client:load />
 </Page>

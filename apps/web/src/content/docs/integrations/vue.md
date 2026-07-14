@@ -63,8 +63,7 @@ import Page from "@deckup/astro/page";
 import VueRange from "./components/VueRange.vue";
 ---
 
-<Page title="Vue range">
-  <PageMeta layout="page" />
+<Page title="Vue range" layout="page">
   <h1>Vue range</h1>
   <VueRange client:load />
 </Page>

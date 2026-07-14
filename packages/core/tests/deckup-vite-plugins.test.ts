@@ -59,6 +59,57 @@ test("transformAstroDeckSource injects theme props when provided", () => {
   expect(result).toContain('<Page title="Details" layout="two-column" theme="minimal">');
 });
 
+test("transformAstroDeckSource preserves static Page layout props", () => {
+  const source = `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Details" layout="two-column"><p>Body</p></Page>
+`;
+
+  expect(analyzeAstroDeckSourceForTests(source)).toMatchObject({
+    layouts: [{ layout: "two-column" }],
+  });
+  expect(transformAstroDeckSource(source)).toBe(source);
+
+  const themedResult = transformAstroDeckSource(source, "<deck>", "minimal");
+  expect(themedResult).toContain('<Page title="Details" layout="two-column" theme="minimal">');
+  expect(themedResult.match(/\blayout=/g)).toHaveLength(1);
+});
+
+test("transformAstroDeckSource adds theme props without duplicating Page layout props", () => {
+  const result = transformAstroDeckSource(
+    `---
+import Page from "@deckup/astro/page";
+---
+
+<Page title="Solo" layout="section" />
+`,
+    "<deck>",
+    "minimal",
+  );
+
+  expect(result).toMatch(/<Page title="Solo" layout="section"\s+theme="minimal"\s*\/>/);
+  expect(result.match(/\blayout=/g)).toHaveLength(1);
+});
+
+test("Astro Page layout props take precedence over valid PageMeta and remove the marker", () => {
+  const source = `---
+import Page from "@deckup/astro/page";
+---
+
+<Page layout="two-column"><PageMeta layout="default" /><p>Body</p></Page>
+`;
+
+  expect(analyzeAstroDeckSourceForTests(source)).toMatchObject({
+    layouts: [{ layout: "two-column" }],
+  });
+  const result = transformAstroDeckSource(source);
+  expect(result).toContain('<Page layout="two-column">');
+  expect(result.match(/\blayout=/g)).toHaveLength(1);
+  expect(result).not.toContain("PageMeta");
+});
+
 test("transformAstroDeckSource omits theme props when no theme is provided", () => {
   const result = transformAstroDeckSource(twoPageDeck);
 
@@ -382,18 +433,58 @@ const invalidAstroPageMetaCases: Array<[string, string, RegExp]> = [
   ["nested marker", `<div><PageMeta layout="cover" /></div>`, /first meaningful direct child/],
 ];
 
-for (const [name, body, matcher] of invalidAstroPageMetaCases) {
-  test(`Astro PageMeta ${name} fails identically in validation and transform`, () => {
+const invalidAstroPageLayoutCases: Array<[string, string, RegExp]> = [
+  ["dynamic layout", `layout={layout}`, /Astro Page layout attribute.*static string/],
+  ["shorthand layout", `layout`, /Astro Page layout attribute.*static string/],
+  ["empty layout", `layout=""`, /Astro Page layout attribute.*non-empty string/],
+  ["whitespace layout", `layout="   "`, /Astro Page layout attribute.*non-empty string/],
+  ["invalid layout id", `layout="Cover Slide"`, /Invalid Deckup layout id/],
+  [
+    "trailing spread",
+    `layout="cover" {...props}`,
+    /must not place a spread attribute after layout/,
+  ],
+  [
+    "duplicate static layout",
+    `layout="cover" layout="default"`,
+    /must not declare multiple layout attributes/,
+  ],
+  [
+    "duplicate dynamic layout",
+    `layout="cover" layout={layout}`,
+    /must not declare multiple layout attributes/,
+  ],
+];
+
+for (const [name, attribute, matcher] of invalidAstroPageLayoutCases) {
+  test(`Astro Page ${name} fails identically in validation and transform`, () => {
     const source = `---
 import Page from "@deckup/astro/page";
 const layout = "cover";
 const props = {};
 ---
 
-<Page>${body}</Page>
+<Page ${attribute}><h1>One</h1></Page>
 `;
     expect(() => validateAstroDeckSource(source, "/project/slides/talk.astro")).toThrow(matcher);
     expect(() => transformAstroDeckSource(source, "/project/slides/talk.astro")).toThrow(matcher);
+  });
+}
+
+for (const [name, body, matcher] of invalidAstroPageMetaCases) {
+  test(`Astro PageMeta ${name} fails identically in validation and transform`, () => {
+    for (const pageAttributes of ["", ` layout="two-column"`]) {
+      const source = `---
+import Page from "@deckup/astro/page";
+const layout = "cover";
+const props = {};
+---
+
+<Page${pageAttributes}>${body}</Page>
+`;
+      expect(() => validateAstroDeckSource(source, "/project/slides/talk.astro")).toThrow(matcher);
+      expect(() => transformAstroDeckSource(source, "/project/slides/talk.astro")).toThrow(matcher);
+    }
   });
 }
 

@@ -44,6 +44,40 @@ test("public Astro transform moves PageMeta layout and removes the marker", () =
   expect(result).not.toContain("PageMeta");
 });
 
+test("public Astro transform prefers Page layout props and removes PageMeta", () => {
+  const result = transformAstroDeckSource(
+    `---
+import Page from "@deckup/astro/page";
+---
+
+<Page layout="two-column"><PageMeta layout="default" /><p>Body</p></Page>
+`,
+    "/project/slides/talk.astro",
+    "minimal",
+  );
+
+  expect(result).toContain('<Page layout="two-column" theme="minimal">');
+  expect(result.match(/\blayout=/g)).toHaveLength(1);
+  expect(result).not.toContain('layout="default"');
+  expect(result).not.toContain("PageMeta");
+});
+
+test("public Astro APIs reject dynamic Page layout props", () => {
+  const source = `---
+import Page from "@deckup/astro/page";
+const layout = "cover";
+---
+
+<Page layout={layout}><h1>One</h1></Page>
+`;
+
+  for (const operation of [validateAstroDeckSource, transformAstroDeckSource]) {
+    expect(() => operation(source, "/project/slides/talk.astro")).toThrow(
+      /Astro Page layout attribute.*static string/,
+    );
+  }
+});
+
 test("public Astro transform treats lowercase <layout> as ordinary content, not Deckup metadata", () => {
   const result = transformAstroDeckSource(`---
 import Page from "@deckup/astro/page";

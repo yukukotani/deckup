@@ -258,10 +258,6 @@ function getTextOnlyContent(
   return decodeHtmlEntities(rawCodeWithClosingTag.slice(0, closingTagIndex));
 }
 
-function hasAttribute(node: AstroNode, name: string) {
-  return getAttribute(node, name) !== undefined;
-}
-
 function findDefaultPageImport(ast: AstroRoot): AstroImportDeclaration | undefined {
   return ast.frontmatter?.program?.body?.find((node) => {
     if (node.type !== "ImportDeclaration" || node.source?.value !== pageComponentExport) {
@@ -439,13 +435,43 @@ function getPageAttributeInsertionOffset(
   return source[endIndex - 2] === "/" ? endIndex - 2 : endIndex - 1;
 }
 
+function resolveAstroPageLayoutAttribute(page: AstroNode, context: string) {
+  const attributes = page.openingElement?.attributes ?? [];
+  const layoutAttributes = attributes.filter(
+    (attribute) => getAttributeName(attribute) === "layout",
+  );
+  if (layoutAttributes.length === 0) return undefined;
+  if (layoutAttributes.length > 1) {
+    throw new Error(`Astro Page in ${context} must not declare multiple layout attributes.`);
+  }
+
+  const attribute = layoutAttributes[0];
+  if (!attribute) return undefined;
+  const layoutAttributeIndex = attributes.indexOf(attribute);
+  if (
+    attributes
+      .slice(layoutAttributeIndex + 1)
+      .some((candidate) => candidate.type === "JSXSpreadAttribute")
+  ) {
+    throw new Error(`Astro Page in ${context} must not place a spread attribute after layout.`);
+  }
+  if (
+    attribute.type !== "JSXAttribute" ||
+    attribute.value?.type !== "Literal" ||
+    typeof attribute.value.value !== "string"
+  ) {
+    throw new TypeError(`Astro Page layout attribute in ${context} must be a static string.`);
+  }
+  const layout = attribute.value.value;
+  if (layout.trim().length === 0) {
+    throw new TypeError(`Astro Page layout attribute in ${context} must be a non-empty string.`);
+  }
+  return layout;
+}
+
 function resolveAstroPageLayout(page: AstroNode, pageIndex: number, filePath: string) {
   const context = `${filePath} page ${pageIndex + 1}`;
-  if (hasAttribute(page, "layout")) {
-    throw new Error(
-      `Astro Page layout in ${context} must be declared with a child <PageMeta layout="..." /> marker.`,
-    );
-  }
+  const pageLayout = resolveAstroPageLayoutAttribute(page, context);
 
   const pageMetaNodes = collectAstroPageMetaNodes(page);
   if (pageMetaNodes.length > 1) {
@@ -465,18 +491,23 @@ function resolveAstroPageLayout(page: AstroNode, pageIndex: number, filePath: st
     );
   }
 
-  let explicitLayout: string | undefined;
+  let pageMetaLayout: string | undefined;
   if (pageMeta) {
     if (!pageMeta.openingElement?.selfClosing) {
       throw new Error(`PageMeta declaration in ${context} must be self-closing.`);
     }
-    explicitLayout = resolvePageMetaLayoutAttribute(
-      normalizeAstroPageMetaAttributes(pageMeta),
+    pageMetaLayout = resolveDeckupLayout(
+      resolvePageMetaLayoutAttribute(normalizeAstroPageMetaAttributes(pageMeta), context),
+      pageIndex,
       context,
     );
   }
 
-  return { layout: resolveDeckupLayout(explicitLayout, pageIndex, context), pageMeta };
+  return {
+    layout: resolveDeckupLayout(pageLayout ?? pageMetaLayout, pageIndex, context),
+    pageMeta,
+    hasPageLayout: pageLayout !== undefined,
+  };
 }
 
 function analyzeAstroLayouts(
@@ -490,14 +521,15 @@ function analyzeAstroLayouts(
   const toSourceIndex = createSourceIndexConverter(source);
   for (const [pageIndex, page] of pages.entries()) {
     const context = `${filePath} page ${pageIndex + 1}`;
-    const { layout, pageMeta } = resolveAstroPageLayout(page, pageIndex, filePath);
+    const { layout, pageMeta, hasPageLayout } = resolveAstroPageLayout(page, pageIndex, filePath);
     layouts.push({ layout });
-    const insertAt = getPageAttributeInsertionOffset(source, toSourceIndex, page, context);
-    edits.push({
-      start: insertAt,
-      end: insertAt,
-      value: ` layout=${JSON.stringify(layout)}${themeName ? ` theme=${JSON.stringify(themeName)}` : ""}`,
-    });
+    const injectedAttributes = `${hasPageLayout ? "" : ` layout=${JSON.stringify(layout)}`}${
+      themeName ? ` theme=${JSON.stringify(themeName)}` : ""
+    }`;
+    if (injectedAttributes) {
+      const insertAt = getPageAttributeInsertionOffset(source, toSourceIndex, page, context);
+      edits.push({ start: insertAt, end: insertAt, value: injectedAttributes });
+    }
     if (pageMeta) {
       edits.push({ ...getRequiredSpan(toSourceIndex, pageMeta, context), value: "" });
     }

@@ -17,8 +17,7 @@ Astro decks import `Page` and contain only top-level `<Page>` components:
 import Page from "@deckup/astro/page";
 ---
 
-<Page title="Presentation title">
-  <PageMeta layout="cover" />
+<Page title="Presentation title" layout="cover">
   <h1>Presentation title</h1>
 </Page>
 
@@ -49,14 +48,28 @@ Empty pages are invalid, so do not use adjacent rules or a trailing rule without
 
 ## Layout declarations
 
-Deckup assigns `cover` to page 1 and `default` to every later page unless the page declares another layout:
+Deckup assigns `cover` to page 1 and `default` to every later page unless the page declares another layout.
+
+In Astro, set `layout` directly on `Page`:
+
+```astro
+<Page title="Two columns" layout="two-column">
+  <h1>Two columns</h1>
+</Page>
+```
+
+The value must be a static, non-empty string.
+Expressions and shorthand attributes are invalid, and a `Page` may not declare multiple `layout` attributes.
+When using a JSX spread, place it before `layout`; a spread after the explicit layout is rejected because it could overwrite the analyzed value at runtime.
+
+In MDX, declare the layout with an import-free `PageMeta` marker:
 
 ```mdx
 <PageMeta layout="two-column" />
 ```
 
-A page may contain at most one declaration.
 `PageMeta` is an import-free Deckup marker, not a runtime component.
+A page may contain at most one `PageMeta` declaration.
 It must be the first meaningful direct child; whitespace and non-rendering comments may precede it.
 The marker must be self-closing and may contain exactly one static, non-empty `layout` string attribute. Expressions, spreads, unknown attributes, children, and paired tags are invalid.
 `PageMeta` is reserved and is removed before content renders.
@@ -67,8 +80,7 @@ Layout IDs start with a lowercase letter and contain only lowercase letters, num
 Target a named region with Astro's standard `slot` attribute:
 
 ```astro
-<Page title="Two columns">
-  <PageMeta layout="two-column" />
+<Page title="Two columns" layout="two-column">
   <h1>Two columns</h1>
   <p slot="left">Left side</p>
   <p slot="right">Right side</p>
