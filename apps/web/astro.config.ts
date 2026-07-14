@@ -54,6 +54,7 @@ export default defineConfig({
           label: "References",
           items: [
             { label: "CLI", slug: "references/cli" },
+            { label: "Config", slug: "references/config" },
             { label: "Syntax", slug: "references/syntax" },
             { label: "Theme", slug: "references/theme" },
           ],

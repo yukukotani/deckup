@@ -3,21 +3,46 @@ title: Introduction
 description: Meet Deckup, an Astro-native toolkit for writing, previewing, and exporting slide decks.
 ---
 
-Deckup is Astro-native slide deck tooling for authoring presentations in `.astro` and `.mdx` files.
-It gives both people and coding agents a small, file-based workflow for previewing a deck, building a static web version, exporting a PDF, and rendering slides as PNG images for visual review.
+Write slides in `.mdx` or `.astro`, run `deckup open`, and get a live presentation in the browser. Then ship the exact same source as an interactive web deck, a PDF, or PNG images.
+
+A Markdown file is a deck. A horizontal rule starts a new slide. Everything the web can render is fair game.
 
 ## Why Deckup?
 
-- **Component native:** compose rich diagrams with Astro components and hydrate interactive React or Vue islands inside a slide.
-- **Themeable:** select a built-in theme or package reusable layouts as an npm package.
-- **Easy to inspect:** each deck is a source file and each rendered slide can be exported as a fixed 1600×900 image.
-- **Multiple outputs:** preview locally, publish static HTML, or export PDF and PNG files from the same deck.
+### As expressive as the web
+
+Slides are not documents. They live on visual impact.
+
+Deckup gives every slide the web as its canvas: start with simple Markdown, then reach for HTML and SVG, CSS animations, WebGL, or interactive React and Vue components when a slide deserves more.
+
+There is no mode switching and no plugin ceiling: if Astro can render it, Deckup can put it on a slide.
+
+Learn more in [Writing Slides](/guides/writing-slides/).
+
+### Built for humans and AI agents
+
+Every edit shows up in the browser instantly, thanks to Vite HMR.
+
+Coding agents get an equivalent loop: render any slide as a PNG and review the result visually. Deckup ships Agent Skills out of the box, so your agent writes a slide, screenshots it, and refines it the same way you would.
+
+Learn more in [Working with AI](/guides/working-with-ai/).
+
+### One source, every output
+
+A single `deckup build` turns the same files into whatever the moment calls for. Present from an interactive web deck. Email a PDF. Export per-slide PNGs.
+
+What you previewed is exactly what ships, with no export-time surprises.
+
+Learn more in the [CLI reference](/references/cli/).
+
+### Themable
+
+Themes define the layouts and typography of a deck, so every slide looks like it belongs to the same presentation.
+
+Inside those layouts, the content is yours: pick a layout for structure, then fill it with anything from plain Markdown to rich visuals. Order where it matters, freedom where it counts.
+
+Learn more in the [Theme reference](/references/theme/) and [Authoring Themes](/guides/authoring-themes/).
 
 ## Where to begin
 
-1. Follow [Getting Started](/introduction/getting-started/) to create and export your first deck.
-2. Read [Writing Slides](/guides/writing-slides/) to choose between MDX and Astro and build a visual Astro component.
-3. Add interactive islands with the [React integration](/integrations/react/) or [Vue integration](/integrations/vue/).
-4. Use [Working with AI](/guides/working-with-ai/) when a coding agent will help write or visually review the deck.
-
-When you need exact behavior, use the references for the [CLI](/references/cli/), [slide syntax](/references/syntax/), and [themes](/references/theme/).
+Follow [Getting Started](/introduction/getting-started/) to create and export your first deck in minutes.
