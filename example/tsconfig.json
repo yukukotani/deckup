@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM"],
+    "strict": true
+  },
+  "include": [
+    "deckup.config.ts",
+    "vite.config.ts",
+    "slides/**/*.d.ts",
+    "slides/**/*.ts",
+    "slides/**/*.tsx"
+  ]
+}

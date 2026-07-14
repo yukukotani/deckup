@@ -3,6 +3,9 @@ title: Google Basic MDX Deck Example
 theme: google-basic
 ---
 
+import ReactDataExplorer from "@slides/components/ReactDataExplorer.tsx";
+import VueDataExplorer from "@slides/components/VueDataExplorer.vue";
+
 # This is presentation title
 
 This is presentation subtitle
@@ -81,3 +84,19 @@ const slide: Slide = {
   layout: "page",
 };
 ```
+
+---
+
+<PageMeta layout="page" />
+
+# Explore the same data with React
+
+<ReactDataExplorer client:load />
+
+---
+
+<PageMeta layout="page" />
+
+# Explore the same data with Vue
+
+<VueDataExplorer client:load />

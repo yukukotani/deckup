@@ -1,6 +1,6 @@
 ---
 title: Writing Slides
-description: Choose an authoring format, organize pages, apply layouts, and review a Deckup presentation.
+description: Choose an authoring format, organize pages, embed Astro components, and review a Deckup presentation.
 ---
 
 A Deckup deck is a single `.mdx` or `.astro` file.
@@ -47,6 +47,45 @@ import Page from "@deckup/astro/page";
   <p>What changed and what comes next.</p>
 </Page>
 ```
+
+## Build a visual with an Astro component
+
+Keep reusable visual markup under `slides/components/`.
+For example, create `slides/components/ArchitectureDiagram.astro`:
+
+```astro
+<figure aria-label="Application architecture">
+  <div>Data source</div>
+  <svg viewBox="0 0 120 20" aria-hidden="true">
+    <path d="M10 10 H110" stroke="currentColor" />
+  </svg>
+  <div>Published slide</div>
+</figure>
+```
+
+Import the component in the deck frontmatter and render it inside a `Page`:
+
+```astro
+---
+import Page from "@deckup/astro/page";
+import ArchitectureDiagram from "./components/ArchitectureDiagram.astro";
+---
+
+<Page title="Application architecture">
+  <PageMeta layout="page" />
+  <h1>Application architecture</h1>
+  <ArchitectureDiagram />
+</Page>
+```
+
+Preview the Astro deck:
+
+```bash
+npx deckup open slides/deck.astro
+```
+
+Open the [live Astro component slide](/slides/component-showcase#1) to see the same pattern rendered as a richer HTML/CSS/SVG diagram.
+For hydrated controls, continue with the [React integration](/integrations/react/) or [Vue integration](/integrations/vue/).
 
 ## Apply layouts intentionally
 

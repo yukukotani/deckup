@@ -1,0 +1,67 @@
+---
+import "./showcase.css";
+---
+
+<figure
+  class="deckup-showcase deckup-showcase__architecture"
+  aria-labelledby="deckup-showcase-architecture-title"
+>
+  <figcaption id="deckup-showcase-architecture-title" class="deckup-showcase__eyebrow">
+    One source, framework components, every Deckup output
+  </figcaption>
+
+  <div class="deckup-showcase__architecture-flow">
+    <section class="deckup-showcase__architecture-card" aria-labelledby="deckup-source-title">
+      <h2 id="deckup-source-title">1. Write the deck</h2>
+      <p><code>.astro</code> or <code>.mdx</code></p>
+    </section>
+
+    <section class="deckup-showcase__architecture-card" aria-labelledby="deckup-components-title">
+      <h2 id="deckup-components-title">2. Compose components</h2>
+      <ul>
+        <li>Astro · rich structure</li>
+        <li>React · interactive island</li>
+        <li>Vue · interactive island</li>
+      </ul>
+    </section>
+
+    <section class="deckup-showcase__architecture-card" aria-labelledby="deckup-page-title">
+      <h2 id="deckup-page-title">3. Keep Deckup semantics</h2>
+      <p><code>Page</code> + <code>PageMeta</code></p>
+    </section>
+
+    <section class="deckup-showcase__architecture-card" aria-labelledby="deckup-output-title">
+      <h2 id="deckup-output-title">4. Share anywhere</h2>
+      <ul>
+        <li>Static HTML</li>
+        <li>PDF document</li>
+        <li>1600 × 900 PNG</li>
+      </ul>
+    </section>
+
+    <svg
+      class="deckup-showcase__connectors"
+      viewBox="0 0 1000 220"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <marker
+          id="deckup-showcase-arrow"
+          markerUnits="userSpaceOnUse"
+          markerWidth="8"
+          markerHeight="8"
+          refX="7"
+          refY="4"
+          orient="auto"
+        >
+          <polygon points="0 0, 8 4, 0 8" fill="var(--deckup-showcase-accent)"></polygon>
+        </marker>
+      </defs>
+      <path d="M190 110 H202" marker-end="url(#deckup-showcase-arrow)"></path>
+      <path d="M527 110 H539" marker-end="url(#deckup-showcase-arrow)"></path>
+      <path d="M730 110 H742" marker-end="url(#deckup-showcase-arrow)"></path>
+    </svg>
+  </div>
+</figure>

@@ -1,10 +1,23 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "astro/config";
+import react from "@astrojs/react";
 import starlight from "@astrojs/starlight";
+import vue from "@astrojs/vue";
 import deckup from "@deckup/astro";
 
 export default defineConfig({
   site: "https://deckup.yuku.dev",
+  vite: {
+    server: {
+      fs: {
+        allow: [fileURLToPath(new URL("../..", import.meta.url))],
+      },
+    },
+  },
   integrations: [
+    react(),
+    vue(),
     deckup({ decks: "src/slides/*.{astro,mdx}", base: "/slides" }),
     starlight({
       title: "Deckup",
@@ -28,6 +41,13 @@ export default defineConfig({
               slug: "guides/authoring-themes",
             },
             { label: "Working with AI", slug: "guides/working-with-ai" },
+          ],
+        },
+        {
+          label: "Integrations",
+          items: [
+            { label: "React", slug: "integrations/react" },
+            { label: "Vue", slug: "integrations/vue" },
           ],
         },
         {

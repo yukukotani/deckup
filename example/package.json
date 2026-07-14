@@ -4,8 +4,16 @@
   "private": true,
   "type": "module",
   "devDependencies": {
+    "@astrojs/react": "catalog:",
+    "@astrojs/vue": "catalog:",
     "@deckup/astro": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "deckup": "workspace:*",
-    "vite-plus": "catalog:"
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vue": "catalog:"
   }
 }

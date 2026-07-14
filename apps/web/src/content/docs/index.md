@@ -8,7 +8,7 @@ It gives both people and coding agents a small, file-based workflow for previewi
 
 ## Why Deckup?
 
-- **Astro native:** use Astro components, HTML, CSS, and MDX instead of a proprietary slide format.
+- **Component native:** compose rich diagrams with Astro components and hydrate interactive React or Vue islands inside a slide.
 - **Themeable:** select a built-in theme or package reusable layouts as an npm package.
 - **Easy to inspect:** each deck is a source file and each rendered slide can be exported as a fixed 1600×900 image.
 - **Multiple outputs:** preview locally, publish static HTML, or export PDF and PNG files from the same deck.
@@ -16,7 +16,8 @@ It gives both people and coding agents a small, file-based workflow for previewi
 ## Where to begin
 
 1. Follow [Getting Started](/introduction/getting-started/) to create and export your first deck.
-2. Read [Writing Slides](/guides/writing-slides/) to choose between MDX and Astro and structure a presentation.
-3. Use [Working with AI](/guides/working-with-ai/) when a coding agent will help write or visually review the deck.
+2. Read [Writing Slides](/guides/writing-slides/) to choose between MDX and Astro and build a visual Astro component.
+3. Add interactive islands with the [React integration](/integrations/react/) or [Vue integration](/integrations/vue/).
+4. Use [Working with AI](/guides/working-with-ai/) when a coding agent will help write or visually review the deck.
 
 When you need exact behavior, use the references for the [CLI](/references/cli/), [slide syntax](/references/syntax/), and [themes](/references/theme/).

@@ -9,11 +9,19 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@astrojs/react": "catalog:",
     "@astrojs/starlight": "catalog:",
+    "@astrojs/vue": "catalog:",
     "@deckup/astro": "workspace:*",
-    "astro": "catalog:"
+    "astro": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "vue": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",

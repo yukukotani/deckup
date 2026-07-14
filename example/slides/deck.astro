@@ -1,5 +1,8 @@
 ---
 import Page from "@deckup/astro/page";
+import AstroArchitecture from "@slides/components/AstroArchitecture.astro";
+import ReactDataExplorer from "@slides/components/ReactDataExplorer.tsx";
+import VueDataExplorer from "@slides/components/VueDataExplorer.vue";
 const theme = "google-basic";
 ---
 
@@ -66,4 +69,22 @@ const slide: Slide = &#123;
   title: "Hello TypeScript",
   layout: "page",
 &#125;;</code></pre>
+</Page>
+
+<Page title="Astro component architecture">
+  <PageMeta layout="page" />
+  <h1>Astro components create the whole picture</h1>
+  <AstroArchitecture />
+</Page>
+
+<Page title="React data explorer">
+  <PageMeta layout="page" />
+  <h1>Explore the same data with React</h1>
+  <ReactDataExplorer client:load />
+</Page>
+
+<Page title="Vue data explorer">
+  <PageMeta layout="page" />
+  <h1>Explore the same data with Vue</h1>
+  <VueDataExplorer client:load />
 </Page>
