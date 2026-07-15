@@ -10,6 +10,8 @@
 6. Open the new images and inspect both the intended changes and any side effects.
 7. Re-render and review the complete deck before finishing.
 
+For an existing deck, keep baseline observations separate from requested changes. For a new deck, review the complete sequence from slide one on the first render.
+
 Never edit generated PNGs, `.deckup/`, or `dist/` directly.
 
 ## Per-slide checklist
