@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { inflateSync } from "node:zlib";
 import { expect, test } from "vite-plus/test";
 
+import { resolveChromiumExecutablePath } from "../src/browser.ts";
 import {
   buildDeck,
   createAstroInlineConfig,
@@ -275,7 +276,7 @@ async function localBrowserExecutablePath() {
     }
   }
 
-  return undefined;
+  return resolveChromiumExecutablePath();
 }
 
 function slideCount(html: string) {

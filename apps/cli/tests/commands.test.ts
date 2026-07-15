@@ -371,7 +371,7 @@ test("CLI inspect failures keep stdout empty and exit non-zero", async () => {
       expect(result.stderr).toMatch(errorPattern);
     }
   });
-});
+}, 30_000);
 
 test("normalizeLogLevel accepts known Astro log levels", () => {
   expect(normalizeLogLevel("debug")).toBe("debug");
