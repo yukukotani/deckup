@@ -19,7 +19,7 @@ Use these public commands:
 | ---------------------------- | ------------------------------------------- |
 | `open <deck-file>`           | Start an interactive Astro preview server   |
 | `build <deck-file>`          | Build PDF, static HTML, or PNG images       |
-| `inspect theme <theme-name>` | Describe a theme's public layouts and slots |
+| `inspect theme [theme-name]` | Describe a theme's public layouts and slots |
 
 ## Preview interactively
 
@@ -82,13 +82,17 @@ npx deckup build presentation.mdx --format png --slides 1,3-5 --out /tmp/deckup-
 Inspect theme and layout descriptions together with slots before selecting them:
 
 ```bash
+npx deckup inspect theme
+npx deckup inspect theme --json
 npx deckup inspect theme default
 npx deckup inspect theme google-basic --json
 npx deckup inspect theme @acme/deckup-theme --json
 ```
 
 - Resolve the active theme from the target deck's metadata first, then the top-level `theme` in `deckup.config.*`, then `default`.
-- Always pass that resolved theme name. The current CLI requires `<theme-name>` and does not infer a theme when it is omitted.
+- Omit `<theme-name>` to inspect the top-level `theme` in `deckup.config.*`, falling back to `default` when the config or field is absent.
+- Pass a theme explicitly when the target deck selects one in its metadata; the inspect command has no deck-file argument and does not read deck metadata.
+- An explicit theme takes priority and bypasses config loading, including invalid project config.
 - Use a built-in theme name or the exact name of a package already installed in the deck project.
 - Use `--json` for machine-readable theme descriptions, layouts, layout descriptions, and slots.
 - Use authored descriptions as selection guidance instead of relying only on layout IDs.
@@ -101,6 +105,6 @@ npx deckup inspect theme @acme/deckup-theme --json
 - Fix zero, negative, reversed, out-of-range, or empty PNG selections.
 - Consolidate multiple `deckup.config.*` files into one.
 - Default-export a plain object or `defineConfig({...})` from the configuration file.
-- Run `npx deckup inspect theme <theme-name>` when a layout or slot is rejected.
+- Run `npx deckup inspect theme [theme-name]` when a layout or slot is rejected, passing the name when the target deck overrides the configured theme.
 - If Chromium download or launch fails, inspect the environment. Set `DECKUP_CHROMIUM_EXECUTABLE_PATH` or `DECKUP_BROWSER_CACHE_DIR` when required.
 - If an uncached npm theme requires interactive confirmation, install the theme or prepare its cache before running non-interactively.

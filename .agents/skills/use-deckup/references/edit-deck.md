@@ -28,7 +28,7 @@ Follow this workflow when revising, extending, restyling, repairing, or exportin
 npx deckup inspect theme google-basic --json
 ```
 
-3. Replace `google-basic` with the resolved theme name. The current CLI requires this positional name and does not infer it from the deck.
+3. Omit the positional name when the active theme comes from `deckup.config.*` or the `default` fallback. When deck metadata selects a theme, replace `google-basic` with that exact name because the inspect command does not read a deck.
 4. Use the reported theme and layout descriptions to verify that a replacement layout's intended visual treatment matches the requested edit; do not rely on the layout ID alone.
 5. Read [syntax.md](syntax.md) before changing source syntax or configuration.
 6. Decide whether each acceptance criterion requires copy edits, layout changes, new or removed slides, component changes, asset changes, or configuration changes.

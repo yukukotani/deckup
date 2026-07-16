@@ -76,6 +76,28 @@ async function writeInspectThemePackage(
   );
 }
 
+async function writeConfiguredInspectThemeProject(projectRoot: string) {
+  await writeInspectThemePackage(
+    projectRoot,
+    "@acme/configured-inspect-theme",
+    {
+      "zeta.astro": '<slot name="right" /><slot /><slot name="left" />',
+      "alpha.astro": '<slot name="beta" /><slot name="default" /><slot name="alpha" />',
+    },
+    {
+      description: "Configured inspection theme.",
+      deckup: {
+        layouts: {
+          alpha: { description: "Configured alpha layout." },
+        },
+      },
+    },
+  );
+  const configPath = join(projectRoot, "deckup.config.ts");
+  await writeFile(configPath, "export default { theme: '@acme/configured-inspect-theme' };\n");
+  return configPath;
+}
+
 test("VERSION matches the package.json version", () => {
   const packageJson = JSON.parse(
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
@@ -194,12 +216,151 @@ test("CLI prints headerless help exactly once", () => {
   expect(output).not.toMatch(/^deckup \(deckup v[^)]+\)$/m);
 });
 
-test("normalizeInspectThemeValues requires a theme and normalizes json", () => {
+test("normalizeInspectThemeValues preserves an optional or explicit theme and normalizes json", () => {
   expect(normalizeInspectThemeValues({ themeName: " default ", json: true })).toEqual({
     themeName: " default ",
     json: true,
   });
-  expect(() => normalizeInspectThemeValues({})).toThrow(/requires a theme name/);
+  expect(normalizeInspectThemeValues({})).toEqual({ themeName: undefined, json: false });
+  expect(normalizeInspectThemeValues({ themeName: "" })).toEqual({
+    themeName: "",
+    json: false,
+  });
+});
+
+test("executeInspectThemeCommand resolves an omitted theme from project config", async () => {
+  const requests: unknown[] = [];
+  const operations = {
+    resolveProjectRoot(root: string | undefined) {
+      requests.push({ root });
+      return "/project";
+    },
+    async loadDeckupConfig(projectRoot: string) {
+      requests.push({ loadConfig: projectRoot });
+      return { config: { theme: "minimal" }, filePath: "/project/deckup.config.ts" };
+    },
+    async resolveDeckupThemeLayouts(projectRoot: string, themeName: unknown, options: unknown) {
+      requests.push({ projectRoot, themeName, options });
+      return { name: "minimal", layouts: [], slotNames: [], source: "builtin" as const };
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  await expect(
+    executeInspectThemeCommand(
+      { themeName: undefined, json: false, root: "fixture-root" },
+      operations,
+    ),
+  ).resolves.toBe("Theme: minimal");
+  expect(requests).toEqual([
+    { root: "fixture-root" },
+    { loadConfig: "/project" },
+    {
+      projectRoot: "/project",
+      themeName: "minimal",
+      options: { sourceMode: "installed" },
+    },
+  ]);
+});
+
+test("executeInspectThemeCommand delegates an absent config theme to the core default", async () => {
+  const requests: unknown[] = [];
+  const operations = {
+    resolveProjectRoot() {
+      return "/project";
+    },
+    async loadDeckupConfig(projectRoot: string) {
+      requests.push({ loadConfig: projectRoot });
+      return { config: {} };
+    },
+    async resolveDeckupThemeLayouts(projectRoot: string, themeName: unknown, options: unknown) {
+      requests.push({ projectRoot, themeName, options });
+      return { name: "default", layouts: [], slotNames: [], source: "builtin" as const };
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  await expect(
+    executeInspectThemeCommand({ themeName: undefined, json: true }, operations),
+  ).resolves.toBe('{"theme":"default","layouts":[]}');
+  expect(requests).toEqual([
+    { loadConfig: "/project" },
+    {
+      projectRoot: "/project",
+      themeName: undefined,
+      options: { sourceMode: "installed" },
+    },
+  ]);
+});
+
+test("executeInspectThemeCommand adds config path context to config theme resolution failures", async () => {
+  const resolverError = new Error("Unable to resolve fixture theme.");
+  const operations = {
+    resolveProjectRoot() {
+      return "/project";
+    },
+    async loadDeckupConfig() {
+      return { config: { theme: "missing-theme" }, filePath: "/project/deckup.config.ts" };
+    },
+    async resolveDeckupThemeLayouts() {
+      throw resolverError;
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  let caught: unknown;
+  try {
+    await executeInspectThemeCommand({ themeName: undefined, json: false }, operations);
+  } catch (error) {
+    caught = error;
+  }
+
+  expect(caught).toBeInstanceOf(Error);
+  expect((caught as Error).message).toBe(
+    "Invalid Deckup theme configured in /project/deckup.config.ts: Unable to resolve fixture theme.",
+  );
+  expect((caught as Error).cause).toBe(resolverError);
+});
+
+test("executeInspectThemeCommand preserves config loader failures", async () => {
+  const configError = new Error("Multiple Deckup config files found");
+  const operations = {
+    resolveProjectRoot() {
+      return "/project";
+    },
+    async loadDeckupConfig() {
+      throw configError;
+    },
+    async resolveDeckupThemeLayouts() {
+      throw new Error("Theme resolution must not run.");
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  await expect(
+    executeInspectThemeCommand({ themeName: undefined, json: false }, operations),
+  ).rejects.toBe(configError);
+});
+
+test("executeInspectThemeCommand preserves explicit resolver failures without loading config", async () => {
+  const resolverError = new Error("Explicit theme resolution failed.");
+  const operations = {
+    resolveProjectRoot() {
+      return "/project";
+    },
+    async loadDeckupConfig() {
+      throw new Error("Config loading must not run.");
+    },
+    async resolveDeckupThemeLayouts() {
+      throw resolverError;
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  await expect(
+    executeInspectThemeCommand({ themeName: "missing-theme", json: false }, operations),
+  ).rejects.toBe(resolverError);
+});
+
+test("executeInspectThemeCommand preserves explicit empty theme rejection", async () => {
+  await expect(executeInspectThemeCommand({ themeName: "", json: false })).rejects.toThrow(
+    /Deckup theme must not be an empty string/,
+  );
 });
 
 test("executeInspectThemeCommand returns descriptions in deterministic labeled output", async () => {
@@ -350,10 +511,11 @@ test("executeInspectThemeCommand omits absent descriptions from text and JSON", 
   ).resolves.toBe('{"theme":"fixture","layouts":[{"id":"cover","slots":["default"]}]}');
 });
 
-test("inspect commands expose nested theme arguments", () => {
+test("inspect commands expose an optional nested theme argument", () => {
   expect(inspectCommand.name).toBe("inspect");
   expect(inspectCommand.subCommands).toMatchObject({ theme: inspectThemeCommand });
-  expect(inspectThemeCommand.args.themeName.required).toBe(true);
+  expect(inspectThemeCommand.args.themeName.required).toBe(false);
+  expect(inspectThemeCommand.args.themeName.description).toContain("deckup.config");
   expect(inspectThemeCommand.args.json.default).toBe(false);
 });
 
@@ -419,6 +581,133 @@ test("CLI inspection covers every built-in theme and discovered layout descripti
 
   expect(layoutDescriptionCount).toBe(30);
 });
+
+test("CLI config theme produces the same human output as an explicit theme", async () => {
+  await withCliProject(async (projectRoot) => {
+    await writeConfiguredInspectThemeProject(projectRoot);
+
+    const configured = runCli(["inspect", "theme"], projectRoot);
+    const explicit = runCli(["inspect", "theme", "@acme/configured-inspect-theme"], projectRoot);
+
+    expect(configured.status).toBe(0);
+    expect(configured.stderr).toBe("");
+    expect(explicit.status).toBe(0);
+    expect(explicit.stderr).toBe("");
+    expect(configured.stdout).toBe(explicit.stdout);
+    expect(configured.stdout).toContain("Theme: @acme/configured-inspect-theme");
+    expect(configured.stdout).toContain("  Description: Configured inspection theme.");
+    expect(configured.stdout).not.toMatch(/\/@fs\/|packageRoot|layoutsDir|filePath|importPath/);
+  });
+}, 30_000);
+
+test("CLI inspect theme falls back to project config JSON and then the built-in default", async () => {
+  await withCliProject(async (projectRoot) => {
+    const configPath = await writeConfiguredInspectThemeProject(projectRoot);
+
+    const configured = runCli(["inspect", "theme", "--json"], projectRoot);
+    const explicit = runCli(
+      ["inspect", "theme", "@acme/configured-inspect-theme", "--json"],
+      projectRoot,
+    );
+
+    expect(configured.status).toBe(0);
+    expect(configured.stderr).toBe("");
+    expect(explicit.status).toBe(0);
+    expect(explicit.stderr).toBe("");
+    expect(configured.stdout).toBe(explicit.stdout);
+    expect(JSON.parse(configured.stdout)).toEqual({
+      theme: "@acme/configured-inspect-theme",
+      description: "Configured inspection theme.",
+      layouts: [
+        {
+          id: "alpha",
+          description: "Configured alpha layout.",
+          slots: ["default", "alpha", "beta"],
+        },
+        { id: "zeta", slots: ["default", "left", "right"] },
+      ],
+    });
+
+    await rm(configPath);
+    const fallback = runCli(["inspect", "theme", "--json"], projectRoot);
+    expect(fallback.status).toBe(0);
+    expect(fallback.stderr).toBe("");
+    const fallbackInspection = JSON.parse(fallback.stdout) as DeckupThemeInspection;
+    expect(fallbackInspection.theme).toBe("default");
+    expect(fallbackInspection.layouts.length).toBeGreaterThan(0);
+    expect(fallback.stdout).not.toMatch(
+      /\/@fs\/|packageRoot|layoutsDir|filePath|importPath|source/,
+    );
+  });
+}, 30_000);
+
+test("CLI explicit inspect theme bypasses an invalid project config", async () => {
+  await withCliProject(async (projectRoot) => {
+    await writeFile(
+      join(projectRoot, "deckup.config.ts"),
+      "export default () => ({ theme: 'missing-theme' });\n",
+    );
+
+    const result = runCli(["inspect", "theme", "default", "--json"], projectRoot);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect((JSON.parse(result.stdout) as DeckupThemeInspection).theme).toBe("default");
+  });
+});
+
+test("CLI config fallback failures keep stdout empty and preserve the correct error boundary", async () => {
+  await withCliProject(async (projectRoot) => {
+    const configPath = join(projectRoot, "deckup.config.ts");
+    const secondConfigPath = join(projectRoot, "deckup.config.js");
+
+    await writeFile(configPath, "export default { theme: 'missing-config-theme' };\n");
+    const missingTheme = runCli(["inspect", "theme", "--json"], projectRoot);
+    expect(missingTheme.status).not.toBe(0);
+    expect(missingTheme.stdout).toBe("");
+    expect(missingTheme.stderr).toMatch(
+      /Invalid Deckup theme configured in .*deckup\.config\.ts.*Unable to resolve/,
+    );
+
+    await writeFile(configPath, "export default { theme: '   ' };\n");
+    const emptyTheme = runCli(["inspect", "theme", "--json"], projectRoot);
+    expect(emptyTheme.status).not.toBe(0);
+    expect(emptyTheme.stdout).toBe("");
+    expect(emptyTheme.stderr).toMatch(
+      /Invalid Deckup theme configured in .*deckup\.config\.ts.*must not be an empty string/,
+    );
+
+    await writeFile(configPath, "export default { theme: 'npm:@acme/inspect-theme' };\n");
+    const npmTheme = runCli(["inspect", "theme", "--json"], projectRoot);
+    expect(npmTheme.status).not.toBe(0);
+    expect(npmTheme.stdout).toBe("");
+    expect(npmTheme.stderr).toMatch(
+      /Invalid Deckup theme configured in .*deckup\.config\.ts.*only supports built-in themes and installed packages/,
+    );
+
+    await writeFile(secondConfigPath, "export default { theme: 'default' };\n");
+    const multipleConfigs = runCli(["inspect", "theme", "--json"], projectRoot);
+    expect(multipleConfigs.status).not.toBe(0);
+    expect(multipleConfigs.stdout).toBe("");
+    expect(multipleConfigs.stderr).toMatch(/Multiple Deckup config files found/);
+    expect(multipleConfigs.stderr).not.toMatch(/Invalid Deckup theme configured/);
+
+    await rm(secondConfigPath);
+    await writeFile(configPath, "export default () => ({ theme: 'default' });\n");
+    const invalidExport = runCli(["inspect", "theme", "--json"], projectRoot);
+    expect(invalidExport.status).not.toBe(0);
+    expect(invalidExport.stdout).toBe("");
+    expect(invalidExport.stderr).toMatch(/Deckup config must default-export an object/);
+    expect(invalidExport.stderr).not.toMatch(/Invalid Deckup theme configured/);
+
+    await writeFile(configPath, "export default { theme: ;\n");
+    const evaluationFailure = runCli(["inspect", "theme", "--json"], projectRoot);
+    expect(evaluationFailure.status).not.toBe(0);
+    expect(evaluationFailure.stdout).toBe("");
+    expect(evaluationFailure.stderr).toMatch(/Unexpected|Syntax|Parse/i);
+    expect(evaluationFailure.stderr).not.toMatch(/Invalid Deckup theme configured/);
+  });
+}, 30_000);
 
 test("CLI inspect theme emits identical installed descriptions in text and JSON", async () => {
   await withCliProject(async (projectRoot) => {
@@ -503,7 +792,6 @@ test("CLI inspect failures keep stdout empty and exit non-zero", async () => {
       { deckup: { layouts: { missing: { description: "Missing layout." } } } },
     );
     const cases: Array<[string[], RegExp]> = [
-      [["inspect", "theme"], /themeName|Positional argument.*required/],
       [["inspect", "theme", "missing-inspect-theme", "--json"], /Unable to resolve/],
       [
         ["inspect", "theme", "npm:@acme/inspect-theme", "--json"],
@@ -747,13 +1035,14 @@ test("legacy command exports are removed", () => {
   expect("exportCommand" in commandModule).toBe(false);
 });
 
-test("entry command advertises open, unified build, and theme inspection", async () => {
+test("entry command advertises open, unified build, and optional theme inspection", async () => {
   expect(entryCommand.name).toBe("deckup");
   const output = await runDeckup([]);
   expect(output).toContain("deckup open <deck-file>");
   expect(output).toContain("deckup build <deck-file>");
   expect(output).toContain("--format html");
   expect(output).toContain("--format png");
+  expect(output).toContain("deckup inspect theme");
   expect(output).toContain("deckup inspect theme <theme-name>");
   expect(output).not.toContain("deckup dev");
   expect(output).not.toContain("deckup export");

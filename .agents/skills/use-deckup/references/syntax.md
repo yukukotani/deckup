@@ -85,14 +85,15 @@ Resolve the active theme before assuming layout support:
 2. Otherwise use the top-level `theme` from `deckup.config.*` when present.
 3. Otherwise use `default`.
 
-Inspect that exact theme by name:
+Inspect the active theme. Omit the name to use project config and then `default`; pass the exact name when deck metadata overrides project config:
 
 ```bash
+npx deckup inspect theme --json
 npx deckup inspect theme google-basic
 npx deckup inspect theme google-basic --json
 ```
 
-The current CLI requires the theme name and does not infer it when omitted.
+The inspect command does not accept a deck-file argument, so it cannot discover theme metadata from a target deck. Explicit theme names take priority and bypass config loading.
 
 - Start layout IDs with a lowercase letter and use only lowercase letters, numbers, and hyphens.
 - Use the default slot for ordinary content.

@@ -18,6 +18,7 @@ import {
   normalizeExportOutFile,
   startDevServer,
 } from "./astro.ts";
+import { loadDeckupConfig } from "./config.ts";
 import { pathExists, resolveProjectRoot } from "./runtime.ts";
 import type {
   DeckupBuildCommandOptions,
@@ -80,7 +81,7 @@ const logLevels = [
 type CommandValues = Record<string, unknown>;
 
 export interface DeckupInspectThemeCommandOptions {
-  themeName: string;
+  themeName?: string;
   json: boolean;
   root?: string;
 }
@@ -176,9 +177,10 @@ export function normalizeBuildValues(values: CommandValues): DeckupBuildCommandO
 export function normalizeInspectThemeValues(
   values: CommandValues,
 ): DeckupInspectThemeCommandOptions {
-  const themeName = stringValue(values.themeName);
-  if (!themeName) throw new Error("Deckup inspect theme requires a theme name.");
-  return { themeName, json: booleanValue(values.json) ?? false };
+  return {
+    themeName: optionalStringValue(values.themeName),
+    json: booleanValue(values.json) ?? false,
+  };
 }
 
 function compareStrings(left: string, right: string) {
@@ -311,11 +313,13 @@ export async function executeBuildCommand(
 
 /** @internal Test seam; not exported from the package index. */
 export interface DeckupInspectThemeCommandOperations {
+  loadDeckupConfig: typeof loadDeckupConfig;
   resolveDeckupThemeLayouts: typeof resolveDeckupThemeLayouts;
   resolveProjectRoot: typeof resolveProjectRoot;
 }
 
 const defaultInspectThemeCommandOperations: DeckupInspectThemeCommandOperations = {
+  loadDeckupConfig,
   resolveDeckupThemeLayouts,
   resolveProjectRoot,
 };
@@ -326,9 +330,30 @@ export async function executeInspectThemeCommand(
   operations: DeckupInspectThemeCommandOperations = defaultInspectThemeCommandOperations,
 ) {
   const projectRoot = operations.resolveProjectRoot(options.root);
-  const theme = await operations.resolveDeckupThemeLayouts(projectRoot, options.themeName, {
-    sourceMode: "installed",
-  });
+  let themeName = options.themeName;
+  let selectedConfigFilePath: string | undefined;
+
+  if (themeName === undefined) {
+    const loadedConfig = await operations.loadDeckupConfig(projectRoot);
+    themeName = loadedConfig.config.theme;
+    if (themeName !== undefined) {
+      selectedConfigFilePath = loadedConfig.filePath;
+    }
+  }
+
+  let theme: ResolvedDeckupTheme;
+  try {
+    theme = await operations.resolveDeckupThemeLayouts(projectRoot, themeName, {
+      sourceMode: "installed",
+    });
+  } catch (error) {
+    if (selectedConfigFilePath === undefined) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid Deckup theme configured in ${selectedConfigFilePath}: ${message}`, {
+      cause: error,
+    });
+  }
+
   const inspection = projectThemeInspection(theme);
   return options.json ? JSON.stringify(inspection) : formatThemeInspection(inspection);
 }
@@ -412,8 +437,9 @@ export const inspectThemeCommand = define({
   args: {
     themeName: {
       type: "positional",
-      required: true,
-      description: "Built-in theme name or installed theme package name.",
+      required: false,
+      description:
+        "Built-in theme name or installed theme package name; defaults to deckup.config.* and then default.",
     },
     json: {
       type: "boolean",
@@ -439,7 +465,7 @@ export const entryCommand = define({
   name: "deckup",
   description: "Astro-based slide deck tool.",
   run() {
-    return "Run `deckup open <deck-file>` to preview slides, or `deckup build <deck-file>` to write a PDF by default. Use `--format html` for a static Web deck or `--format png --slides 1,3-5` for PNG images. Inspect a theme with `deckup inspect theme <theme-name>`.";
+    return "Run `deckup open <deck-file>` to preview slides, or `deckup build <deck-file>` to write a PDF by default. Use `--format html` for a static Web deck or `--format png --slides 1,3-5` for PNG images. Inspect the configured theme with `deckup inspect theme`, or select one with `deckup inspect theme <theme-name>`.";
   },
 });
 
