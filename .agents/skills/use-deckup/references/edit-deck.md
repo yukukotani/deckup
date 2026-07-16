@@ -29,10 +29,11 @@ npx deckup inspect theme google-basic --json
 ```
 
 3. Replace `google-basic` with the resolved theme name. The current CLI requires this positional name and does not infer it from the deck.
-4. Read [syntax.md](syntax.md) before changing source syntax or configuration.
-5. Decide whether each acceptance criterion requires copy edits, layout changes, new or removed slides, component changes, asset changes, or configuration changes.
-6. Prefer local source edits over broad redesigns. Apply deck-wide changes only when consistency or the request requires them.
-7. Keep slide titles, transitions, references, and conclusions coherent when changing narrative structure.
+4. Use the reported theme and layout descriptions to verify that a replacement layout's intended visual treatment matches the requested edit; do not rely on the layout ID alone.
+5. Read [syntax.md](syntax.md) before changing source syntax or configuration.
+6. Decide whether each acceptance criterion requires copy edits, layout changes, new or removed slides, component changes, asset changes, or configuration changes.
+7. Prefer local source edits over broad redesigns. Apply deck-wide changes only when consistency or the request requires them.
+8. Keep slide titles, transitions, references, and conclusions coherent when changing narrative structure.
 
 ## 4. Edit and verify incrementally
 

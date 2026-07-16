@@ -15,11 +15,11 @@ npx deckup inspect theme --help
 
 Use these public commands:
 
-| Command                      | Purpose                                            |
-| ---------------------------- | -------------------------------------------------- |
-| `open <deck-file>`           | Start an interactive Astro preview server          |
-| `build <deck-file>`          | Build PDF, static HTML, or PNG images              |
-| `inspect theme <theme-name>` | List an installed theme's public layouts and slots |
+| Command                      | Purpose                                     |
+| ---------------------------- | ------------------------------------------- |
+| `open <deck-file>`           | Start an interactive Astro preview server   |
+| `build <deck-file>`          | Build PDF, static HTML, or PNG images       |
+| `inspect theme <theme-name>` | Describe a theme's public layouts and slots |
 
 ## Preview interactively
 
@@ -79,7 +79,7 @@ npx deckup build presentation.mdx --format png --slides 1,3-5 --out /tmp/deckup-
 
 ## Inspect a theme
 
-Inspect layouts and slots before selecting them:
+Inspect theme and layout descriptions together with slots before selecting them:
 
 ```bash
 npx deckup inspect theme default
@@ -90,7 +90,8 @@ npx deckup inspect theme @acme/deckup-theme --json
 - Resolve the active theme from the target deck's metadata first, then the top-level `theme` in `deckup.config.*`, then `default`.
 - Always pass that resolved theme name. The current CLI requires `<theme-name>` and does not infer a theme when it is omitted.
 - Use a built-in theme name or the exact name of a package already installed in the deck project.
-- Use `--json` for machine-readable `{ "theme": ..., "layouts": [...] }` output.
+- Use `--json` for machine-readable theme descriptions, layouts, layout descriptions, and slots.
+- Use authored descriptions as selection guidance instead of relying only on layout IDs.
 - Do not pass npm aliases or download specifiers such as `npm:@acme/deckup-theme`; install the package first.
 
 ## Troubleshoot common failures

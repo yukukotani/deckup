@@ -106,7 +106,18 @@ A theme package must expose its package metadata and convention-based Astro layo
 ```json
 {
   "name": "@acme/deckup-theme",
+  "description": "A focused theme for product presentations.",
   "type": "module",
+  "deckup": {
+    "layouts": {
+      "default": {
+        "description": "Presents general content with a clear title and body."
+      },
+      "two-column": {
+        "description": "Places related content in balanced left and right columns."
+      }
+    }
+  },
   "exports": {
     "./layouts/*.astro": "./layouts/*.astro",
     "./package.json": "./package.json"
@@ -128,6 +139,14 @@ import "./styles.css";
   <section><slot name="left" /></section>
   <section><slot name="right" /></section>
 </article>
+```
+
+Descriptions are optional and appear in theme inspection output.
+Inspect a built-in or installed theme before selecting layouts:
+
+```bash
+npx deckup inspect theme @acme/deckup-theme
+npx deckup inspect theme @acme/deckup-theme --json
 ```
 
 CSS-only theme packages that export `style.css` from `.` are no longer supported.

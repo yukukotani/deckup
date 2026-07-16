@@ -13,7 +13,15 @@ A theme package must expose its package metadata and Astro layout files:
 ```json
 {
   "name": "@acme/deckup-theme",
+  "description": "A focused theme for product presentations.",
   "type": "module",
+  "deckup": {
+    "layouts": {
+      "cover": {
+        "description": "Introduces the deck with a centered title and subtitle."
+      }
+    }
+  },
   "exports": {
     "./layouts/*.astro": "./layouts/*.astro",
     "./package.json": "./package.json"
@@ -36,6 +44,9 @@ The filename becomes the layout ID:
 
 Files beginning with `_` are ignored.
 Layout IDs must start with a lowercase letter and may contain lowercase letters, numbers, and hyphens.
+
+Optional theme and layout descriptions help authors choose a layout through `deckup inspect theme`.
+Use each layout's filename-derived ID as its key under `deckup.layouts`.
 
 A minimal layout renders the default slot:
 
@@ -79,5 +90,12 @@ export default defineConfig({
 
 Create a fixture deck that exercises every layout and slot, then preview it and render all pages to PNG.
 Check long titles, sparse and dense content, code blocks, lists, images, and overflow before publishing.
+
+Inspect the linked package and confirm its public selection metadata:
+
+```bash
+deckup inspect theme @acme/deckup-theme
+deckup inspect theme @acme/deckup-theme --json
+```
 
 See the [Theme reference](/references/theme/) for theme selection, precedence, and npm registry resolution.

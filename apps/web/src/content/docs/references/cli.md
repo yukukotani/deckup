@@ -48,6 +48,18 @@ On success, stdout contains one absolute image path per line.
 PNG output replaces the selected directory in full.
 Deckup rejects filesystem roots, the project root, directories containing the source deck, and paths that overlap its internal static build directory.
 
+## `deckup inspect theme`
+
+Inspect a built-in theme or a theme package already installed in the project:
+
+```bash
+deckup inspect theme default
+deckup inspect theme @acme/deckup-theme --json
+```
+
+The output lists the theme description, available layouts, layout descriptions, and public slots.
+Use `--json` for the same information in machine-readable form.
+
 ## Configuration
 
 Set project defaults and extend Astro through `deckup.config.*`.

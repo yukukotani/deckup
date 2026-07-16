@@ -10,8 +10,16 @@ Use this minimum manifest:
 {
   "name": "@acme/deckup-theme",
   "version": "0.1.0",
+  "description": "A focused theme for product presentations.",
   "type": "module",
   "files": ["layouts"],
+  "deckup": {
+    "layouts": {
+      "cover": {
+        "description": "Introduces the deck with a centered title and subtitle."
+      }
+    }
+  },
   "exports": {
     "./layouts/*.astro": "./layouts/*.astro",
     "./package.json": "./package.json"
@@ -29,6 +37,7 @@ Package rules:
 - Ignore files beginning with `_`; use them for private helpers when useful.
 - Do not expect nested layout directories to be discovered.
 - Export `./package.json` and `./layouts/*.astro`.
+- Add concise optional theme and layout descriptions to help authors select them.
 - Add font, image, or other asset directories to `files`; export them too when package resolution requires it.
 
 ## Single-region layout
@@ -217,6 +226,15 @@ const theme = "@acme/deckup-theme";
 ```
 
 Theme values must be non-empty static strings. `npm:package` and exact `npm:package@version` forms can use Deckup's managed cache, but an uncached download requires interactive approval and fails closed in non-interactive environments.
+
+Inspect an installed package before publishing:
+
+```bash
+npx deckup inspect theme @acme/deckup-theme
+npx deckup inspect theme @acme/deckup-theme --json
+```
+
+Confirm that the output contains the intended theme description, every discovered layout ID and description, and the correct default and named slots.
 
 ## Compatibility rules
 

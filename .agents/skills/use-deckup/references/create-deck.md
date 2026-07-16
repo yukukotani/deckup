@@ -25,7 +25,8 @@ npx deckup inspect theme google-basic --json
 ```
 
 3. Replace `google-basic` with the resolved theme name. The current CLI requires this positional name and does not infer it from a deck. Install a third-party theme in the deck project before inspecting or using it.
-4. Prefer theme-provided layouts, typography, and spacing. Add only the minimum custom styling needed for the content.
+4. Read the theme description and each candidate layout's description as selection guidance. Do not infer a layout's purpose from its ID when authored metadata provides a more specific visual treatment.
+5. Prefer theme-provided layouts, typography, and spacing. Add only the minimum custom styling needed for the content.
 
 ## 4. Design the narrative
 
