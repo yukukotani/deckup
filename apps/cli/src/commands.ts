@@ -87,7 +87,8 @@ export interface DeckupInspectThemeCommandOptions {
 
 export interface DeckupThemeInspection {
   theme: string;
-  layouts: Array<{ id: string; slots: string[] }>;
+  description?: string;
+  layouts: Array<{ id: string; description?: string; slots: string[] }>;
 }
 
 type ResolvedDeckupTheme = Awaited<ReturnType<typeof resolveDeckupThemeLayouts>>;
@@ -187,6 +188,7 @@ function compareStrings(left: string, right: string) {
 function projectThemeInspection(theme: ResolvedDeckupTheme): DeckupThemeInspection {
   return {
     theme: theme.name,
+    ...(theme.description === undefined ? {} : { description: theme.description }),
     layouts: theme.layouts
       .map((layout) => {
         const namedSlots = [...new Set(layout.slotNames)]
@@ -195,6 +197,7 @@ function projectThemeInspection(theme: ResolvedDeckupTheme): DeckupThemeInspecti
         const hasPublicDefault = layout.hasDefaultSlot || layout.slotNames.includes("default");
         return {
           id: layout.id,
+          ...(layout.description === undefined ? {} : { description: layout.description }),
           slots: [...(hasPublicDefault ? ["default"] : []), ...namedSlots],
         };
       })
@@ -204,8 +207,14 @@ function projectThemeInspection(theme: ResolvedDeckupTheme): DeckupThemeInspecti
 
 function formatThemeInspection(inspection: DeckupThemeInspection) {
   const lines = [`Theme: ${inspection.theme}`];
+  if (inspection.description !== undefined) {
+    lines.push(`  Description: ${inspection.description}`);
+  }
   for (const layout of inspection.layouts) {
     lines.push(`  Layout: ${layout.id}`);
+    if (layout.description !== undefined) {
+      lines.push(`    Description: ${layout.description}`);
+    }
     if (layout.slots.length === 0) {
       lines.push("    Slots: (none)");
       continue;

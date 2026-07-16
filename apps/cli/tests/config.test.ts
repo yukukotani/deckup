@@ -178,7 +178,11 @@ async function writeThemePackage(projectRoot: string, packageName: string) {
   await writeFile(join(packageDir, "theme.css"), ":root { --deckup-accent: tomato; }\n");
 }
 
-async function writeThemeLayoutPackage(projectRoot: string, packageName: string) {
+async function writeThemeLayoutPackage(
+  projectRoot: string,
+  packageName: string,
+  metadata: Record<string, unknown> = {},
+) {
   const packageDir = join(projectRoot, "node_modules", ...packageName.split("/"));
   const layoutsDir = join(packageDir, "layouts");
   await mkdir(layoutsDir, { recursive: true });
@@ -187,6 +191,7 @@ async function writeThemeLayoutPackage(projectRoot: string, packageName: string)
     JSON.stringify({
       name: packageName,
       type: "module",
+      ...metadata,
       exports: {
         "./layouts/*.astro": "./layouts/*.astro",
         "./package.json": "./package.json",
@@ -250,6 +255,7 @@ async function writeCachedThemePackage(
   packageRoot: string,
   packageName: string,
   version = "1.0.0",
+  metadata: Record<string, unknown> = {},
 ) {
   const layoutsDir = join(packageRoot, "layouts");
   await mkdir(layoutsDir, { recursive: true });
@@ -259,6 +265,7 @@ async function writeCachedThemePackage(
       name: packageName,
       version,
       type: "module",
+      ...metadata,
       exports: {
         "./layouts/*.astro": "./layouts/*.astro",
         "./package.json": "./package.json",
@@ -583,6 +590,49 @@ test("resolveDeckupThemeLayouts resolves installed theme layouts from the projec
   });
 });
 
+test("resolveDeckupThemeLayouts resolves installed theme descriptions from the project root", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme", {
+      description: "  Installed fixture theme.  ",
+      deckup: {
+        layouts: {
+          cover: { description: "  Opens the installed fixture deck.  " },
+        },
+      },
+    });
+
+    const theme = await resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme", {
+      sourceMode: "installed",
+    });
+
+    expect(theme.description).toBe("Installed fixture theme.");
+    expect(theme.layouts.find((layout) => layout.id === "cover")?.description).toBe(
+      "Opens the installed fixture deck.",
+    );
+    expect(theme.layouts.find((layout) => layout.id === "default")?.description).toBeUndefined();
+  });
+});
+
+test("resolveDeckupThemeLayouts rejects metadata for an undiscovered installed layout", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await writeThemeLayoutPackage(projectRoot, "@acme/deckup-layout-theme", {
+      deckup: {
+        layouts: {
+          missing: { description: "This layout does not exist." },
+        },
+      },
+    });
+
+    await expect(
+      resolveDeckupThemeLayouts(projectRoot, "@acme/deckup-layout-theme", {
+        sourceMode: "installed",
+      }),
+    ).rejects.toThrow(
+      /Deckup theme "@acme\/deckup-layout-theme".*deckup\.layouts\.missing.*unknown layout "missing"/,
+    );
+  });
+});
+
 test("resolveDeckupThemeLayouts installed mode rejects normalized npm sources before cache work", async () => {
   await withProjectRoot(async (projectRoot) => {
     await withThemeCache(async (cacheDir) => {
@@ -631,6 +681,36 @@ test("resolveDeckupThemeLayouts resolves npm theme layouts from the Deckup cache
               }),
             ]),
           );
+        }),
+      );
+    });
+  });
+});
+
+test("resolveDeckupThemeLayouts resolves npm theme descriptions from one cached manifest", async () => {
+  await withProjectRoot(async (projectRoot) => {
+    await withThemeCache(async (cacheDir) => {
+      const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+      const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+      await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.2.3", {
+        description: "  Cached fixture theme.  ",
+        deckup: {
+          layouts: {
+            default: { description: "  Shows cached theme content.  " },
+          },
+        },
+      });
+      await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+
+      await withSerializedProcessGlobals(() =>
+        withNpmThemeCacheEnv(cacheDir, async () => {
+          const theme = await resolveDeckupThemeLayouts(
+            projectRoot,
+            "npm:@acme/deckup-theme@1.2.3",
+          );
+
+          expect(theme.description).toBe("Cached fixture theme.");
+          expect(theme.layouts[0]?.description).toBe("Shows cached theme content.");
         }),
       );
     });
@@ -850,6 +930,53 @@ test("resolveCachedNpmThemePackage rejects invalid cached package metadata witho
     await expect(readFile(packageJsonPath, "utf8")).resolves.toBe(beforePackageJson);
     await expect(readFile(metadataPath, "utf8")).resolves.toBe(beforeMetadata);
     await expect(readdir(cacheEntryDir)).resolves.toEqual(beforeEntries);
+  });
+});
+
+test("resolveCachedNpmThemePackage rejects invalid descriptions without repairing the cache", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.2.3", {
+      description: 42,
+    });
+    await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+    const packageJsonPath = join(cacheEntryDir, "package", "package.json");
+    const beforePackageJson = await readFile(packageJsonPath, "utf8");
+    const beforeMetadata = await readFile(join(cacheEntryDir, "deckup-npm-theme.json"), "utf8");
+    const calls: string[] = [];
+
+    await expect(
+      resolveCachedNpmThemePackage(source, {
+        cacheDir,
+        confirmDownload: async () => {
+          calls.push("confirm");
+          return true;
+        },
+        operations: fakeNpmThemeOperations("@acme/deckup-theme", "1.2.3", calls),
+      }),
+    ).rejects.toThrow(
+      /Cached Deckup npm theme package metadata field "description" must be a non-empty string/,
+    );
+
+    expect(calls).toEqual([]);
+    await expect(readFile(packageJsonPath, "utf8")).resolves.toBe(beforePackageJson);
+    await expect(readFile(join(cacheEntryDir, "deckup-npm-theme.json"), "utf8")).resolves.toBe(
+      beforeMetadata,
+    );
+  });
+});
+
+test("resolveCachedNpmThemePackage keeps parsed package JSON source-private", async () => {
+  await withThemeCache(async (cacheDir) => {
+    const source = parseNpmThemeSource("npm:@acme/deckup-theme@1.2.3")!;
+    const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
+    await writeCachedThemePackage(join(cacheEntryDir, "package"), "@acme/deckup-theme", "1.2.3");
+    await writeCachedThemeMetadata(cacheEntryDir, source, "1.2.3");
+
+    const cachedTheme = await resolveCachedNpmThemePackage(source, { cacheDir });
+
+    expect(cachedTheme).not.toHaveProperty("packageJson");
   });
 });
 

@@ -1,6 +1,7 @@
 {
   "name": "@deckup/theme-default",
   "version": "0.0.7",
+  "description": "An editorial theme with serif headings, cool blue accents, and balanced light and dark palettes.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yukukotani/deckup.git",
@@ -17,5 +18,33 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
+  },
+  "deckup": {
+    "layouts": {
+      "cover": {
+        "description": "Centers an opening title within a subtle circular frame and blue-accented subtitle."
+      },
+      "default": {
+        "description": "Presents general content in a vertically centered, left-aligned editorial composition."
+      },
+      "number": {
+        "description": "Highlights a key metric with an oversized blue serif number and supporting caption."
+      },
+      "page": {
+        "description": "Organizes detailed content beneath a compact serif heading and short blue divider."
+      },
+      "quote": {
+        "description": "Centers an italic serif quotation with an oversized blue quotation mark and uppercase attribution."
+      },
+      "section": {
+        "description": "Introduces a new section with a centered italic serif heading and blue divider."
+      },
+      "statement": {
+        "description": "Centers a single prominent italic serif statement for emphasis."
+      },
+      "two-column": {
+        "description": "Places a shared heading above balanced left and right columns with editorial spacing."
+      }
+    }
   }
 }

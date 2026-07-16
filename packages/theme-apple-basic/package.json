@@ -1,6 +1,7 @@
 {
   "name": "@deckup/theme-apple-basic",
   "version": "0.0.7",
+  "description": "An Apple-inspired presentation theme with bold black typography, generous whitespace, and a crisp monochrome palette.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yukukotani/deckup.git",
@@ -17,5 +18,30 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
+  },
+  "deckup": {
+    "layouts": {
+      "cover": {
+        "description": "Opens with a large left-aligned black title and bold subtitle on a white canvas."
+      },
+      "number": {
+        "description": "Centers an exceptionally large bold metric with a prominent supporting caption."
+      },
+      "page": {
+        "description": "Builds a spacious content page with a large bold title, subtitle, and lightweight body text."
+      },
+      "quote": {
+        "description": "Centers a large lightweight quotation with a compact bold attribution."
+      },
+      "section": {
+        "description": "Introduces a section with an oversized lightweight heading aligned to the left."
+      },
+      "statement": {
+        "description": "Centers an oversized lightweight statement for maximum visual emphasis."
+      },
+      "two-column": {
+        "description": "Places a large title and subtitle above two airy columns of lightweight text."
+      }
+    }
   }
 }

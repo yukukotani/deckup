@@ -35,6 +35,7 @@ import type {
   DeckupResolvedDeck,
   DeckupResolvedDeckRoute,
   DeckupResolvedTheme,
+  DeckupResolvedThemeLayout,
 } from "./types.ts";
 import { normalizeIdPath, uniqueStrings } from "./utils.ts";
 
@@ -717,6 +718,23 @@ function themesForRuntime(theme: DeckupThemeLookup, decks: DeckupResolvedDeck[] 
     : uniqueResolvedThemes([theme]);
 }
 
+function retainThemeLayoutDescriptions(
+  currentLayouts: DeckupResolvedThemeLayout[] | undefined,
+  refreshedLayouts: DeckupResolvedThemeLayout[],
+) {
+  const descriptionsById = new Map(
+    (currentLayouts ?? []).flatMap((layout) =>
+      layout.description === undefined ? [] : [[layout.id, layout.description] as const],
+    ),
+  );
+  if (descriptionsById.size === 0) return refreshedLayouts;
+
+  return refreshedLayouts.map((layout) => {
+    const description = descriptionsById.get(layout.id);
+    return description === undefined ? layout : { ...layout, description };
+  });
+}
+
 async function refreshThemeLayouts(
   theme?: DeckupResolvedTheme,
   discoverCached: DiscoverThemeLayouts = createThemeLayoutDiscoveryCache(),
@@ -724,12 +742,21 @@ async function refreshThemeLayouts(
   if (!theme) return undefined;
   if (!hasThemeLayouts(theme) || !theme.layoutsDir) return theme;
 
-  const layouts = await discoverCached(theme.name, theme.layoutsDir);
+  const discoveredLayouts = await discoverCached(theme.name, theme.layoutsDir);
+  const layouts = retainThemeLayoutDescriptions(theme.layouts, discoveredLayouts);
   return {
     ...theme,
     layouts,
     slotNames: uniqueStrings(layouts.flatMap((layout) => layout.slotNames)).sort(),
   };
+}
+
+// Exported for tests only; not part of the public package surface (index.ts).
+export async function refreshThemeLayoutsForTests(
+  theme: DeckupResolvedTheme,
+  discoverCached: DiscoverThemeLayouts,
+) {
+  return refreshThemeLayouts(theme, discoverCached);
 }
 
 async function writeFreshGeneratedPage(

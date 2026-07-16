@@ -46,6 +46,7 @@ export interface DeckupRuntimePaths {
 
 export interface DeckupResolvedThemeLayout {
   id: string;
+  description?: string;
   filePath: string;
   importPath: string;
   hasDefaultSlot: boolean;
@@ -54,6 +55,7 @@ export interface DeckupResolvedThemeLayout {
 
 export interface DeckupResolvedTheme {
   name: string;
+  description?: string;
   importPath?: string;
   filePath?: string;
   packageName?: string;

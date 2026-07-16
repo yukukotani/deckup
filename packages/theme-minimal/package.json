@@ -1,6 +1,7 @@
 {
   "name": "@deckup/theme-minimal",
   "version": "0.0.7",
+  "description": "A document-like monochrome theme with clean sans-serif typography and minimal decoration.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yukukotani/deckup.git",
@@ -17,5 +18,33 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
+  },
+  "deckup": {
+    "layouts": {
+      "cover": {
+        "description": "Centers a bold opening title and subtitle in a spacious monochrome composition."
+      },
+      "default": {
+        "description": "Presents general content in a vertically centered, left-aligned document layout."
+      },
+      "number": {
+        "description": "Highlights a key metric with an oversized bold number and restrained caption."
+      },
+      "page": {
+        "description": "Organizes detailed content beneath a full-width heading with a thin divider."
+      },
+      "quote": {
+        "description": "Centers an italic quotation with a quiet gray quotation mark and attribution."
+      },
+      "section": {
+        "description": "Introduces a new section with a centered semibold heading and generous whitespace."
+      },
+      "statement": {
+        "description": "Centers a single large sans-serif statement without decorative elements."
+      },
+      "two-column": {
+        "description": "Places a divided heading above two balanced content columns with compact spacing."
+      }
+    }
   }
 }

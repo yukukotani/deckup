@@ -19,6 +19,11 @@ import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { discoverThemeLayouts } from "./theme-layouts.ts";
+import {
+  applyDeckupThemeMetadata,
+  readDeckupThemePackageJson,
+  type DeckupThemePackageJson,
+} from "./theme-metadata.ts";
 import type { DeckupNpmThemeDownloadRequest, DeckupNpmThemeOptions } from "./types.ts";
 
 async function pathExists(path: string) {
@@ -54,6 +59,10 @@ export interface DeckupCachedNpmThemePackage {
   version: string;
   source: "package";
 }
+
+type DeckupCachedNpmThemePackageWithPackageJson = DeckupCachedNpmThemePackage & {
+  packageJson: DeckupThemePackageJson;
+};
 
 export interface NpmThemePackageManifest {
   name: string;
@@ -237,26 +246,14 @@ async function assertDirectory(filePath: string, context: string) {
 
 async function readPackageJson(packageRoot: string) {
   const packageJsonPath = join(packageRoot, "package.json");
-  let rawPackageJson: string;
+  let packageJson: DeckupThemePackageJson;
   try {
-    rawPackageJson = await readFile(packageJsonPath, "utf8");
+    packageJson = await readDeckupThemePackageJson(packageJsonPath, "Cached Deckup npm theme");
   } catch (error) {
     throw new NpmThemeCacheValidationError(
-      `Cached Deckup npm theme is missing package metadata: ${packageJsonPath}`,
-      { cause: error },
-    );
-  }
-
-  let packageJson: { name?: unknown; version?: unknown; exports?: unknown };
-  try {
-    packageJson = JSON.parse(rawPackageJson) as {
-      name?: unknown;
-      version?: unknown;
-      exports?: unknown;
-    };
-  } catch (error) {
-    throw new NpmThemeCacheValidationError(
-      `Cached Deckup npm theme package metadata is not valid JSON: ${packageJsonPath}`,
+      error instanceof Error
+        ? error.message
+        : `Cached Deckup npm theme package metadata is invalid: ${packageJsonPath}`,
       { cause: error },
     );
   }
@@ -273,7 +270,12 @@ async function readPackageJson(packageRoot: string) {
     );
   }
 
-  return { filePath: packageJsonPath, name: packageJson.name, version: packageJson.version };
+  return {
+    filePath: packageJsonPath,
+    name: packageJson.name,
+    version: packageJson.version,
+    packageJson,
+  };
 }
 
 type CacheMetadata = {
@@ -325,7 +327,7 @@ async function readCacheMetadata(source: DeckupNpmThemeSource, cacheEntryDir: st
 async function validateCachedNpmThemePackage(
   source: DeckupNpmThemeSource,
   cacheEntryDir: string,
-): Promise<DeckupCachedNpmThemePackage> {
+): Promise<DeckupCachedNpmThemePackageWithPackageJson> {
   const packageRoot = join(cacheEntryDir, "package");
   const packageJson = await readPackageJson(packageRoot);
 
@@ -342,7 +344,13 @@ async function validateCachedNpmThemePackage(
   }
 
   const realPackageRoot = await realpath(packageRoot);
-  await discoverThemeLayouts(source.originalName, join(realPackageRoot, "layouts"));
+  const layouts = await discoverThemeLayouts(source.originalName, join(realPackageRoot, "layouts"));
+  applyDeckupThemeMetadata(
+    source.originalName,
+    packageJson.filePath,
+    packageJson.packageJson,
+    layouts,
+  );
 
   return {
     filePath: join(realPackageRoot, "package.json"),
@@ -351,6 +359,7 @@ async function validateCachedNpmThemePackage(
     cacheEntryDir,
     version: packageJson.version,
     source: "package",
+    packageJson: packageJson.packageJson,
   };
 }
 
@@ -498,11 +507,17 @@ async function withCacheEntryLock<T>(
 async function promoteExtractedPackage(
   tempEntryDir: string,
   cacheEntryDir: string,
-  source: DeckupNpmThemeSource,
+  validatedTheme: DeckupCachedNpmThemePackageWithPackageJson,
 ) {
   await mkdir(join(cacheEntryDir, ".."), { recursive: true });
   await rename(tempEntryDir, cacheEntryDir);
-  return validateCachedNpmThemeEntry(source, cacheEntryDir);
+  const packageRoot = await realpath(join(cacheEntryDir, "package"));
+  return {
+    ...validatedTheme,
+    filePath: join(packageRoot, "package.json"),
+    packageRoot,
+    cacheEntryDir,
+  };
 }
 
 async function resolveCachedNpmThemePackageImpl(
@@ -510,7 +525,7 @@ async function resolveCachedNpmThemePackageImpl(
   options: DeckupNpmThemeResolveOptions,
   clock: NpmThemeCacheLockClock,
   lifecycle: NpmThemeCacheLifecycleOperations,
-): Promise<DeckupCachedNpmThemePackage> {
+): Promise<DeckupCachedNpmThemePackageWithPackageJson> {
   const cacheDir = resolveNpmThemeCacheDir(options.cacheDir);
   const cacheEntryDir = getNpmThemeCacheEntryDir(cacheDir, source);
 
@@ -548,9 +563,9 @@ async function resolveCachedNpmThemePackageImpl(
         cache: npmCacheDir,
         ...(manifest._integrity ? { integrity: manifest._integrity } : {}),
       });
-      await validateCachedNpmThemePackage(source, tempEntryDir);
+      const validatedTheme = await validateCachedNpmThemePackage(source, tempEntryDir);
       await writeCacheMetadata(source, tempEntryDir, manifest);
-      return await promoteExtractedPackage(tempEntryDir, cacheEntryDir, source);
+      return await promoteExtractedPackage(tempEntryDir, cacheEntryDir, validatedTheme);
     } catch (primaryError) {
       try {
         await lifecycle.removeTempEntry(tempEntryDir);
@@ -565,15 +580,32 @@ async function resolveCachedNpmThemePackageImpl(
   });
 }
 
-export async function resolveCachedNpmThemePackage(
+function toPublicCachedNpmThemePackage(
+  cachedTheme: DeckupCachedNpmThemePackageWithPackageJson,
+): DeckupCachedNpmThemePackage {
+  const { packageJson: _packageJson, ...themePackage } = cachedTheme;
+  return themePackage;
+}
+
+// Source-private bridge for theme.ts; intentionally omitted from src/index.ts.
+export async function resolveCachedNpmThemePackageWithPackageJson(
   source: DeckupNpmThemeSource,
   options: DeckupNpmThemeResolveOptions = {},
-): Promise<DeckupCachedNpmThemePackage> {
+) {
   return resolveCachedNpmThemePackageImpl(
     source,
     options,
     defaultCacheLockClock,
     defaultCacheLifecycleOperations,
+  );
+}
+
+export async function resolveCachedNpmThemePackage(
+  source: DeckupNpmThemeSource,
+  options: DeckupNpmThemeResolveOptions = {},
+): Promise<DeckupCachedNpmThemePackage> {
+  return toPublicCachedNpmThemePackage(
+    await resolveCachedNpmThemePackageWithPackageJson(source, options),
   );
 }
 
@@ -593,10 +625,12 @@ export async function resolveCachedNpmThemePackageForTests(
     lifecycle?: NpmThemeCacheLifecycleOperations;
   } = {},
 ): Promise<DeckupCachedNpmThemePackage> {
-  return resolveCachedNpmThemePackageImpl(
-    source,
-    options,
-    overrides.lockClock ?? defaultCacheLockClock,
-    overrides.lifecycle ?? defaultCacheLifecycleOperations,
+  return toPublicCachedNpmThemePackage(
+    await resolveCachedNpmThemePackageImpl(
+      source,
+      options,
+      overrides.lockClock ?? defaultCacheLockClock,
+      overrides.lifecycle ?? defaultCacheLifecycleOperations,
+    ),
   );
 }

@@ -1,6 +1,7 @@
 {
   "name": "@deckup/theme-google-basic",
   "version": "0.0.7",
+  "description": "A Google-inspired presentation theme with Roboto typography, bright blue panels, and clean geometric accents.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yukukotani/deckup.git",
@@ -19,5 +20,30 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
+  },
+  "deckup": {
+    "layouts": {
+      "cover": {
+        "description": "Opens with a left-aligned white title on a blue field with a folded-corner accent."
+      },
+      "number": {
+        "description": "Centers an oversized dark metric with a concise gray caption on a light background."
+      },
+      "page": {
+        "description": "Places a white title in a blue header band above structured content on a light canvas."
+      },
+      "quote": {
+        "description": "Centers a large gray quotation above a short blue rule and supporting attribution."
+      },
+      "section": {
+        "description": "Introduces a section with a large left-aligned white title on a solid blue field."
+      },
+      "statement": {
+        "description": "Centers an oversized white statement on a solid blue field."
+      },
+      "two-column": {
+        "description": "Places a white title in a blue header band above two evenly spaced content columns."
+      }
+    }
   }
 }

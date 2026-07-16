@@ -1,7 +1,12 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
-import { parseNpmThemeSource, resolveCachedNpmThemePackage } from "./npm-theme.ts";
+import { parseNpmThemeSource, resolveCachedNpmThemePackageWithPackageJson } from "./npm-theme.ts";
+import {
+  applyDeckupThemeMetadata,
+  readDeckupThemePackageJson,
+  type DeckupThemePackageJson,
+} from "./theme-metadata.ts";
 import { discoverThemeLayouts } from "./theme-layouts.ts";
 import { uniqueStrings } from "./utils.ts";
 
@@ -29,6 +34,7 @@ type DeckupBuiltinTheme = (typeof BUILTIN_DECKUP_THEMES)[number];
 type ResolvedThemePackage = {
   filePath: string;
   packageJsonPath?: string;
+  packageJson?: DeckupThemePackageJson;
   packageName: string;
   packageRoot?: string;
   source: "builtin" | "package";
@@ -108,20 +114,32 @@ export async function resolveDeckupThemeLayouts(
     );
   }
   const resolvedTheme = npmSource
-    ? await resolveCachedNpmThemePackage(npmSource)
+    ? await resolveCachedNpmThemePackageWithPackageJson(npmSource)
     : resolveThemePackageRoot(projectRoot, name);
   const packageRoot = resolvedTheme.packageRoot ?? dirname(resolvedTheme.filePath);
   const layoutsDir = join(packageRoot, "layouts");
-  const layouts = await discoverThemeLayouts(name, layoutsDir);
+  const discoveredLayouts = await discoverThemeLayouts(name, layoutsDir);
+  const packageJson =
+    resolvedTheme.packageJson ??
+    (await readDeckupThemePackageJson(
+      resolvedTheme.filePath,
+      `Deckup theme ${JSON.stringify(name)}`,
+    ));
+  const metadata = applyDeckupThemeMetadata(
+    name,
+    resolvedTheme.filePath,
+    packageJson,
+    discoveredLayouts,
+  );
 
   return {
     name,
+    ...metadata,
     filePath: resolvedTheme.filePath,
     packageName: resolvedTheme.packageName,
     packageRoot,
     layoutsDir,
-    layouts,
-    slotNames: uniqueStrings(layouts.flatMap((layout) => layout.slotNames)).sort(),
+    slotNames: uniqueStrings(metadata.layouts.flatMap((layout) => layout.slotNames)).sort(),
     source: resolvedTheme.source,
   };
 }

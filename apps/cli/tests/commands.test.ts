@@ -26,6 +26,7 @@ import {
   VERSION,
   type DeckupBuildCommandOperations,
   type DeckupInspectThemeCommandOperations,
+  type DeckupThemeInspection,
 } from "../src/commands.ts";
 
 const cliFile = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
@@ -51,6 +52,7 @@ async function writeInspectThemePackage(
   projectRoot: string,
   packageName: string,
   layouts: Record<string, string>,
+  metadata: Record<string, unknown> = {},
 ) {
   const packageRoot = join(projectRoot, "node_modules", ...packageName.split("/"));
   const layoutsDir = join(packageRoot, "layouts");
@@ -60,6 +62,7 @@ async function writeInspectThemePackage(
     JSON.stringify({
       name: packageName,
       type: "module",
+      ...metadata,
       exports: {
         "./layouts/*.astro": "./layouts/*.astro",
         "./package.json": "./package.json",
@@ -199,7 +202,7 @@ test("normalizeInspectThemeValues requires a theme and normalizes json", () => {
   expect(() => normalizeInspectThemeValues({})).toThrow(/requires a theme name/);
 });
 
-test("executeInspectThemeCommand returns deterministic labeled output without runtime paths", async () => {
+test("executeInspectThemeCommand returns descriptions in deterministic labeled output", async () => {
   const requests: unknown[] = [];
   const operations = {
     resolveProjectRoot(root: string | undefined) {
@@ -210,6 +213,7 @@ test("executeInspectThemeCommand returns deterministic labeled output without ru
       requests.push({ projectRoot, themeName, options });
       return {
         name: "fixture",
+        description: "Fixture theme description.",
         filePath: "/private/theme/package.json",
         packageName: "@private/theme",
         packageRoot: "/private/theme",
@@ -224,6 +228,7 @@ test("executeInspectThemeCommand returns deterministic labeled output without ru
           },
           {
             id: "alpha",
+            description: "Alpha layout description.",
             filePath: "/private/theme/layouts/alpha.astro",
             importPath: "/@fs/private/theme/layouts/alpha.astro",
             hasDefaultSlot: true,
@@ -248,7 +253,9 @@ test("executeInspectThemeCommand returns deterministic labeled output without ru
   expect(output).toBe(
     [
       "Theme: fixture",
+      "  Description: Fixture theme description.",
       "  Layout: alpha",
+      "    Description: Alpha layout description.",
       "    Slots:",
       "      - default",
       "      - left",
@@ -260,7 +267,53 @@ test("executeInspectThemeCommand returns deterministic labeled output without ru
   expect(output).not.toContain("/private/");
 });
 
-test("executeInspectThemeCommand returns only the stable JSON projection", async () => {
+test("executeInspectThemeCommand returns only the stable JSON projection with descriptions", async () => {
+  const operations = {
+    resolveProjectRoot() {
+      return "/project";
+    },
+    async resolveDeckupThemeLayouts() {
+      return {
+        name: "fixture",
+        description: "Fixture theme description.",
+        filePath: "/private/theme/package.json",
+        packageName: "@private/theme",
+        packageRoot: "/private/theme",
+        layoutsDir: "/private/theme/layouts",
+        layouts: [
+          {
+            id: "cover",
+            description: "Cover layout description.",
+            filePath: "/private/theme/layouts/cover.astro",
+            importPath: "/@fs/private/theme/layouts/cover.astro",
+            hasDefaultSlot: true,
+            slotNames: [],
+          },
+        ],
+        slotNames: [],
+        source: "package" as const,
+      };
+    },
+  } as unknown as DeckupInspectThemeCommandOperations;
+
+  const output = await executeInspectThemeCommand({ themeName: "fixture", json: true }, operations);
+  expect(output).toBe(
+    JSON.stringify({
+      theme: "fixture",
+      description: "Fixture theme description.",
+      layouts: [
+        {
+          id: "cover",
+          description: "Cover layout description.",
+          slots: ["default"],
+        },
+      ],
+    }),
+  );
+  expect(output).not.toMatch(/filePath|packageRoot|layoutsDir|importPath|source|private/);
+});
+
+test("executeInspectThemeCommand omits absent descriptions from text and JSON", async () => {
   const operations = {
     resolveProjectRoot() {
       return "/project";
@@ -287,12 +340,14 @@ test("executeInspectThemeCommand returns only the stable JSON projection", async
     },
   } as unknown as DeckupInspectThemeCommandOperations;
 
-  const output = await executeInspectThemeCommand({ themeName: "fixture", json: true }, operations);
-  expect(JSON.parse(output)).toEqual({
-    theme: "fixture",
-    layouts: [{ id: "cover", slots: ["default"] }],
-  });
-  expect(output).not.toMatch(/filePath|packageRoot|layoutsDir|importPath|source|private/);
+  await expect(
+    executeInspectThemeCommand({ themeName: "fixture", json: false }, operations),
+  ).resolves.toBe(
+    ["Theme: fixture", "  Layout: cover", "    Slots:", "      - default"].join("\n"),
+  );
+  await expect(
+    executeInspectThemeCommand({ themeName: "fixture", json: true }, operations),
+  ).resolves.toBe('{"theme":"fixture","layouts":[{"id":"cover","slots":["default"]}]}');
 });
 
 test("inspect commands expose nested theme arguments", () => {
@@ -314,14 +369,13 @@ test("CLI inspect theme emits parseable built-in JSON without internal paths", (
   const result = runCli(["inspect", "theme", "default", "--json"]);
   expect(result.status).toBe(0);
   expect(result.stderr).toBe("");
-  const inspection = JSON.parse(result.stdout) as {
-    theme: string;
-    layouts: Array<{ id: string; slots: string[] }>;
-  };
-  expect(Object.keys(inspection)).toEqual(["theme", "layouts"]);
+  const inspection = JSON.parse(result.stdout) as DeckupThemeInspection;
+  expect(Object.keys(inspection)).toEqual(["theme", "description", "layouts"]);
   expect(inspection.theme).toBe("default");
+  expect(inspection.description).toBeTypeOf("string");
   const layoutIds = inspection.layouts.map((layout) => layout.id);
   expect(layoutIds).toEqual([...layoutIds].sort());
+  expect(inspection.layouts.every((layout) => typeof layout.description === "string")).toBe(true);
   expect(inspection.layouts.find((layout) => layout.id === "two-column")?.slots).toEqual([
     "default",
     "left",
@@ -330,24 +384,99 @@ test("CLI inspect theme emits parseable built-in JSON without internal paths", (
   expect(result.stdout).not.toMatch(/\/@fs\/|packageRoot|layoutsDir|filePath/);
 });
 
-test("CLI inspect theme resolves an installed package from the current project", async () => {
+function expectSingleSentenceEnglish(value: string | undefined) {
+  expect(value).toBeDefined();
+  if (value === undefined) return;
+  expect(value).toBe(value.trim());
+  expect(value).toMatch(/^[A-Z][\x20-\x7e]*\.$/);
+  expect(value.match(/[.!?](?=\s|$)/g)).toHaveLength(1);
+}
+
+test("CLI inspection covers every built-in theme and discovered layout description", async () => {
+  const expectedLayouts = {
+    default: ["cover", "default", "number", "page", "quote", "section", "statement", "two-column"],
+    minimal: ["cover", "default", "number", "page", "quote", "section", "statement", "two-column"],
+    "google-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],
+    "apple-basic": ["cover", "number", "page", "quote", "section", "statement", "two-column"],
+  } as const;
+  let layoutDescriptionCount = 0;
+
+  for (const [themeName, layoutIds] of Object.entries(expectedLayouts)) {
+    const output = await executeInspectThemeCommand({ themeName, json: true });
+    const inspection = JSON.parse(output) as DeckupThemeInspection;
+
+    expect(Object.keys(inspection)).toEqual(["theme", "description", "layouts"]);
+    expect(inspection.theme).toBe(themeName);
+    expectSingleSentenceEnglish(inspection.description);
+    expect(inspection.layouts.map((layout) => layout.id)).toEqual(layoutIds);
+    for (const layout of inspection.layouts) {
+      expect(Object.keys(layout)).toEqual(["id", "description", "slots"]);
+      expectSingleSentenceEnglish(layout.description);
+      layoutDescriptionCount += 1;
+    }
+    expect(output).not.toMatch(/\/@fs\/|packageRoot|layoutsDir|filePath|importPath|source/);
+  }
+
+  expect(layoutDescriptionCount).toBe(30);
+});
+
+test("CLI inspect theme emits identical installed descriptions in text and JSON", async () => {
   await withCliProject(async (projectRoot) => {
-    await writeInspectThemePackage(projectRoot, "@acme/inspect-theme", {
-      "zeta.astro": '<slot name="right" /><slot /><slot name="left" />',
-      "alpha.astro": '<slot name="beta" /><slot name="default" /><slot name="alpha" />',
-    });
-    const result = runCli(["inspect", "theme", "@acme/inspect-theme", "--json"], projectRoot);
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(JSON.parse(result.stdout)).toEqual({
+    await writeInspectThemePackage(
+      projectRoot,
+      "@acme/inspect-theme",
+      {
+        "zeta.astro": '<slot name="right" /><slot /><slot name="left" />',
+        "alpha.astro": '<slot name="beta" /><slot name="default" /><slot name="alpha" />',
+      },
+      {
+        description: "Installed inspection theme.",
+        deckup: {
+          layouts: {
+            alpha: { description: "Alpha inspection layout." },
+          },
+        },
+      },
+    );
+
+    const textResult = runCli(["inspect", "theme", "@acme/inspect-theme"], projectRoot);
+    const jsonResult = runCli(["inspect", "theme", "@acme/inspect-theme", "--json"], projectRoot);
+
+    expect(textResult.status).toBe(0);
+    expect(textResult.stderr).toBe("");
+    expect(textResult.stdout.trimEnd()).toBe(
+      [
+        "Theme: @acme/inspect-theme",
+        "  Description: Installed inspection theme.",
+        "  Layout: alpha",
+        "    Description: Alpha inspection layout.",
+        "    Slots:",
+        "      - default",
+        "      - alpha",
+        "      - beta",
+        "  Layout: zeta",
+        "    Slots:",
+        "      - default",
+        "      - left",
+        "      - right",
+      ].join("\n"),
+    );
+    expect(jsonResult.status).toBe(0);
+    expect(jsonResult.stderr).toBe("");
+    expect(JSON.parse(jsonResult.stdout)).toEqual({
       theme: "@acme/inspect-theme",
+      description: "Installed inspection theme.",
       layouts: [
-        { id: "alpha", slots: ["default", "alpha", "beta"] },
+        {
+          id: "alpha",
+          description: "Alpha inspection layout.",
+          slots: ["default", "alpha", "beta"],
+        },
         { id: "zeta", slots: ["default", "left", "right"] },
       ],
     });
   });
-});
+}, 30_000);
 
 test("CLI inspect failures keep stdout empty and exit non-zero", async () => {
   await withCliProject(async (projectRoot) => {
@@ -355,6 +484,24 @@ test("CLI inspect failures keep stdout empty and exit non-zero", async () => {
       "a-valid.astro": "<slot />",
       "z-broken.astro": "<slot",
     });
+    await writeInspectThemePackage(
+      projectRoot,
+      "invalid-theme-description",
+      { "cover.astro": "<slot />" },
+      { description: 42 },
+    );
+    await writeInspectThemePackage(
+      projectRoot,
+      "empty-layout-description",
+      { "cover.astro": "<slot />" },
+      { deckup: { layouts: { cover: { description: "   " } } } },
+    );
+    await writeInspectThemePackage(
+      projectRoot,
+      "unknown-layout-description",
+      { "cover.astro": "<slot />" },
+      { deckup: { layouts: { missing: { description: "Missing layout." } } } },
+    );
     const cases: Array<[string[], RegExp]> = [
       [["inspect", "theme"], /themeName|Positional argument.*required/],
       [["inspect", "theme", "missing-inspect-theme", "--json"], /Unable to resolve/],
@@ -363,6 +510,18 @@ test("CLI inspect failures keep stdout empty and exit non-zero", async () => {
         /only supports built-in themes and installed packages/,
       ],
       [["inspect", "theme", "broken-inspect-theme", "--json"], /Failed to parse/],
+      [
+        ["inspect", "theme", "invalid-theme-description", "--json"],
+        /invalid-theme-description.*field "description" must be a non-empty string/,
+      ],
+      [
+        ["inspect", "theme", "empty-layout-description", "--json"],
+        /empty-layout-description.*deckup\.layouts\.cover\.description.*non-empty string/,
+      ],
+      [
+        ["inspect", "theme", "unknown-layout-description", "--json"],
+        /unknown-layout-description.*deckup\.layouts\.missing.*unknown layout "missing"/,
+      ],
     ];
     for (const [args, errorPattern] of cases) {
       const result = runCli(args, projectRoot);

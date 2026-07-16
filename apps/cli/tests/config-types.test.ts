@@ -110,16 +110,19 @@ expect(npmThemeConfig.theme).toBe("npm:@acme/deckup-theme@1.2.3");
 
 const publicResolvedThemeLayout: DeckupResolvedThemeLayout = {
   id: "two-column",
+  description: "Splits content into balanced left and right columns.",
   filePath: "/theme/layouts/two-column.astro",
   importPath: "/@fs/theme/layouts/two-column.astro",
   hasDefaultSlot: true,
   slotNames: ["left", "right"],
 };
+expect(publicResolvedThemeLayout.description).toContain("columns");
 expect(publicResolvedThemeLayout.hasDefaultSlot).toBe(true);
 expect(publicResolvedThemeLayout.slotNames).toEqual(["left", "right"]);
 
 const publicResolvedTheme: DeckupResolvedTheme = {
   name: "@acme/deckup-layout-theme",
+  description: "A fixture theme with described layouts.",
   filePath: "/theme/package.json",
   packageName: "@acme/deckup-layout-theme",
   packageRoot: "/theme",
@@ -128,6 +131,7 @@ const publicResolvedTheme: DeckupResolvedTheme = {
   slotNames: ["left", "right"],
   source: "package",
 };
+expect(publicResolvedTheme.description).toContain("described layouts");
 expect(publicResolvedTheme.layoutsDir).toBe("/theme/layouts");
 expect(publicResolvedTheme.slotNames).toEqual(["left", "right"]);
 

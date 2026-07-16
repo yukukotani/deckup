@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
@@ -10,11 +10,14 @@ import {
   createDeckupVitePluginsForRegistry,
   createSourceIndexConverter,
   getOptionalSpan,
+  refreshThemeLayoutsForTests,
   transformAstroDeckSource,
   transformAstroDeckSourceWithCodeHighlighting,
   validateAstroDeckSource,
 } from "../src/deckup-vite-plugins.ts";
 import { createDeckRegistry } from "../src/deck.ts";
+import { createThemeLayoutDiscoveryCache } from "../src/theme-layouts.ts";
+import type { DeckupResolvedTheme } from "../src/types.ts";
 
 const twoPageDeck = `---
 import Page from "@deckup/astro/page";
@@ -865,6 +868,66 @@ test("virtual theme layouts reject a theme whose layouts directory disappears af
     const recoveredGeneratedSource = await readFile(generatedPageFilePath, "utf8");
     expect(recoveredGeneratedSource).toContain('<slot name="body" slot="body" />');
     expect(recoveredGeneratedSource).not.toContain('name="head"');
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+test("layout file refresh retains descriptions by id without describing new layouts", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "deckup-layout-description-refresh-"));
+  try {
+    const layoutsDir = join(projectRoot, "layouts");
+    await mkdir(layoutsDir, { recursive: true });
+    const coverPath = join(layoutsDir, "cover.astro");
+    await writeFile(coverPath, '<slot name="before" />\n');
+    const theme: DeckupResolvedTheme = {
+      name: "fixture",
+      description: "Fixture theme description.",
+      filePath: join(projectRoot, "package.json"),
+      packageName: "@acme/theme",
+      packageRoot: projectRoot,
+      layoutsDir,
+      layouts: [
+        {
+          id: "cover",
+          description: "Original cover description.",
+          filePath: coverPath,
+          importPath: `/@fs/${coverPath}`,
+          hasDefaultSlot: false,
+          slotNames: ["before"],
+        },
+      ],
+      slotNames: ["before"],
+      source: "package",
+    };
+    const discoverCached = createThemeLayoutDiscoveryCache();
+    const warmTheme = await refreshThemeLayoutsForTests(theme, discoverCached);
+
+    expect(warmTheme?.layouts?.[0]).toMatchObject({
+      id: "cover",
+      description: "Original cover description.",
+      slotNames: ["before"],
+    });
+
+    await writeFile(coverPath, '<slot name="after" />\n');
+    const later = new Date(Date.now() + 2_000);
+    await utimes(coverPath, later, later);
+    await writeFile(join(layoutsDir, "new-layout.astro"), '<slot name="new" />\n');
+
+    const refreshed = await refreshThemeLayoutsForTests(warmTheme!, discoverCached);
+
+    expect(refreshed?.description).toBe("Fixture theme description.");
+    expect(refreshed?.slotNames).toEqual(["after", "new"]);
+    expect(refreshed?.layouts?.find((layout) => layout.id === "cover")).toMatchObject({
+      description: "Original cover description.",
+      slotNames: ["after"],
+    });
+    expect(refreshed?.layouts?.find((layout) => layout.id === "new-layout")).toMatchObject({
+      slotNames: ["new"],
+    });
+    expect(
+      refreshed?.layouts?.find((layout) => layout.id === "new-layout")?.description,
+    ).toBeUndefined();
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

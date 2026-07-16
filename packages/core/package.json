@@ -43,7 +43,8 @@
     "remark-parse": "^11.0.0",
     "shiki": "catalog:",
     "tinyglobby": "^0.2.15",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
