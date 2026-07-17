@@ -33,7 +33,9 @@ Never edit generated PNGs, `.deckup/`, or `dist/` directly.
 
 ### Composition
 
-- Avoid both cramped and excessive spacing.
+- Avoid both cramped and excessive spacing. Open space below content in the upper two-thirds is valid slide composition; do not "fix" it by centering or filling.
+- Confirm full-bleed panels, backgrounds, and hero images reach all four edges; a blank strip along an edge means the wrapper is not truly full-bleed.
+- Check that body text is projection-scale (roughly 28px / 1.7cqw or larger at 1600×900); web-density text is a legibility defect.
 - Align edges, baselines, columns, and cards intentionally.
 - Balance density and visual weight across two-column layouts.
 - Use figures to support the message rather than fill empty space.
@@ -50,6 +52,9 @@ Never edit generated PNGs, `.deckup/`, or `dist/` directly.
 
 - Ensure the argument remains clear when reading only the titles.
 - Create visual rhythm across cover, section, content, and conclusion slides.
+- Flag runs of title-plus-bullets slides: structured content (peers, comparisons, sequences, magnitudes) should have a visible visual shape per [visual-design.md](visual-design.md).
+- Verify the deck holds one design system: compare recurring elements across slides side by side — they must share one visual treatment (radius, tint, border, type scale), one accent color, identical section-break treatment, and consistent title position deck-wide. An element that looks different on slide 6 than slide 3 is a consistency defect even if both look fine alone.
+- Check number formatting uniformity: precision (zero-fill), units, and multiplication signs (× vs x) must match across every figure in the deck.
 - Keep theme, color, spacing, heading hierarchy, terminology, and punctuation consistent.
 - Avoid long, monotonous sequences of nearly identical slide structures.
 - Prevent shared elements from shifting unnecessarily between slides.

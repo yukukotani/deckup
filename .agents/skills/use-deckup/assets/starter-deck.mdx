@@ -3,6 +3,38 @@ title: Presentation title
 theme: google-basic
 ---
 
+{/* Deck-wide visual system: declare tokens and shared classes once, reuse everywhere. */}
+
+<style>{`
+  :root {
+    --deck-accent: #2563eb;
+    --deck-surface: #eff6ff;
+    --deck-num: 4.5cqw;
+    --deck-label: 1.6cqw;
+  }
+  .deck-card {
+    border-radius: 1cqw;
+    background: var(--deck-surface);
+    padding: 2.5cqw;
+  }
+  .deck-num {
+    font-size: var(--deck-num);
+    font-weight: 700;
+    color: var(--deck-accent);
+    margin: 0;
+  }
+  .deck-label {
+    font-size: var(--deck-label);
+    margin: 0;
+  }
+  .deck-step {
+    flex: 1;
+    border-radius: 1cqw;
+    border: 1px solid #cbd5e1;
+    padding: 2cqw;
+  }
+`}</style>
+
 # Presentation title
 
 A specific promise to the audience
@@ -17,17 +49,35 @@ State the central idea in one short sentence.
 
 <PageMeta layout="section" />
 
-# Why this matters
+{/* Full-bleed section break: reuse this exact treatment for every section. */}
+
+<div class="absolute inset-0 max-w-none bg-slate-900 text-white flex flex-col justify-center px-[8cqw] gap-[1cqw]">
+  <p class="text-[1.5cqw] uppercase tracking-[0.3em] text-sky-400 m-0">Part 1</p>
+  <h1 class="text-[5.5cqw] font-bold leading-tight m-0 text-white">Why this matters</h1>
+</div>
 
 ---
 
 <PageMeta layout="page" />
 
-# Three facts frame the problem
+# Three metrics frame the problem
 
-- First fact with concrete context
-- Second fact that changes the decision
-- Third fact that points toward action
+{/* Card grid: write each card out literally so individual cards stay editable. */}
+
+<div class="grid grid-cols-3 gap-[2cqw] w-full max-w-none">
+  <div class="deck-card">
+    <p class="deck-num">42%</p>
+    <p class="deck-label">First metric label with period</p>
+  </div>
+  <div class="deck-card">
+    <p class="deck-num">3.4×</p>
+    <p class="deck-label">Second metric label with baseline</p>
+  </div>
+  <div class="deck-card">
+    <p class="deck-num">-18</p>
+    <p class="deck-label">Third metric label with unit</p>
+  </div>
+</div>
 
 ---
 
@@ -51,6 +101,35 @@ State the central idea in one short sentence.
 - Concrete change
 - Expected outcome
 
+</div>
+
+---
+
+<PageMeta layout="page" />
+
+# How the rollout proceeds
+
+{/* Step flow: numbered blocks joined into one horizontal band. */}
+
+<div class="flex items-stretch gap-[1.5cqw] w-full max-w-none">
+  <div class="deck-step">
+    <p class="deck-num" style="font-size: 2.6cqw">
+      1
+    </p>
+    <p class="deck-label">First step, under five words</p>
+  </div>
+  <div class="deck-step">
+    <p class="deck-num" style="font-size: 2.6cqw">
+      2
+    </p>
+    <p class="deck-label">Second step, under five words</p>
+  </div>
+  <div class="deck-step">
+    <p class="deck-num" style="font-size: 2.6cqw">
+      3
+    </p>
+    <p class="deck-label">Third step, under five words</p>
+  </div>
 </div>
 
 ---

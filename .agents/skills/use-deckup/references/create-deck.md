@@ -26,23 +26,26 @@ npx deckup inspect theme google-basic --json
 
 3. Omit the positional name when the active theme comes from `deckup.config.*` or the `default` fallback. When deck metadata selects a theme, replace `google-basic` with that exact name because the inspect command does not read a deck. Install a third-party theme in the deck project before inspecting or using it.
 4. Read the theme description and each candidate layout's description as selection guidance. Do not infer a layout's purpose from its ID when authored metadata provides a more specific visual treatment.
-5. Prefer theme-provided layouts, typography, and spacing. Add only the minimum custom styling needed for the content.
+5. Use theme layouts for their typographic set pieces (`cover`, `section`, `statement`, `quote`) and the theme's fonts and palette as the deck's foundation. Plan custom HTML/CSS inside content slides wherever content has structure, following [visual-design.md](visual-design.md).
 
 ## 4. Design the narrative
 
 1. Write the deck's conclusion in one sentence.
 2. Build a title-only outline whose logic is understandable without body content.
 3. Structure the default arc as opening → context or problem → evidence and development → conclusion → next action. Adapt it when the genre requires another structure.
-4. Assign one primary claim and one content-appropriate layout to each slide.
-5. Vary layouts to create rhythm, but never select a layout merely for decoration.
+4. Assign one primary claim to each slide, and identify each slide's content structure (peers, sequence, comparison, magnitude, change, prose) so it can be given a visible shape per [visual-design.md](visual-design.md). Note the intended form in the outline.
+5. Vary composition to create rhythm across the deck; several near-identical bullet slides in a row is an outline defect, not a rendering defect.
+6. Plan the deck's design system up front: which visual elements recur across slides, so they can be defined once as shared classes or components and reused.
 
 ## 5. Author the source
 
 1. Read [syntax.md](syntax.md) and use only supported Deckup syntax.
-2. For a suitable MDX deck, copy [../assets/starter-deck.mdx](../assets/starter-deck.mdx) as a starting point and replace every placeholder. Otherwise author the source directly.
-3. Edit prose for projection: shorten paragraphs, flatten deep lists, limit code, and make headings specific.
-4. Give images meaningful alternative text, preserve aspect ratio, and add attribution where required.
-5. Keep configuration changes minimal and avoid creating a second `deckup.config.*` file.
+2. Read [visual-design.md](visual-design.md) for the canvas model (cqw sizing, full-bleed wrappers, Tailwind, style blocks) and slide patterns before writing markup.
+3. For a suitable MDX deck, copy [../assets/starter-deck.mdx](../assets/starter-deck.mdx) as a starting point and replace every placeholder. Otherwise author the source directly.
+4. Define the deck's design system before slide two: design tokens and one named class (or component) per recurring visual element, declared once and reused on every slide.
+5. Edit prose for projection: shorten paragraphs, flatten deep lists, limit code, and make headings specific.
+6. Give images meaningful alternative text, preserve aspect ratio, and add attribution where required.
+7. Keep configuration changes minimal and avoid creating a second `deckup.config.*` file.
 
 ## 6. Render and refine
 
